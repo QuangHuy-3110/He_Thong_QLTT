@@ -1,13 +1,14 @@
 # ==========================================
 # Django/Python configurations
 # ==========================================
+.env
+backend/.env
 backend/venv/
 venv/
 *.pyc
 __pycache__/
 backend/media/
 db.sqlite3
-.env
 
 # ==========================================
 # Node/Frontend configurations

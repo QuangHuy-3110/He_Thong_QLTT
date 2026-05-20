@@ -10,20 +10,29 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    dotenv_path = BASE_DIR / '.env'
+    if dotenv_path.exists():
+        load_dotenv(dotenv_path)
+except ImportError:
+    pass
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-0+6my_fpqv8_y&pa-id7cr!oapdtsq_ije04q6p@z%356r_t9$'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-0+6my_fpqv8_y&pa-id7cr!oapdtsq_ije04q6p@z%356r_t9$')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = []
 
@@ -81,11 +90,11 @@ WSGI_APPLICATION = 'kms_core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'kms_db',
-        'USER': 'postgres',
-        'PASSWORD': '05112004',
-        'HOST': '127.0.0.1', 
-        'PORT': '5433',  # <--- Đúng số 5433 nhé
+        'NAME': os.environ.get('DB_NAME', 'kms_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', '05112004'),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+        'PORT': os.environ.get('DB_PORT', '5433'),
     }
 }
 
