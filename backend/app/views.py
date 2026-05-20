@@ -92,8 +92,53 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             
         if file_obj:
             save_kwargs['file_path'] = file_obj
-            
-        if user.role == 'USER':
+
+        # Xử lý cập nhật thư mục lưu tài liệu
+        dir_id = self.request.data.get('directory_id')
+        if dir_id is not None:
+            if str(dir_id).strip() == '':
+                lesson.directories.clear()
+            else:
+                try:
+                    target_directory = Directory.objects.get(id=dir_id)
+                    current_directory = lesson.directories.first()
+                    
+                    if current_directory != target_directory:
+                        if target_directory.is_public:
+                            # Thư mục công khai
+                            managed_ids = get_user_managed_directories(user)
+                            if user.role == 'ADMIN' or target_directory.id in managed_ids:
+                                # Có quyền quản trị thư mục đích -> Cập nhật trực tiếp
+                                lesson.directories.clear()
+                                lesson.directories.add(target_directory)
+                                current_attrs = attrs if attrs is not None else lesson.attributes
+                                save_kwargs['attributes'] = {**target_directory.attributes, **current_attrs}
+                            else:
+                                # Không có quyền quản trị thư mục đích -> Cần xét duyệt
+                                lesson.directories.clear()
+                                lesson.directories.add(target_directory)
+                                current_attrs = attrs if attrs is not None else lesson.attributes
+                                save_kwargs['attributes'] = {**target_directory.attributes, **current_attrs}
+                                save_kwargs['status'] = 'PENDING'
+                                
+                                # Tự động tạo/cập nhật yêu cầu xét duyệt
+                                ApprovalRequest.objects.update_or_create(
+                                    lesson_plan=lesson,
+                                    requester=user,
+                                    target_directory=target_directory,
+                                    defaults={'status': 'PENDING', 'feedback': ''}
+                                )
+                        else:
+                            # Thư mục cá nhân -> Cập nhật trực tiếp, đổi trạng thái thành LOCAL
+                            lesson.directories.clear()
+                            lesson.directories.add(target_directory)
+                            current_attrs = attrs if attrs is not None else lesson.attributes
+                            save_kwargs['attributes'] = {**target_directory.attributes, **current_attrs}
+                            save_kwargs['status'] = 'LOCAL'
+                except Directory.DoesNotExist:
+                    pass
+
+        if user.role == 'USER' and save_kwargs.get('status') != 'LOCAL':
             # Bắt buộc phê duyệt lại cho người dùng bình thường
             save_kwargs['status'] = 'PENDING'
             serializer.save(**save_kwargs)
@@ -108,7 +153,6 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                     defaults={'status': 'PENDING', 'feedback': ''}
                 )
         else:
-            # Giáo viên/Admin cập nhật không cần xét duyệt lại
             serializer.save(**save_kwargs)
 
 class DirectoryListCreateAPIView(generics.ListCreateAPIView):
@@ -395,4 +439,41 @@ class AdminAssignPermissionAPIView(APIView):
                 target_user.role = new_role
                 target_user.save()
 
-        return Response({'message': 'Cấp quyền thành công!'})
+        return Response({'message': 'Cấp quyền thành công!'})
+
+class LessonPlanProposeAPIView(APIView):
+    def post(self, request, pk):
+        user_id = request.data.get('user_id')
+        directory_id = request.data.get('directory_id')
+        
+        if not user_id or not directory_id:
+            return Response({'error': 'Vui lòng cung cấp đầy đủ user_id và directory_id.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            user = User.objects.get(id=user_id)
+            lesson = LessonPlan.objects.get(id=pk)
+            directory = Directory.objects.get(id=directory_id)
+        except (User.DoesNotExist, LessonPlan.DoesNotExist, Directory.DoesNotExist):
+            return Response({'error': 'Thông tin người dùng, bài giảng hoặc thư mục không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if lesson.creator != user and user.role != 'ADMIN':
+            return Response({'error': 'Bạn không có quyền đề xuất tài liệu này.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # Liên kết bài giảng với thư mục công khai được chọn
+        lesson.directories.clear()
+        lesson.directories.add(directory)
+        
+        # Chuyển trạng thái bài giảng sang PENDING để chờ duyệt
+        lesson.status = 'PENDING'
+        lesson.save()
+        
+        # Tạo mới/Cập nhật yêu cầu xét duyệt (ApprovalRequest)
+        ApprovalRequest.objects.update_or_create(
+            lesson_plan=lesson,
+            requester=user,
+            target_directory=directory,
+            defaults={'status': 'PENDING', 'feedback': ''}
+        )
+        
+        return Response({'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!'})
+

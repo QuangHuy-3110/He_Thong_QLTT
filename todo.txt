@@ -1,0 +1,25 @@
+docker start kms-pgvector
+source venv/bin/activate
+python manage.py runserver
+npm run dev
+
+minerU
+
+- từ cái file cô đưa chưa biết được có thể lấy ra những thông tin gì
+    các thông tin sẽ là những nội dung bên trong bài giảng chứ không gói gọn lại ở tiêu đề
+    không biết thì sẽ không fit được với giao diện
+
+- chủ đề ít
+
+- Hiếu nghĩ cái thứ 2 nó khó xây dựng hơn cái thứ 1
+    tại vì thiếu chuyên môn để hiểu
+
+- reload không mất login
+- trong cái card, khi bấm vào tên người đăng thì xuất hiện hộp thoại giới thiệu thông tin về người đó
+- Những cái nào có sự xuất hiện của thư mục thì nên trình bày theo cấu trúc cây thư mục 
+- trong phần xét duyệt bài giảng hãy hiển thị file word đó trong trình duyệt và những thông tin về bài giảng đó
+- Xây dựng chức năng bình luận, đánh giá cho 1 file giáo án dựa trên database đã xây dựng
+- Xây dựng chức năng phân trang, mỗi trang từ 10 đến 20 tài liệu, các tài liệu có thể được sắp xếp theo ngày tải, số sao, số lượt đánh giá
+- nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
+- Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng
+- Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung

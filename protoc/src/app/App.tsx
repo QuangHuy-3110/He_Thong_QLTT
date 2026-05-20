@@ -134,6 +134,27 @@ function getLessonsInDir(dirId: number, directories: Directory[], allLessons: Le
   return [...direct, ...childLessons].filter(l => { if (seen.has(l.id)) return false; seen.add(l.id); return true; });
 }
 
+// Get the full breadcrumb path of a directory (e.g., "Sinh học / Vi sinh vật")
+function getDirectoryFullPath(dirId: string | number, dirs: Directory[]): string {
+  const path: string[] = [];
+  let currentId: string | number | null = dirId;
+  const visited = new Set<string | number>();
+
+  while (currentId !== null && currentId !== undefined && currentId !== '') {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    
+    const found = dirs.find(d => d.id.toString() === currentId!.toString());
+    if (found) {
+      path.unshift(found.name);
+      currentId = found.parent || null;
+    } else {
+      break;
+    }
+  }
+  return path.join(' / ');
+}
+
 const DirectoryNode = ({
   dir: dirProp, directories, selectedDirs, onToggleDir,
   allLessons, currentUser, onAddChild, onDelete, onRename, onTogglePublic
@@ -527,6 +548,12 @@ export default function App() {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDirs, setSelectedDirs] = useState<number[]>([]);
+  const [selectedPersonalDirs, setSelectedPersonalDirs] = useState<number[]>([]);
+  
+  // States for Proposing to Public
+  const [showProposeModal, setShowProposeModal] = useState<boolean>(false);
+  const [lessonToPropose, setLessonToPropose] = useState<LessonPlan | null>(null);
+  const [targetPublicDirId, setTargetPublicDirId] = useState<string>('');
   
   const [selectedTargetStudents, setSelectedTargetStudents] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -559,8 +586,10 @@ export default function App() {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editGrade, setEditGrade] = useState('');
+  const [editDirId, setEditDirId] = useState('');
   const [editAttrs, setEditAttrs] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
+
 
   // Dir Form
   const [dirName, setDirName] = useState('');
@@ -790,6 +819,7 @@ export default function App() {
     setEditTitle(lesson.title);
     setEditDesc(lesson.description);
     setEditGrade(lesson.target_student);
+    setEditDirId(lesson.directory_ids && lesson.directory_ids.length > 0 ? lesson.directory_ids[0].toString() : '');
     setEditAttrs(JSON.stringify(lesson.attributes));
     setEditFile(null);
   };
@@ -805,6 +835,7 @@ export default function App() {
       formData.append('title', editTitle);
       formData.append('description', editDesc);
       formData.append('target_student', editGrade);
+      formData.append('directory_id', editDirId);
       formData.append('attributes', editAttrs);
       if (editFile) {
         formData.append('file_path', editFile);
@@ -829,8 +860,32 @@ export default function App() {
     }
   };
 
-  // Filter root directories
-  const rootDirs = directories.filter(d => !d.parent);
+  const openProposeModal = (lesson: LessonPlan) => {
+    setLessonToPropose(lesson);
+    setTargetPublicDirId('');
+    setShowProposeModal(true);
+  };
+
+  const handleProposePublic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lessonToPropose || !targetPublicDirId || !currentUser) return;
+    try {
+      const res = await axios.post(`/api/lesson-plans/${lessonToPropose.id}/propose/`, {
+        user_id: currentUser.id,
+        directory_id: parseInt(targetPublicDirId)
+      });
+      alert(res.data.message || 'Đã gửi đề xuất công khai thành công!');
+      setShowProposeModal(false);
+      setLessonToPropose(null);
+      setTargetPublicDirId('');
+      fetchLessonPlans(searchQuery);
+    } catch (err: any) {
+      alert('Lỗi gửi đề xuất: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  // Filter root directories (only public ones for the main Shared Library)
+  const rootDirs = directories.filter(d => !d.parent && d.is_public);
 
   // Derive base lesson pool: filtered by selected directories (client-side)
   const dirFilteredLessons = useMemo(() => {
@@ -998,136 +1053,140 @@ export default function App() {
 
       <div className="flex flex-grow max-w-[1600px] w-full mx-auto overflow-hidden">
         {/* Left Sidebar - Filters & Tree */}
-        <div className="w-[300px] bg-white border-r border-gray-200 p-6 overflow-y-auto flex-shrink-0 hidden md:block">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Bộ lọc</h2>
-          
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Cây thư mục bài giảng</h3>
-            <div className="text-sm">
-              <div 
-                className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
-                onClick={() => setSelectedDirs([])}
-              >
-                <span className="w-4"></span>
-                <span className="text-gray-400">🏠</span>
-                <span className="flex-grow">Tất cả tài liệu</span>
-                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{allLessonPlans.length}</span>
-              </div>
-              {rootDirs.map(dir => (
-                <DirectoryNode
-                  key={dir.id}
-                  dir={dir}
-                  directories={directories}
-                  selectedDirs={selectedDirs}
-                  onToggleDir={handleToggleDir}
-                  allLessons={allLessonPlans}
-                  currentUser={currentUser}
-                  onAddChild={handleAddChildDir}
-                  onDelete={handleDeleteDir}
-                  onRename={handleRenameDir}
-                  onTogglePublic={handleTogglePublicDir}
-                />
-              ))}
-            </div>
-            {currentUser && (
-              <button
-                onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(false); setShowDirModal(true); }}
-                className="mt-3 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors border border-dashed border-gray-300"
-              >
-                <span className="text-base leading-none">+</span>
-                <span>Thêm thư mục gốc</span>
-              </button>
-            )}
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Đối tượng</h3>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh thành thị')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh thành thị', e.target.checked)} /> Học sinh thành thị</label>
-              <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh nông thôn')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh nông thôn', e.target.checked)} /> Học sinh nông thôn</label>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Loại hình</h3>
-            <div className="flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Thực hành')} onChange={e => handleFilterChange(setSelectedTypes, 'Thực hành', e.target.checked)} /> Thực hành</label>
-              <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Lý thuyết')} onChange={e => handleFilterChange(setSelectedTypes, 'Lý thuyết', e.target.checked)} /> Lý thuyết</label>
-            </div>
-          </div>
-          
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Kiến thức</h3>
-            {availableSubjects.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">Không có môn học nào trong mục này.</p>
-            ) : (
-              <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                {availableSubjects.map(subj => (
-                  <label key={subj} className="flex items-center gap-2 text-sm text-gray-600">
-                    <input type="checkbox" className="rounded border-gray-300" checked={selectedSubjects.includes(subj)} onChange={e => handleFilterChange(setSelectedSubjects, subj, e.target.checked)} /> {subj}
-                  </label>
+        {homeTab === 'library' && (
+          <div className="w-[300px] bg-white border-r border-gray-200 p-6 overflow-y-auto flex-shrink-0 hidden md:block">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Bộ lọc</h2>
+            
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Cây thư mục bài giảng</h3>
+              <div className="text-sm">
+                <div 
+                  className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
+                  onClick={() => setSelectedDirs([])}
+                >
+                  <span className="w-4"></span>
+                  <span className="text-gray-400">🏠</span>
+                  <span className="flex-grow">Tất cả tài liệu</span>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{allLessonPlans.length}</span>
+                </div>
+                {rootDirs.map(dir => (
+                  <DirectoryNode
+                    key={dir.id}
+                    dir={dir}
+                    directories={directories}
+                    selectedDirs={selectedDirs}
+                    onToggleDir={handleToggleDir}
+                    allLessons={allLessonPlans}
+                    currentUser={currentUser}
+                    onAddChild={handleAddChildDir}
+                    onDelete={handleDeleteDir}
+                    onRename={handleRenameDir}
+                    onTogglePublic={handleTogglePublicDir}
+                  />
                 ))}
               </div>
-            )}
+              {currentUser && (
+                <button
+                  onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(false); setShowDirModal(true); }}
+                  className="mt-3 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors border border-dashed border-gray-300"
+                >
+                  <span className="text-base leading-none">+</span>
+                  <span>Thêm thư mục gốc</span>
+                </button>
+              )}
+            </div>
+
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Đối tượng</h3>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh thành thị')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh thành thị', e.target.checked)} /> Học sinh thành thị</label>
+                <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh nông thôn')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh nông thôn', e.target.checked)} /> Học sinh nông thôn</label>
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Loại hình</h3>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Thực hành')} onChange={e => handleFilterChange(setSelectedTypes, 'Thực hành', e.target.checked)} /> Thực hành</label>
+                <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Lý thuyết')} onChange={e => handleFilterChange(setSelectedTypes, 'Lý thuyết', e.target.checked)} /> Lý thuyết</label>
+              </div>
+            </div>
+            
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Kiến thức</h3>
+              {availableSubjects.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Không có môn học nào trong mục này.</p>
+              ) : (
+                <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                  {availableSubjects.map(subj => (
+                    <label key={subj} className="flex items-center gap-2 text-sm text-gray-600">
+                      <input type="checkbox" className="rounded border-gray-300" checked={selectedSubjects.includes(subj)} onChange={e => handleFilterChange(setSelectedSubjects, subj, e.target.checked)} /> {subj}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main Content Area */}
         <div className="flex-grow overflow-y-auto bg-gray-50/50 flex flex-col">
 
-          {/* ── Tab Selector ── */}
-          <div className="px-6 md:px-8 pt-6 pb-0 flex items-center gap-1">
-            <button
-              id="tab-library"
-              onClick={() => setHomeTab('library')}
-              className={`relative px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all ${
-                homeTab === 'library'
-                  ? 'bg-white text-blue-700 border border-b-0 border-gray-200 shadow-sm -mb-px z-10'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl'
-              }`}
-            >
-              📚 Thư viện chung
-            </button>
-            {currentUser && (
-              <>
-                <button
-                  id="tab-personal"
-                  onClick={() => setHomeTab('personal')}
-                  className={`relative px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all ${
-                    homeTab === 'personal'
-                      ? 'bg-white text-sky-700 border border-b-0 border-gray-200 shadow-sm -mb-px z-10'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl'
-                  }`}
-                >
-                  💾 Thư viện cá nhân
-                  {allLessonPlans.filter(l => l.creator?.id === currentUser.id && (l.status === 'LOCAL')).length > 0 && (
-                    <span className="ml-1.5 text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full font-bold">
-                      {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status === 'LOCAL').length}
-                    </span>
-                  )}
-                </button>
-                <button
-                  id="tab-history"
-                  onClick={() => setHomeTab('history')}
-                  className={`relative px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all ${
-                    homeTab === 'history'
-                      ? 'bg-white text-emerald-700 border border-b-0 border-gray-200 shadow-sm -mb-px z-10'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl'
-                  }`}
-                >
-                  📋 Lịch sử đóng góp
-                  {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL').length > 0 && (
-                    <span className="ml-1.5 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">
-                      {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL').length}
-                    </span>
-                  )}
-                </button>
-              </>
-            )}
+          {/* ── Tab Selector (Segmented Pill Container) ── */}
+          <div className="px-6 md:px-8 pt-6 pb-3">
+            <div className="inline-flex p-1.5 bg-gray-200/60 backdrop-blur-md rounded-2xl border border-gray-300/40 shadow-sm">
+              <button
+                id="tab-library"
+                onClick={() => setHomeTab('library')}
+                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${
+                  homeTab === 'library'
+                    ? 'bg-white text-blue-700 shadow-sm border border-gray-200/50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                }`}
+              >
+                <span>📚</span> Thư viện chung
+              </button>
+              {currentUser && (
+                <>
+                  <button
+                    id="tab-personal"
+                    onClick={() => setHomeTab('personal')}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${
+                      homeTab === 'personal'
+                        ? 'bg-white text-sky-700 shadow-sm border border-gray-200/50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                    }`}
+                  >
+                    <span>💾</span> Thư viện cá nhân
+                    {allLessonPlans.filter(l => l.creator?.id === currentUser.id && (l.status === 'LOCAL')).length > 0 && (
+                      <span className="ml-1 text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full font-bold">
+                        {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status === 'LOCAL').length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    id="tab-history"
+                    onClick={() => setHomeTab('history')}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${
+                      homeTab === 'history'
+                        ? 'bg-white text-emerald-700 shadow-sm border border-gray-200/50'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
+                    }`}
+                  >
+                    <span>📋</span> Lịch sử đóng góp
+                    {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL').length > 0 && (
+                      <span className="ml-1 text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">
+                        {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL').length}
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* ── Tab Content ── */}
-          <div className="flex-grow p-6 md:p-8 border-t border-gray-200 bg-white rounded-none">
+          <div className="flex-grow p-6 md:p-8 border-t border-gray-100 bg-white rounded-t-3xl shadow-sm">
 
             {/* ══ LIBRARY TAB ══ */}
             {homeTab === 'library' && (
@@ -1148,8 +1207,15 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {filteredLessonPlans.map((lesson) => (
-                      <div key={lesson.id} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col shadow-sm hover:shadow-md transition-shadow relative">
-                        <h3 className="text-lg font-bold text-gray-900 mb-3 leading-snug line-clamp-2">{lesson.title}</h3>
+                      <div 
+                        key={lesson.id} 
+                        onClick={() => setSelectedLessonForDetail(lesson)}
+                        className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer relative group"
+                      >
+                        <div className="flex justify-between items-start gap-4 mb-3">
+                          <h3 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">{lesson.title}</h3>
+                          <span className="text-xs font-semibold text-blue-500 whitespace-nowrap bg-blue-50 px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">Xem chi tiết ↗</span>
+                        </div>
                         <div className="flex flex-wrap gap-2 mb-4">
                           <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-md flex items-center gap-1">📖 {lesson.target_student || 'Giáo án'}</span>
                           {lesson.status === 'PUBLISHED' ? (
@@ -1161,41 +1227,39 @@ export default function App() {
                           ) : (
                             <span className="px-2 py-1 bg-sky-50 text-sky-700 border border-sky-100 text-xs font-medium rounded-md">📄 Cá nhân</span>
                           )}
-                          {/* Directory name badge(s) */}
-                          {lesson.directory_names && lesson.directory_names.length > 0 ? (
-                            lesson.directory_names.map((dn, i) => (
-                              <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1">📂 {dn}</span>
+                          {/* Directory full path breadcrumb badge */}
+                          {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
+                            lesson.directory_ids.map((dirId, i) => (
+                              <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[250px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                                📂 {getDirectoryFullPath(dirId, directories)}
+                              </span>
                             ))
                           ) : (
                             <span className="px-2 py-1 bg-gray-50 text-gray-400 border border-gray-100 text-xs font-medium rounded-md">📄 Không có thư mục</span>
                           )}
                         </div>
                         <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">{lesson.description || 'Chưa có mô tả.'}</p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                          <span>{lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}</span>
-                          <span>•</span>
-                          <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-auto">
-                          <button onClick={() => setSelectedLessonForDetail(lesson)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors">
-                            ↗ Xem chi tiết
-                          </button>
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 text-xs text-gray-400">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">{lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}</span>
+                            <span>•</span>
+                            <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
+                          </div>
                           {lesson.file_path || lesson.file_url ? (
-                            <a href={getLessonFileUrl(lesson)} download={getFileName(lesson.file_url || lesson.file_path)} target="_blank" rel="noopener noreferrer"
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg text-sm transition-colors text-center flex items-center justify-center">
-                              ↓ Tải file
+                            <a 
+                              href={getLessonFileUrl(lesson)} 
+                              download={getFileName(lesson.file_url || lesson.file_path)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                            >
+                              ↓ Tải tài liệu
                             </a>
                           ) : (
-                            <button disabled className="flex-1 bg-gray-200 text-gray-500 font-medium py-2 rounded-lg text-sm cursor-not-allowed">Không có file</button>
+                            <span className="text-gray-300">Không có file</span>
                           )}
                         </div>
-                        {/* Edit/Delete actions for owner/admin */}
-                        {currentUser && (currentUser.id === lesson.creator?.id || currentUser.role === 'ADMIN') && (
-                          <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
-                            <button onClick={() => openEditModal(lesson)} className="px-3 py-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg hover:bg-yellow-100 text-xs font-medium">✏ Sửa</button>
-                            <button onClick={() => handleDeleteLesson(lesson.id)} className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 text-xs font-medium">🗑 Xóa</button>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1313,66 +1377,173 @@ export default function App() {
             })()}
             {/* ══ PERSONAL LIBRARY TAB ══ */}
             {homeTab === 'personal' && currentUser && (() => {
-              const myLocalLessons = allLessonPlans
-                .filter(l => l.creator?.id === currentUser.id && l.status === 'LOCAL')
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              const personalRootDirs = directories.filter(d => !d.is_public && !d.parent && d.user === currentUser.id);
+              
+              // Filter personal lessons
+              // 1. Must be created by current user
+              // 2. If LOCAL, or belongs to a personal directory
+              const myPersonalLessons = allLessonPlans.filter(l => {
+                if (l.creator?.id !== currentUser.id) return false;
+                if (l.status === 'LOCAL') return true;
+                const hasPersonalDir = l.directory_ids?.some(dirId => {
+                  const dObj = directories.find(d => d.id === dirId);
+                  return dObj && !dObj.is_public && dObj.user === currentUser.id;
+                });
+                return hasPersonalDir;
+              });
+
+              // Filter by selected personal directories
+              const dirFilteredPersonalLessons = selectedPersonalDirs.length === 0 
+                ? myPersonalLessons 
+                : myPersonalLessons.filter(l => 
+                    l.directory_ids?.some(dirId => selectedPersonalDirs.includes(dirId))
+                  );
+
               return (
-                <div>
-                  <div className="mb-6 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">Thư viện cá nhân</h2>
-                      <p className="text-sm text-gray-500 mt-1">Tài liệu riêng tư — chỉ bạn nhìn thấy.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-full font-semibold">{myLocalLessons.length} tài liệu</span>
-                      <button onClick={() => setCurrentView('upload')} className="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors">+ Thêm mới</button>
-                    </div>
-                  </div>
-                  {myLocalLessons.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                      <div className="text-5xl mb-4">💾</div>
-                      <p className="text-gray-500 font-medium">Thư viện cá nhân trống.</p>
-                      <p className="text-sm text-gray-400 mt-1">Khi đăng bài mà không chọn thư mục, tài liệu sẽ được lưu vào đây.</p>
-                      <button onClick={() => setCurrentView('upload')} className="mt-4 px-5 py-2 bg-sky-600 text-white rounded-xl text-sm font-semibold hover:bg-sky-700">+ Tải tài liệu lên</button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                      {myLocalLessons.map(lesson => (
-                        <div key={lesson.id} className="bg-white rounded-2xl border border-sky-100 p-5 shadow-sm hover:shadow-md transition-all">
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <h3 className="font-bold text-gray-900 text-base leading-snug flex-grow">{lesson.title}</h3>
-                            <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-sky-100 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold">💾 Cá nhân</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            {lesson.directory_names && lesson.directory_names.length > 0 ? (
-                              lesson.directory_names.map((dn, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 border border-violet-100 text-xs rounded-md">📂 {dn}</span>
-                              ))
-                            ) : (
-                              <span className="px-2 py-0.5 bg-gray-50 text-gray-400 border border-gray-100 text-xs rounded-md">📄 Chưa phân thư mục</span>
-                            )}
-                            {lesson.target_student && (
-                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs rounded-md">📖 {lesson.target_student}</span>
-                            )}
-                            {lesson.attributes?.['Loại hình'] && (
-                              <span className="px-2 py-0.5 bg-orange-50 text-orange-700 border border-orange-100 text-xs rounded-md">🏷 {lesson.attributes['Loại hình']}</span>
-                            )}
-                          </div>
-                          {lesson.description && <p className="text-sm text-gray-600 line-clamp-2 mb-3">{lesson.description}</p>}
-                          <p className="text-xs text-gray-400 mb-4">📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
-                          <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                            <button onClick={() => setSelectedLessonForDetail(lesson)} className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100">↗ Xem</button>
-                            <button onClick={() => openEditModal(lesson)} className="px-3 py-1.5 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-xs font-semibold hover:bg-yellow-100">✏ Sửa</button>
-                            {(lesson.file_path || lesson.file_url) && (
-                              <a href={getLessonFileUrl(lesson)} download={getFileName(lesson.file_url || lesson.file_path)} target="_blank" rel="noopener noreferrer"
-                                className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-semibold hover:bg-green-100">↓ Tải</a>
-                            )}
-                            <button onClick={() => handleDeleteLesson(lesson.id)} className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 ml-auto">🗑 Xóa</button>
-                          </div>
-                        </div>
+                <div className="flex flex-col lg:flex-row gap-6 min-h-[500px]">
+                  {/* Left: Personal Folder Tree */}
+                  <div className="w-full lg:w-[260px] border-r border-gray-100 lg:pr-6 flex-shrink-0">
+                    <h3 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider font-bold">Cây thư mục cá nhân</h3>
+                    <div className="text-sm mt-2">
+                      <div 
+                        className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedPersonalDirs.length === 0 ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
+                        onClick={() => setSelectedPersonalDirs([])}
+                      >
+                        <span className="w-4"></span>
+                        <span className="text-sky-500">📁</span>
+                        <span className="flex-grow truncate">Tất cả tài liệu cá nhân</span>
+                        <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{myPersonalLessons.length}</span>
+                      </div>
+                      
+                      {personalRootDirs.map(dir => (
+                        <DirectoryNode
+                          key={dir.id}
+                          dir={dir}
+                          directories={directories}
+                          selectedDirs={selectedPersonalDirs}
+                          onToggleDir={(id: number) => {
+                            setSelectedPersonalDirs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [id]);
+                          }}
+                          allLessons={allLessonPlans}
+                          currentUser={currentUser}
+                          onAddChild={handleAddChildDir}
+                          onDelete={handleDeleteDir}
+                          onRename={handleRenameDir}
+                          onTogglePublic={handleTogglePublicDir}
+                        />
                       ))}
                     </div>
-                  )}
+                    
+                    <button
+                      onClick={() => { 
+                        setDirParentId(''); 
+                        setDirName(''); 
+                        setDirAttrs('{}'); 
+                        setDirIsPublic(false); // Force private for personal folder
+                        setShowDirModal(true); 
+                      }}
+                      className="mt-3 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
+                    >
+                      <span>+ Thêm thư mục cá nhân gốc</span>
+                    </button>
+                  </div>
+
+                  {/* Right: Personal Lessons list */}
+                  <div className="flex-grow">
+                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">Thư viện cá nhân</h2>
+                        <p className="text-sm text-gray-500 mt-1">Tài liệu riêng tư và thư mục cá nhân của bạn.</p>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        <span className="text-sm bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-full font-semibold">{dirFilteredPersonalLessons.length} tài liệu</span>
+                        <button 
+                          onClick={() => {
+                            if (selectedPersonalDirs.length > 0) {
+                              setUpDirId(selectedPersonalDirs[0].toString());
+                            } else {
+                              setUpDirId('');
+                            }
+                            setCurrentView('upload');
+                          }} 
+                          className="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors"
+                        >
+                          + Thêm mới
+                        </button>
+                      </div>
+                    </div>
+
+                    {dirFilteredPersonalLessons.length === 0 ? (
+                      <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                        <div className="text-5xl mb-4">💾</div>
+                        <p className="text-gray-500 font-medium">Không tìm thấy tài liệu nào.</p>
+                        <p className="text-sm text-gray-400 mt-1">Hãy tải tệp lên hoặc tạo thư mục cá nhân để bắt đầu quản lý.</p>
+                        <button 
+                          onClick={() => {
+                            if (selectedPersonalDirs.length > 0) {
+                              setUpDirId(selectedPersonalDirs[0].toString());
+                            } else {
+                              setUpDirId('');
+                            }
+                            setCurrentView('upload');
+                          }} 
+                          className="mt-4 px-5 py-2 bg-sky-600 text-white rounded-xl text-sm font-semibold hover:bg-sky-700"
+                        >
+                          + Tải tài liệu lên
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                        {dirFilteredPersonalLessons.map(lesson => (
+                          <div 
+                            key={lesson.id} 
+                            onClick={() => setSelectedLessonForDetail(lesson)}
+                            className="bg-white rounded-2xl border border-sky-100/60 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all cursor-pointer flex flex-col justify-between group"
+                          >
+                            <div>
+                              <div className="flex items-start justify-between gap-3 mb-3">
+                                <h3 className="font-bold text-gray-900 text-base leading-snug flex-grow group-hover:text-sky-700 transition-colors">{lesson.title}</h3>
+                                {lesson.status === 'LOCAL' ? (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold">🔒 Riêng tư</span>
+                                ) : lesson.status === 'PENDING' ? (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">⏳ Chờ duyệt</span>
+                                ) : lesson.status === 'REJECTED' ? (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[10px] font-bold">❌ Bị từ chối</span>
+                                ) : (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">🌐 Công khai</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
+                                  lesson.directory_ids.map((dirId, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 border border-violet-100 text-xs rounded-md max-w-[220px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                                      📂 {getDirectoryFullPath(dirId, directories)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-gray-50 text-gray-400 border border-gray-100 text-xs rounded-md">📄 Chưa phân thư mục</span>
+                                )}
+                                {lesson.target_student && (
+                                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs rounded-md">📖 {lesson.target_student}</span>
+                                )}
+                              </div>
+                              {lesson.description && <p className="text-sm text-gray-600 line-clamp-2 mb-3">{lesson.description}</p>}
+                              {lesson.latest_feedback && (
+                                <div className="mb-3 p-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700">
+                                  <strong>Phản hồi duyệt:</strong> {lesson.latest_feedback}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-auto text-xs text-gray-400">
+                              <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
+                              <span className="text-xs font-bold text-sky-600 group-hover:underline">Xem chi tiết ↗</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -1464,6 +1635,52 @@ export default function App() {
         </div>
       )}
 
+      {/* Propose Modal */}
+      {showProposeModal && lessonToPropose && currentUser && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">🌐 Đề xuất công khai giáo án</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Bạn đang đề xuất công khai tài liệu <strong>"{lessonToPropose.title}"</strong> lên thư viện chung của cộng đồng.
+            </p>
+            <form onSubmit={handleProposePublic} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Chọn thư mục công khai muốn đưa tài liệu vào:
+                </label>
+                <select 
+                  required
+                  value={targetPublicDirId} 
+                  onChange={e => setTargetPublicDirId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Chọn thư mục công khai --</option>
+                  {directories.filter(d => d.is_public).map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-gray-100">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowProposeModal(false); setLessonToPropose(null); }} 
+                  className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700"
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={!targetPublicDirId}
+                  className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  Gửi đề xuất
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {editingLesson && currentUser && (
         <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/50">
@@ -1473,6 +1690,33 @@ export default function App() {
               <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={editTitle} onChange={e=>setEditTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div><label className="block text-sm mb-1">Mô tả</label><textarea value={editDesc} onChange={e=>setEditDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
               <div><label className="block text-sm mb-1">Khối lớp</label><input type="text" value={editGrade} onChange={e=>setEditGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div>
+                <label className="block text-sm mb-1 font-semibold text-gray-700">Lưu vào thư mục</label>
+                <select 
+                  value={editDirId} 
+                  onChange={e => setEditDirId(e.target.value)} 
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Giữ nguyên / Chưa phân thư mục --</option>
+                  {directories.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.is_public ? '🌐 [Công khai] ' : '🔒 [Riêng tư] '} {getDirectoryFullPath(d.id, directories)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(() => {
+                if (!editDirId) return null;
+                const targetDir = directories.find(d => d.id.toString() === editDirId);
+                if (targetDir && targetDir.is_public && currentUser.role !== 'ADMIN' && targetDir.user !== currentUser.id) {
+                  return (
+                    <div className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-normal flex flex-col gap-0.5">
+                      <strong>⚠️ Yêu cầu kiểm duyệt:</strong> Bạn không có quyền quản trị trực tiếp thư mục công khai này. Hành động chuyển thư mục sẽ đưa tài liệu về trạng thái <strong>Chờ duyệt (Pending)</strong> để chờ duyệt.
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
                 <label className="block text-sm mb-1 font-medium text-yellow-800">Thay thế tài liệu đính kèm</label>
                 <p className="text-xs text-yellow-600 mb-2">Bỏ trống nếu muốn giữ nguyên file cũ</p>
@@ -1514,15 +1758,35 @@ export default function App() {
                  </div>
                </div>
 
-               <div className="mb-6 grid grid-cols-2 gap-4">
+               <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <span className="block text-xs text-gray-500 font-medium mb-1">Đối tượng / Lớp</span>
                     <span className="font-semibold text-gray-800">{selectedLessonForDetail.target_student || 'Chung'}</span>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <span className="block text-xs text-gray-500 font-medium mb-1">Trạng thái phát hành</span>
-                    <span className={`font-semibold ${selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' : 'text-gray-600'}`}>
-                      {selectedLessonForDetail.status === 'PUBLISHED' ? 'Đã xuất bản (Public)' : 'Nội bộ (Local)'}
+                    <span className={`font-semibold flex items-center gap-1 ${
+                      selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' :
+                      selectedLessonForDetail.status === 'PENDING' ? 'text-amber-600 animate-pulse' :
+                      selectedLessonForDetail.status === 'REJECTED' ? 'text-red-600' : 'text-sky-600'
+                    }`}>
+                      {selectedLessonForDetail.status === 'PUBLISHED' ? '🌐 Đã xuất bản (Public)' :
+                       selectedLessonForDetail.status === 'PENDING' ? '⏳ Chờ phê duyệt' :
+                       selectedLessonForDetail.status === 'REJECTED' ? '❌ Bị từ chối' : '🔒 Nội bộ (Local)'}
+                    </span>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <span className="block text-xs text-gray-500 font-medium mb-1">Thư mục lưu trữ</span>
+                    <span className="font-semibold text-violet-700 block truncate" title={
+                      selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0
+                        ? getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)
+                        : 'Chưa phân thư mục'
+                    }>
+                      📂 {
+                        selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0
+                          ? getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)
+                          : 'Chưa phân thư mục'
+                      }
                     </span>
                   </div>
                </div>
@@ -1602,22 +1866,63 @@ export default function App() {
                })()}
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex justify-end gap-3">
-               <button onClick={() => setSelectedLessonForDetail(null)} className="px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
+            <div className="p-6 border-t border-gray-100 bg-white flex items-center justify-end gap-3">
+               {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
+                 <button 
+                   onClick={() => {
+                     const id = selectedLessonForDetail.id;
+                     setSelectedLessonForDetail(null);
+                     handleDeleteLesson(id);
+                   }} 
+                   className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-colors mr-auto"
+                 >
+                   🗑️ Xóa tài liệu
+                 </button>
+               )}
+               
+               <button onClick={() => setSelectedLessonForDetail(null)} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
                  Đóng
                </button>
+
+               {currentUser && selectedLessonForDetail.creator?.id === currentUser.id && (
+                 <>
+                   <button 
+                     onClick={() => {
+                       const l = selectedLessonForDetail;
+                       setSelectedLessonForDetail(null);
+                       openEditModal(l);
+                     }} 
+                     className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-colors"
+                   >
+                     ✏️ Chỉnh sửa
+                   </button>
+                   {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
+                     <button 
+                       onClick={() => {
+                         const l = selectedLessonForDetail;
+                         setSelectedLessonForDetail(null);
+                         openProposeModal(l);
+                       }} 
+                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-90 text-white font-bold transition-all"
+                     >
+                       🌐 Đề xuất công khai
+                     </button>
+                   )}
+                 </>
+               )}
+
                {selectedLessonForDetail.file_path || selectedLessonForDetail.file_url ? (
                   <a
                     href={getLessonFileUrl(selectedLessonForDetail)}
                     download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-6 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                    className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
                   >
                     ↓ Tải tài liệu về máy
                   </a>
                 ) : (
-                  <button disabled className="px-6 py-2.5 rounded-xl bg-gray-200 text-gray-500 font-medium cursor-not-allowed">
+                  <button disabled className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-500 font-bold cursor-not-allowed">
                     Không có file đính kèm
                   </button>
                 )}
