@@ -529,6 +529,16 @@ export default function App() {
   const [selectedApproval, setSelectedApproval] = useState<any | null>(null);
   const [feedback, setFeedback] = useState<string>('');
 
+  // Rating & Comment states
+  const [lessonRatings, setLessonRatings] = useState<any[]>([]);
+  const [ratingAvg, setRatingAvg] = useState<number>(0);
+  const [ratingTotal, setRatingTotal] = useState<number>(0);
+  const [myRating, setMyRating] = useState<number>(0);
+  const [myComment, setMyComment] = useState<string>('');
+  const [ratingLoading, setRatingLoading] = useState<boolean>(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState<boolean>(false);
+  const [showRatingSection, setShowRatingSection] = useState<boolean>(false);
+
   const fetchAdminUsers = async () => {
     if (!currentUser || currentUser.role !== 'ADMIN') return;
     try {
@@ -1858,7 +1868,7 @@ export default function App() {
                    <span className="flex items-center gap-1">📅 {new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
                  </div>
                </div>
-               <button onClick={() => setSelectedLessonForDetail(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+               <button onClick={() => { setSelectedLessonForDetail(null); setShowRatingSection(false); setLessonRatings([]); setMyRating(0); setMyComment(''); }} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
                   ✕
                </button>
             </div>
@@ -1977,6 +1987,135 @@ export default function App() {
                    );
                  }
                })()}
+
+               {/* Rating & Comment Section */}
+               <div className="mt-6 border-t border-gray-200 pt-6">
+                 <div className="flex items-center justify-between mb-4">
+                   <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                     ⭐ Bình luận &amp; Đánh giá
+                     {ratingTotal > 0 && (
+                       <span className="text-xs font-normal text-gray-400 normal-case">
+                         {ratingAvg.toFixed(1)}/5 ({ratingTotal} đánh giá)
+                       </span>
+                     )}
+                   </h4>
+                   <button
+                     onClick={() => {
+                       setShowRatingSection(v => !v);
+                       if (!showRatingSection && selectedLessonForDetail) {
+                         setRatingLoading(true);
+                         axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`).then(res => {
+                           setLessonRatings(res.data.ratings);
+                           setRatingAvg(res.data.average_rating);
+                           setRatingTotal(res.data.total_ratings);
+                           if (currentUser) {
+                             const mine = res.data.ratings.find((r: any) => r.user_id === currentUser.id);
+                             if (mine) { setMyRating(mine.rating); setMyComment(mine.comment || ''); }
+                             else { setMyRating(0); setMyComment(''); }
+                           }
+                         }).finally(() => setRatingLoading(false));
+                       }
+                     }}
+                     className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
+                   >
+                     {showRatingSection ? 'Ẩn bình luận' : 'Xem bình luận'}
+                   </button>
+                 </div>
+
+                 {showRatingSection && (
+                   <div className="space-y-4">
+                     {/* My Rating Form */}
+                     {currentUser && (
+                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
+                         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">Đánh giá của bạn</p>
+                         {/* Star selector */}
+                         <div className="flex items-center gap-1 mb-3">
+                           {[1,2,3,4,5].map(star => (
+                             <button
+                               key={star}
+                               onClick={() => setMyRating(star)}
+                               className={`text-2xl transition-transform hover:scale-110 ${star <= myRating ? 'text-amber-400' : 'text-gray-300'}`}
+                             >
+                               ★
+                             </button>
+                           ))}
+                           {myRating > 0 && (
+                             <span className="ml-2 text-sm font-semibold text-amber-600">{['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}</span>
+                           )}
+                         </div>
+                         <textarea
+                           value={myComment}
+                           onChange={e => setMyComment(e.target.value)}
+                           placeholder="Nhập nhận xét của bạn về bài giảng này..."
+                           rows={3}
+                           className="w-full text-sm border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
+                         />
+                         <div className="flex justify-end mt-2">
+                           <button
+                             disabled={myRating === 0 || ratingSubmitting}
+                             onClick={async () => {
+                               if (!currentUser || myRating === 0) return;
+                               setRatingSubmitting(true);
+                               try {
+                                 const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
+                                   user_id: currentUser.id, rating: myRating, comment: myComment
+                                 });
+                                 setRatingAvg(res.data.average_rating);
+                                 setRatingTotal(res.data.total_ratings);
+                                 // Refresh list
+                                 const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
+                                 setLessonRatings(res2.data.ratings);
+                               } catch { alert('Lỗi khi gửi đánh giá.'); }
+                               finally { setRatingSubmitting(false); }
+                             }}
+                             className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                               myRating === 0 || ratingSubmitting
+                                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                 : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100'
+                             }`}
+                           >
+                             {ratingSubmitting ? '⟳ Đang gửi...' : '⭐ Gửi đánh giá'}
+                           </button>
+                         </div>
+                       </div>
+                     )}
+
+                     {/* Comments list */}
+                     {ratingLoading ? (
+                       <div className="text-center py-6 text-gray-400 text-sm">Đang tải đánh giá...</div>
+                     ) : lessonRatings.length === 0 ? (
+                       <div className="text-center py-6 text-gray-400 text-sm italic">Chưa có đánh giá nào. Hãy là người đầu tiên!</div>
+                     ) : (
+                       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                         {lessonRatings.map((r: any) => (
+                           <div key={r.id} className={`bg-white border rounded-xl p-4 ${currentUser?.id === r.user_id ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100'}`}>
+                             <div className="flex items-start justify-between mb-2">
+                               <div className="flex items-center gap-2">
+                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                   {(r.user_full_name || r.user_username || 'A')[0].toUpperCase()}
+                                 </div>
+                                 <div>
+                                   <p className="text-sm font-semibold text-gray-900">
+                                     {r.user_full_name || r.user_username}
+                                     {currentUser?.id === r.user_id && <span className="ml-1 text-xs text-blue-600 font-normal">(bạn)</span>}
+                                   </p>
+                                   <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('vi-VN')}</p>
+                                 </div>
+                               </div>
+                               <div className="flex">
+                                 {[1,2,3,4,5].map(s => (
+                                   <span key={s} className={`text-base ${s <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                                 ))}
+                               </div>
+                             </div>
+                             {r.comment && <p className="text-sm text-gray-700 leading-relaxed ml-10">{r.comment}</p>}
+                           </div>
+                         ))}
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
             </div>
 
             <div className="p-6 border-t border-gray-100 bg-white flex items-center justify-end gap-3">

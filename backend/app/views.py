@@ -2,9 +2,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from .models import LessonPlan, User, Directory, ApprovalRequest
-from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer
-from django.db.models import Q
+from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating
+from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer, LessonPlanRatingSerializer
+from django.db.models import Q, Avg
 import json
 
 def get_user_managed_directories(user):
@@ -476,4 +476,63 @@ class LessonPlanProposeAPIView(APIView):
         )
         
         return Response({'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!'})
+
+class LessonPlanRatingAPIView(APIView):
+    """GET: Lấy danh sách đánh giá của bài giảng. POST: Tạo hoặc cập nhật đánh giá."""
+
+    def get(self, request, pk):
+        try:
+            lesson = LessonPlan.objects.get(id=pk)
+        except LessonPlan.DoesNotExist:
+            return Response({'error': 'Bài giảng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+        ratings = LessonPlanRating.objects.filter(lesson_plan=lesson).order_by('-created_at')
+        serializer = LessonPlanRatingSerializer(ratings, many=True)
+        return Response({
+            'ratings': serializer.data,
+            'average_rating': lesson.average_rating,
+            'total_ratings': lesson.total_ratings,
+        })
+
+    def post(self, request, pk):
+        user_id = request.data.get('user_id')
+        rating_val = request.data.get('rating')
+        comment = request.data.get('comment', '')
+
+        if not user_id or rating_val is None:
+            return Response({'error': 'Vui lòng cung cấp user_id và rating.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            rating_val = int(rating_val)
+            if not (1 <= rating_val <= 5):
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'error': 'Rating phải là số nguyên từ 1 đến 5.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            lesson = LessonPlan.objects.get(id=pk)
+        except LessonPlan.DoesNotExist:
+            return Response({'error': 'Bài giảng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Tạo mới hoặc cập nhật (mỗi user chỉ được đánh giá 1 lần)
+        obj, created = LessonPlanRating.objects.update_or_create(
+            user=user,
+            lesson_plan=lesson,
+            defaults={'rating': rating_val, 'comment': comment}
+        )
+
+        # Tính lại average_rating và total_ratings
+        agg = LessonPlanRating.objects.filter(lesson_plan=lesson).aggregate(avg=Avg('rating'))
+        lesson.average_rating = round(agg['avg'] or 0, 2)
+        lesson.total_ratings = LessonPlanRating.objects.filter(lesson_plan=lesson).count()
+        lesson.save(update_fields=['average_rating', 'total_ratings'])
+
+        serializer = LessonPlanRatingSerializer(obj)
+        return Response({
+            'rating': serializer.data,
+            'average_rating': lesson.average_rating,
+            'total_ratings': lesson.total_ratings,
+            'created': created,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 

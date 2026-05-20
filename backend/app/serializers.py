@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LessonPlan, User, Directory, ApprovalRequest
+from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -71,6 +71,15 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'lesson_plan', 'lesson_plan_title', 'lesson_plan_description',
             'lesson_plan_target_student', 'lesson_plan_attributes',
-            'lesson_plan_file_url', 'requester', 'requester_name', 
+            'lesson_plan_file_url', 'requester', 'requester_name',
             'target_directory', 'target_directory_name', 'status', 'feedback', 'created_at'
         ]
+
+class LessonPlanRatingSerializer(serializers.ModelSerializer):
+    user_full_name = serializers.ReadOnlyField(source='user.full_name')
+    user_username = serializers.ReadOnlyField(source='user.username')
+    user_id = serializers.ReadOnlyField(source='user.id')
+
+    class Meta:
+        model = LessonPlanRating
+        fields = ['id', 'user_id', 'user_full_name', 'user_username', 'rating', 'comment', 'created_at']

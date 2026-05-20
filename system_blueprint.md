@@ -127,7 +127,7 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
 *   **Directory**: Cây thư mục lưu trữ giáo án. Có liên kết đệ quy `parent` (cha-con) để tạo cấu trúc cây.
 *   **DirectoryPermission**: Cấu hình chi tiết quyền truy cập trên thư mục (Viewer, Editor).
 *   **LessonPlan**: Thông tin bài giảng/giáo án, đường dẫn tệp đính kèm, thuộc tính bổ sung (`attributes` dưới dạng JSON).
-*   **LessonPlanRating**: Lưu trữ điểm đánh giá và nhận xét từ người dùng cho từng giáo án.
+*   **LessonPlanRating**: Lưu trữ điểm đánh giá (1–5 sao) và nhận xét (bình luận) từ người dùng cho từng giáo án. Ràng buộc **1 user 1 rating** trên mỗi bài giảng (có thể cập nhật). `average_rating` và `total_ratings` trên `LessonPlan` được tính lại tự động sau mỗi thao tác POST.
 *   **ApprovalRequest**: Yêu cầu phê duyệt giáo án do `USER` thường gửi lên trước khi xuất bản công khai.
 *   **DocumentChunk**: Các đoạn nội dung giáo án sau khi bóc tách văn bản, lưu kèm vector embedding (`1536` chiều) để tìm kiếm ngữ nghĩa (RAG).
 *   **AIChatSession / AIChatMessage**: Quản lý lịch sử các phiên trò chuyện giữa người dùng và AI xoay quanh một giáo án cụ thể.
@@ -208,6 +208,14 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Nhiệm vụ chính**: Đề xuất công khai một bài giảng cá nhân (`LOCAL` / `REJECTED`) lên thư mục công khai được chỉ định; đổi trạng thái thành `PENDING` và tạo/cập nhật yêu cầu xét duyệt `ApprovalRequest`.
     *   **Input**: `request` (Chứa `user_id`, `directory_id`), `pk` (ID bài giảng)
     *   **Output**: `Response` (Thông điệp đề xuất thành công)
+
+*   **`LessonPlanRatingAPIView`** *(mới - 2026-05-20)*
+    *   **Nhiệm vụ chính**: 
+        *   `GET`: Trả về danh sách đánh giá, `average_rating`, `total_ratings` của bài giảng.
+        *   `POST`: Tạo mới hoặc cập nhật đánh giá (1 user 1 lần); tự tính lại `average_rating` bằng `Avg` query Django ORM.
+    *   **Input**: `pk` (ID bài giảng). POST body: `user_id`, `rating` (1–5), `comment` (tùy chọn).
+    *   **Output**: `Response` (danh sách đánh giá hoặc đánh giá vừa tạo + thống kê mới nhất)
+    *   **URL**: `GET/POST /api/lesson-plans/<pk>/ratings/`
 
 ---
 
