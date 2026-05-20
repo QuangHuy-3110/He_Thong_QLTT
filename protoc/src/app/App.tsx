@@ -2282,15 +2282,15 @@ export default function App() {
 
       {/* Approval Requests Management Modal */}
       {showApprovalModal && currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/60 overflow-y-auto backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden border border-gray-100 flex flex-col my-8 max-h-[85vh]">
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-3 bg-gray-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl overflow-hidden border border-gray-100 flex flex-col" style={{height: '92vh'}}>
             {/* Modal Header */}
-            <div className="bg-amber-700 text-white p-6 flex justify-between items-center">
+            <div className="bg-amber-700 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🛡️</span>
                 <div>
                   <h3 className="text-xl font-bold">Xét duyệt bài giảng</h3>
-                  <p className="text-amber-200 text-xs mt-0.5">Duyệt hoặc từ chối bài giảng được đăng bởi người dùng thường</p>
+                  <p className="text-amber-200 text-xs mt-0.5">Duyệt hoặc từ chối bài giảng được đăng bởi người dùng</p>
                 </div>
               </div>
               <button 
@@ -2301,15 +2301,17 @@ export default function App() {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px]">
-              {/* Request List Panel */}
-              <div className="border-r border-gray-100 pr-0 md:pr-6">
-                <h4 className="font-bold text-gray-800 text-base mb-4 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-600"></span>
-                  Yêu cầu đang chờ duyệt ({pendingApprovals.length})
-                </h4>
-                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
+            {/* Modal Body — 2 columns */}
+            <div className="flex flex-row flex-grow overflow-hidden min-h-0">
+              {/* LEFT: Request list */}
+              <div className="w-80 flex-shrink-0 border-r border-gray-100 flex flex-col overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+                  <h4 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Chờ duyệt ({pendingApprovals.length})
+                  </h4>
+                </div>
+                <div className="overflow-y-auto flex-grow p-3 space-y-2">
                   {pendingApprovals.length === 0 ? (
                     <p className="text-sm text-gray-400 italic py-8 text-center">Không có bài giảng nào đang chờ duyệt.</p>
                   ) : (
@@ -2318,29 +2320,23 @@ export default function App() {
                       return (
                         <div 
                           key={req.id}
-                          onClick={() => {
-                            setSelectedApproval(req);
-                            setFeedback(req.feedback || '');
-                          }}
-                          className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${
+                          onClick={() => { setSelectedApproval(req); setFeedback(req.feedback || ''); }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
                             isSelected 
-                              ? 'border-amber-600 bg-amber-50/50 shadow-sm' 
-                              : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/10'
+                              ? 'border-amber-500 bg-amber-50 shadow-sm' 
+                              : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/30'
                           }`}
                         >
-                          <div className="flex-grow min-w-0 pr-2">
-                            <p className="font-semibold text-gray-900 text-sm truncate">{req.lesson_plan_title}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">Người gửi: {req.requester_name || 'Người dùng'}</p>
-                            <div className="flex items-center gap-1.5 mt-2">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded text-[10px] font-medium">
-                                📁 {req.target_directory_name}
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                {new Date(req.created_at).toLocaleDateString('vi-VN')}
-                              </span>
-                            </div>
+                          <p className="font-semibold text-gray-900 text-sm truncate">{req.lesson_plan_title}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">👤 {req.requester_name || 'Người dùng'}</p>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded text-[10px] font-medium truncate max-w-[140px]">
+                              📁 {req.target_directory_name}
+                            </span>
+                            <span className="text-[10px] text-gray-400 flex-shrink-0">
+                              {new Date(req.created_at).toLocaleDateString('vi-VN')}
+                            </span>
                           </div>
-                          <span className="text-amber-600 font-bold text-lg flex-shrink-0">➔</span>
                         </div>
                       );
                     })
@@ -2348,57 +2344,128 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Request Detail & Action Panel */}
-              <div className="flex flex-col h-full justify-between">
+              {/* RIGHT: Detail + Preview */}
+              <div className="flex-grow flex flex-col overflow-hidden min-w-0">
                 {selectedApproval ? (
-                  <div className="flex flex-col h-full">
-                    <div className="bg-amber-50 border border-amber-100/50 rounded-xl p-4 mb-4">
-                      <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Chi tiết yêu cầu xét duyệt</p>
-                      <h5 className="font-bold text-gray-950 text-base mt-1 leading-snug">{selectedApproval.lesson_plan_title}</h5>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Gửi bởi: <strong className="text-gray-700">{selectedApproval.requester_name}</strong> trong thư mục <strong className="text-gray-700">{selectedApproval.target_directory_name}</strong>
-                      </p>
-                    </div>
+                  <>
+                    {/* Info section (scrollable) */}
+                    <div className="flex-grow overflow-y-auto p-5 space-y-4">
+                      {/* Title & meta */}
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1">Chi tiết yêu cầu xét duyệt</p>
+                        <h5 className="font-bold text-gray-900 text-lg leading-snug">{selectedApproval.lesson_plan_title}</h5>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Gửi bởi: <strong className="text-gray-700">{selectedApproval.requester_name}</strong>
+                          {' '}vào thư mục <strong className="text-gray-700">{selectedApproval.target_directory_name}</strong>
+                          {' '}· {new Date(selectedApproval.created_at).toLocaleDateString('vi-VN')}
+                        </p>
+                      </div>
 
-                    <div className="flex-grow space-y-4 overflow-y-auto max-h-[300px] pr-2">
+                      {/* Info grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white border border-gray-100 rounded-xl p-3">
+                          <p className="text-xs text-gray-400 font-medium mb-1">Đối tượng giảng dạy</p>
+                          <p className="text-sm font-semibold text-gray-800">{selectedApproval.lesson_plan_target_student || 'Không rõ'}</p>
+                        </div>
+                        <div className="bg-white border border-gray-100 rounded-xl p-3">
+                          <p className="text-xs text-gray-400 font-medium mb-1">Ngày gửi duyệt</p>
+                          <p className="text-sm font-semibold text-gray-800">{new Date(selectedApproval.created_at).toLocaleString('vi-VN')}</p>
+                        </div>
+                      </div>
+
+                      {/* Description */}
                       <div>
-                        <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Mô tả bài giảng:</h6>
-                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 whitespace-pre-line leading-relaxed">
+                        <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Mô tả bài giảng</h6>
+                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl border border-gray-100 whitespace-pre-line leading-relaxed">
                           {selectedApproval.lesson_plan_description || 'Không có mô tả.'}
                         </p>
                       </div>
 
-                      {selectedApproval.lesson_plan_file_url && (
+                      {/* Attributes */}
+                      {selectedApproval.lesson_plan_attributes && Object.keys(selectedApproval.lesson_plan_attributes).filter(k => k !== 'knowledge_tags').length > 0 && (
                         <div>
-                          <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tài liệu đính kèm:</h6>
-                          <a 
-                            href={selectedApproval.lesson_plan_file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors shadow-sm w-full justify-center"
-                          >
-                            <span>📥</span> Tải xuống tệp đính kèm
-                          </a>
+                          <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h6>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(selectedApproval.lesson_plan_attributes)
+                              .filter(([k]) => k !== 'knowledge_tags')
+                              .map(([key, val]) => (
+                                <span key={key} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-100">
+                                  {key}: {String(val)}
+                                </span>
+                              ))}
+                          </div>
                         </div>
                       )}
 
+                      {/* Knowledge tags */}
+                      {selectedApproval.lesson_plan_attributes?.knowledge_tags?.length > 0 && (
+                        <div>
+                          <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Kiến thức môn học</h6>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedApproval.lesson_plan_attributes.knowledge_tags.map((tag: string) => (
+                              <span key={tag} className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
+                                ⚡ {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* File preview */}
+                      {selectedApproval.lesson_plan_file_url && (() => {
+                        const fileUrl = selectedApproval.lesson_plan_file_url;
+                        const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
+                        const isPdf = fileUrl.toLowerCase().endsWith('.pdf');
+                        return (
+                          <div>
+                            <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                              Xem trước tài liệu
+                            </h6>
+                            {isDocx && <DocxPreview fileUrl={fileUrl} />}
+                            {isPdf && (
+                              <div className="border border-gray-200 rounded-xl overflow-hidden h-[520px] shadow-inner">
+                                <iframe src={fileUrl} className="w-full h-full border-0" title="PDF Preview" />
+                              </div>
+                            )}
+                            {!isDocx && !isPdf && (
+                              <div className="flex flex-col items-center justify-center gap-3 p-8 bg-gray-50 border border-gray-200 rounded-xl text-center">
+                                <span className="text-5xl">📄</span>
+                                <p className="text-sm text-gray-500">Định dạng này không hỗ trợ xem trực tuyến.</p>
+                                <a href={fileUrl} download target="_blank" rel="noopener noreferrer"
+                                  className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 flex items-center gap-2">
+                                  📥 Tải tài liệu về máy
+                                </a>
+                              </div>
+                            )}
+                            <div className="mt-2 flex justify-end">
+                              <a href={fileUrl} download target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors shadow-sm">
+                                📥 Tải tài liệu về máy
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Feedback textarea */}
                       <div>
-                        <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Phản hồi / Góp ý (nếu từ chối):</h6>
+                        <h6 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Phản hồi / Góp ý (nếu từ chối):</h6>
                         <textarea
                           value={feedback}
                           onChange={e => setFeedback(e.target.value)}
                           placeholder="Nhập lý do từ chối hoặc góp ý chỉnh sửa bài giảng..."
-                          className="w-full text-sm border border-gray-200 rounded-lg p-2.5 h-20 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+                          className="w-full text-sm border border-gray-200 rounded-xl p-3 h-24 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
                         />
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2 justify-end">
+                    {/* Action footer */}
+                    <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-white flex gap-3 justify-end">
                       <button 
                         onClick={() => handleActionApproval(selectedApproval.id, 'REJECT', feedback)}
-                        className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 rounded-xl text-sm font-medium transition-colors"
+                        className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl text-sm font-bold transition-colors"
                       >
-                        Từ chối
+                        ✕ Từ chối
                       </button>
                       <button 
                         onClick={() => handleActionApproval(selectedApproval.id, 'APPROVE')}
@@ -2407,7 +2474,7 @@ export default function App() {
                         Duyệt & Xuất bản
                       </button>
                     </div>
-                  </div>
+                  </>
                 ) : (
                   <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50 h-full">
                     <div className="text-5xl mb-3 text-amber-200">🛡️</div>

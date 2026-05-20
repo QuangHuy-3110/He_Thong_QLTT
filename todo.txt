@@ -15,12 +15,12 @@ minerU
     tại vì thiếu chuyên môn để hiểu
 
 - reload không mất login => xong
-- trong cái card, khi bấm vào tên người đăng thì xuất hiện hộp thoại giới thiệu thông tin về người đó
-- Những cái nào có sự xuất hiện của thư mục thì nên trình bày theo cấu trúc cây thư mục 
-- trong phần xét duyệt bài giảng hãy hiển thị file word đó trong trình duyệt và những thông tin về bài giảng đó
+- trong cái card, khi bấm vào tên người đăng thì xuất hiện hộp thoại giới thiệu thông tin về người đó => xong
+- Những cái nào có sự xuất hiện của thư mục thì nên trình bày theo cấu trúc cây thư mục => xong
+- trong phần xét duyệt bài giảng hãy hiển thị file word đó trong trình duyệt và những thông tin về bài giảng đó => xong
 - Xây dựng chức năng bình luận, đánh giá cho 1 file giáo án dựa trên database đã xây dựng
 - Xây dựng chức năng phân trang, mỗi trang từ 10 đến 20 tài liệu, các tài liệu có thể được sắp xếp theo ngày tải, số sao, số lượt đánh giá
 - nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
-- Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng
+- Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp
 - Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung
 - Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau

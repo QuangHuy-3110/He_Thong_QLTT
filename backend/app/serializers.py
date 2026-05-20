@@ -48,6 +48,8 @@ class LessonPlanSerializer(serializers.ModelSerializer):
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title')
     lesson_plan_description = serializers.ReadOnlyField(source='lesson_plan.description')
+    lesson_plan_target_student = serializers.ReadOnlyField(source='lesson_plan.target_student')
+    lesson_plan_attributes = serializers.ReadOnlyField(source='lesson_plan.attributes')
     lesson_plan_file_url = serializers.SerializerMethodField()
     requester_name = serializers.ReadOnlyField(source='requester.full_name')
     target_directory_name = serializers.ReadOnlyField(source='target_directory.name')
@@ -67,7 +69,8 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApprovalRequest
         fields = [
-            'id', 'lesson_plan', 'lesson_plan_title', 'lesson_plan_description', 
+            'id', 'lesson_plan', 'lesson_plan_title', 'lesson_plan_description',
+            'lesson_plan_target_student', 'lesson_plan_attributes',
             'lesson_plan_file_url', 'requester', 'requester_name', 
             'target_directory', 'target_directory_name', 'status', 'feedback', 'created_at'
         ]
