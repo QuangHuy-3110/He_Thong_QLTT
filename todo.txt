@@ -14,7 +14,7 @@ minerU
 - Hiếu nghĩ cái thứ 2 nó khó xây dựng hơn cái thứ 1
     tại vì thiếu chuyên môn để hiểu
 
-- reload không mất login
+- reload không mất login => xong
 - trong cái card, khi bấm vào tên người đăng thì xuất hiện hộp thoại giới thiệu thông tin về người đó
 - Những cái nào có sự xuất hiện của thư mục thì nên trình bày theo cấu trúc cây thư mục 
 - trong phần xét duyệt bài giảng hãy hiển thị file word đó trong trình duyệt và những thông tin về bài giảng đó
@@ -23,3 +23,4 @@ minerU
 - nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
 - Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng
 - Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung
+- Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau

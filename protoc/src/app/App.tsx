@@ -578,6 +578,7 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
+  const [selectedCreatorForProfile, setSelectedCreatorForProfile] = useState<User | null>(null);
 
   // Upload Form
   const [upTitle, setUpTitle] = useState('');
@@ -1249,7 +1250,18 @@ export default function App() {
                         <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">{lesson.description || 'Chưa có mô tả.'}</p>
                         <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 text-xs text-gray-400">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">{lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}</span>
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (lesson.creator) {
+                                  setSelectedCreatorForProfile(lesson.creator);
+                                }
+                              }}
+                              className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 bg-blue-50 px-2.5 py-0.5 rounded transition-all"
+                              title="Nhấn xem thông tin người đăng"
+                            >
+                              👤 {lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}
+                            </span>
                             <span>•</span>
                             <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
                           </div>
@@ -1748,7 +1760,17 @@ export default function App() {
                <div>
                  <h2 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">{selectedLessonForDetail.title}</h2>
                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                   <span className="flex items-center gap-1">👤 {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}</span>
+                   <span 
+                     onClick={() => {
+                       if (selectedLessonForDetail.creator) {
+                         setSelectedCreatorForProfile(selectedLessonForDetail.creator);
+                       }
+                     }} 
+                     className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded transition-all" 
+                     title="Xem thông tin người đăng"
+                   >
+                     👤 {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}
+                   </span>
                    <span>•</span>
                    <span className="flex items-center gap-1">📅 {new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
                  </div>
@@ -1934,6 +1956,92 @@ export default function App() {
                     Không có file đính kèm
                   </button>
                 )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Creator Profile Modal */}
+      {selectedCreatorForProfile && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-slate-100 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <span>👤</span> Thông tin tài khoản đăng tải
+              </h3>
+              <button 
+                onClick={() => setSelectedCreatorForProfile(null)}
+                className="text-gray-400 hover:text-gray-600 text-xl font-bold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Short Profile Intro */}
+              <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+                <div className="w-16 h-16 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-2xl font-bold flex-shrink-0">
+                  {(selectedCreatorForProfile.full_name || selectedCreatorForProfile.username || 'A')[0].toUpperCase()}
+                </div>
+                <div className="truncate">
+                  <h4 className="text-base font-bold text-gray-900 truncate">
+                    {selectedCreatorForProfile.full_name || 'Họ và tên chưa cập nhật'}
+                  </h4>
+                  <p className="text-sm text-gray-500 truncate">Tên tài khoản: @{selectedCreatorForProfile.username}</p>
+                </div>
+              </div>
+
+              {/* Information Table/Grid */}
+              <div className="space-y-3">
+                {/* Email Info */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Địa chỉ Email</label>
+                  <p className="text-sm font-semibold text-gray-800 bg-gray-50 px-3.5 py-2 rounded-xl border border-gray-150/60 truncate">
+                    {selectedCreatorForProfile.email || 'Chưa cập nhật email'}
+                  </p>
+                </div>
+
+                {/* Role Info */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Vai trò hệ thống</label>
+                  <div>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-sm font-bold ${
+                      selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-500' :
+                        selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-500' :
+                        'bg-emerald-500'
+                      }`}></span>
+                      {selectedCreatorForProfile.role === 'ADMIN' ? 'Ban quản trị hệ thống' :
+                       selectedCreatorForProfile.role === 'TEACHER' ? 'Giáo viên phụ trách môn' :
+                       'Thành viên / Học sinh'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Statistics Info */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Đóng góp học liệu</label>
+                  <p className="text-sm font-bold text-indigo-700 bg-indigo-50/50 px-3.5 py-2 rounded-xl border border-indigo-100 flex items-center gap-1.5">
+                    📖 Đã đăng tải <strong>{allLessonPlans.filter(l => l.creator?.id === selectedCreatorForProfile.id).length}</strong> giáo án / tài liệu
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={() => setSelectedCreatorForProfile(null)}
+                className="w-full py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                Đóng hộp thoại
+              </button>
             </div>
           </div>
         </div>
