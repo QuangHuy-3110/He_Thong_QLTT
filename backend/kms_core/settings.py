@@ -83,7 +83,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'kms_db',
         'USER': 'postgres',
-        'PASSWORD': '05112004',
+        'PASSWORD': '12345',
         'HOST': '127.0.0.1', 
         'PORT': '5433',  # <--- Đúng số 5433 nhé
     }
