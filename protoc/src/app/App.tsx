@@ -441,7 +441,13 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'home' | 'upload'>('home');
   const [homeTab, setHomeTab] = useState<'library' | 'history' | 'personal'>('library');
   
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = sessionStorage.getItem('currentUser');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { return null; }
+    }
+    return null;
+  });
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
 
@@ -647,6 +653,7 @@ export default function App() {
     e.preventDefault();
     try {
       const response = await axios.post('/api/login/', { username, password });
+      sessionStorage.setItem('currentUser', JSON.stringify(response.data.user));
       setCurrentUser(response.data.user);
       setShowAuthModal(false);
       setAuthError(null);
@@ -667,6 +674,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    sessionStorage.removeItem('currentUser');
     setCurrentUser(null);
     setSearchQuery('');
     setSelectedDirs([]);

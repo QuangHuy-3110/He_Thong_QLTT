@@ -256,6 +256,6 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Output**: `None`
 
 *   **`App`**
-    *   **Nhiệm vụ chính**: Thành phần khởi chạy và quản lý chính: nắm giữ toàn bộ state quan trọng, thực hiện gọi API tương tác với Backend, và kết xuất toàn bộ bố cục trang Web QLTT. Tự động ẩn sidebar bộ lọc/thư mục công khai khi không ở tab thư viện chung, đồng thời sử dụng giao diện chọn tab dạng thanh trượt/pill (Segmented Pill Container) cực kỳ hiện đại.
+    *   **Nhiệm vụ chính**: Thành phần khởi chạy và quản lý chính: nắm giữ toàn bộ state quan trọng, thực hiện gọi API tương tác với Backend, và kết xuất toàn bộ bố cục trang Web QLTT. Tự động ẩn sidebar bộ lọc/thư mục công khai khi không ở tab thư viện chung, sử dụng giao diện chọn tab dạng thanh trượt/pill (Segmented Pill Container) cực kỳ hiện đại. Quản lý lưu trữ trạng thái đăng nhập `currentUser` qua `sessionStorage` để không bị mất đăng nhập khi reload trang, đồng thời tự động đăng xuất khi tắt trình duyệt/tab.
     *   **Input**: Không có
     *   **Output**: `JSX.Element` (Giao diện chính hệ thống)
