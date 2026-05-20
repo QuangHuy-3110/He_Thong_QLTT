@@ -26,12 +26,12 @@ interface UploadPageProps {
 }
 
 export default function UploadPage({ directories, currentUser, onBack, onSuccess, onRefreshDirs, managedDirectoryIds = [] }: UploadPageProps) {
-  // Navigation state - which directory is selected in left panel
+  // Selected directory for upload target
   const [selectedDirId, setSelectedDirId] = useState<number | null>(null);
-  const [dirPath, setDirPath] = useState<{ id: number; name: string }[]>([]);
+  // Tree expanded nodes
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   // ── Compute which directories the Teacher is allowed to see ──
-  // For Admin: all dirs. For Teacher: granted dirs + all descendants. For User: all (upload restricted separately).
   const getAllDescendants = (rootId: number): number[] => {
     const children = directories.filter(d => d.parent === rootId);
     return [rootId, ...children.flatMap(c => getAllDescendants(c.id))];
@@ -43,6 +43,84 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     managedDirectoryIds.forEach(id => getAllDescendants(id).forEach(did => ids.add(did)));
     return ids;
   })();
+
+  const toggleExpand = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectDir = (dir: Directory) => {
+    if (currentUser?.role === 'TEACHER' && !allowedDirIds.has(dir.id)) return;
+    setSelectedDirId(prev => prev === dir.id ? null : dir.id);
+  };
+
+  // Recursive tree node component
+  const TreeNode = ({ dir, depth }: { dir: Directory; depth: number }) => {
+    const children = directories
+      .filter(d => d.parent === dir.id)
+      .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
+    const hasChildren = children.length > 0;
+    const isExpanded = expandedIds.has(dir.id);
+    const isSelected = selectedDirId === dir.id;
+    const isAllowed = currentUser?.role !== 'TEACHER' || allowedDirIds.has(dir.id);
+    const isManaged = managedDirectoryIds.includes(dir.id);
+
+    return (
+      <div>
+        <button
+          onClick={() => selectDir(dir)}
+          disabled={!isAllowed}
+          className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-left text-sm transition-all ${
+            isSelected
+              ? 'bg-blue-600 text-white shadow-sm'
+              : isAllowed
+              ? 'hover:bg-blue-50 text-gray-800'
+              : 'text-gray-400 cursor-not-allowed'
+          }`}
+          style={{ paddingLeft: `${8 + depth * 18}px` }}
+        >
+          {/* Expand toggle */}
+          <span
+            onClick={hasChildren ? (e) => toggleExpand(dir.id, e) : undefined}
+            className={`w-4 h-4 flex items-center justify-center flex-shrink-0 rounded transition-transform ${
+              hasChildren ? 'cursor-pointer hover:bg-black/10' : 'opacity-0'
+            } ${isExpanded ? 'rotate-90' : ''}`}
+          >
+            {hasChildren && <span className="text-xs">▶</span>}
+          </span>
+          <span className="text-base leading-none flex-shrink-0">
+            {dir.is_public ? '📂' : '📁'}
+          </span>
+          <span className="flex-grow font-medium truncate">{dir.name}</span>
+          {isManaged && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+              isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
+            }`}>Quản lý</span>
+          )}
+          {dir.is_public && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+              isSelected ? 'bg-white/20 text-white' : 'bg-green-100 text-green-600'
+            }`}>Công khai</span>
+          )}
+        </button>
+        {hasChildren && isExpanded && (
+          <div>
+            {children.map(child => (
+              <TreeNode key={child.id} dir={child} depth={depth + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const rootDirs = directories
+    .filter(d => !d.parent)
+    .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
 
   // Knowledge tag management
   const [tagInput, setTagInput] = useState('');
@@ -60,17 +138,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Determine the currently viewed directory
+  // Determine the currently selected directory
   const currentDir = directories.find(d => d.id === selectedDirId) || null;
-  // For Teacher: only show subdirectories that are in their allowedDirIds
-  const childDirs = directories
-    .filter(d => d.parent === selectedDirId)
-    .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
-
-  // Root dirs (for when selectedDirId is null)
-  const rootDirs = directories
-    .filter(d => !d.parent)
-    .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
 
   // All knowledge tags from all directories (for search)
   const allKnowledgeTags: { tag: string; path: string }[] = [];
@@ -120,26 +189,6 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const availableTags = getTagsForDir(selectedDirId).filter(
     ({ tag }) => !knowledgeSearch || tag.toLowerCase().includes(knowledgeSearch.toLowerCase())
   );
-
-  // Navigate into a subdirectory
-  const navigateInto = (dir: Directory) => {
-    // Only navigate into allowed dirs
-    if (currentUser?.role === 'TEACHER' && !allowedDirIds.has(dir.id)) return;
-    setSelectedDirId(dir.id);
-    setDirPath(prev => [...prev, { id: dir.id, name: dir.name }]);
-  };
-
-  // Navigate to breadcrumb
-  const navigateTo = (idx: number) => {
-    if (idx < 0) {
-      setSelectedDirId(null);
-      setDirPath([]);
-    } else {
-      const target = dirPath[idx];
-      setSelectedDirId(target.id);
-      setDirPath(prev => prev.slice(0, idx + 1));
-    }
-  };
 
   // Check if current user can manage tags in selected dir
   const canManageTags = currentUser && (
@@ -270,57 +319,48 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       </div>
 
       <div className="max-w-[1400px] mx-auto p-6 grid grid-cols-[380px_1fr] gap-6">
-        {/* Left Panel */}
+        {/* Left Panel - Directory Tree */}
         <div className="flex flex-col gap-4">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-1 text-sm text-gray-500 flex-wrap">
-            <button onClick={() => navigateTo(-1)} className="text-blue-600 hover:underline font-medium">Tất cả thư mục</button>
-            {dirPath.map((p, i) => (
-              <React.Fragment key={p.id}>
-                <span className="text-gray-300">/</span>
-                <button onClick={() => navigateTo(i)} className="text-blue-600 hover:underline">{p.name}</button>
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Current Directory Header */}
-          {currentDir && (
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📁</span>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{currentDir.name}</h2>
-                {currentDir.is_public && <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">Công khai</span>}
-              </div>
-            </div>
-          )}
-
-          {/* Subdirectories */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                {currentDir ? 'Thư mục con' : 'Tất cả thư mục'}
-              </p>
-              {currentUser?.role === 'TEACHER' && !selectedDirId && managedDirectoryIds.length > 0 && (
-                <p className="text-[10px] text-blue-500 mt-0.5">🔒 Chỉ hiển thị {allowedDirIds.size} thư mục bạn có quyền</p>
+          {/* Selected directory info */}
+          <div className={`rounded-xl border px-4 py-3 flex items-center gap-2 transition-all ${
+            selectedDirId ? 'border-blue-200 bg-blue-50' : 'border-dashed border-gray-200 bg-white'
+          }`}>
+            <span className="text-xl">{selectedDirId ? '📂' : '📁'}</span>
+            <div className="flex-grow min-w-0">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Thư mục đích</p>
+              {selectedDirId && currentDir ? (
+                <p className="text-sm font-semibold text-blue-700 truncate">{currentDir.name}</p>
+              ) : (
+                <p className="text-sm text-gray-400 italic">Chưa chọn thư mục</p>
               )}
             </div>
-            {(selectedDirId ? childDirs : rootDirs).length === 0 ? (
-              <p className="px-4 py-4 text-sm text-gray-400 italic">
-                {currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Không có thư mục con.'}
-              </p>
-            ) : (
-              (selectedDirId ? childDirs : rootDirs).map(dir => (
-                <button
-                  key={dir.id}
-                  onClick={() => navigateInto(dir)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 border-b border-gray-50 hover:bg-blue-50/50 transition-colors text-left ${selectedDirId === dir.id ? 'bg-blue-50' : ''}`}
-                >
-                  <span className="text-lg">{dir.is_public ? '📂' : '📁'}</span>
-                  <span className="text-sm font-medium text-gray-800 flex-grow">{dir.name}</span>
-                  <span className="text-gray-400 text-xs">→</span>
-                </button>
-              ))
+            {selectedDirId && (
+              <button
+                onClick={() => setSelectedDirId(null)}
+                className="text-gray-400 hover:text-gray-600 text-xs px-2 py-1 rounded hover:bg-gray-100"
+              >✕ Bỏ chọn</button>
             )}
+          </div>
+
+          {/* Directory Tree */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cây thư mục</p>
+              {currentUser?.role === 'TEACHER' && managedDirectoryIds.length > 0 && (
+                <p className="text-[10px] text-blue-500">🔒 {allowedDirIds.size} thư mục có quyền</p>
+              )}
+            </div>
+            <div className="p-2 max-h-[340px] overflow-y-auto">
+              {rootDirs.length === 0 ? (
+                <p className="px-2 py-4 text-sm text-gray-400 italic text-center">
+                  {currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Chưa có thư mục nào.'}
+                </p>
+              ) : (
+                rootDirs.map(dir => (
+                  <TreeNode key={dir.id} dir={dir} depth={0} />
+                ))
+              )}
+            </div>
           </div>
 
           {/* Knowledge Tags Panel */}
@@ -346,7 +386,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                 </div>
               )}
 
-              <div className="flex flex-col gap-2 max-h-[280px] overflow-y-auto">
+              <div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
                 {tagsForCurrentDir.length === 0 ? (
                   <p className="text-sm text-gray-400 italic">Chưa có kiến thức nào.</p>
                 ) : (
@@ -354,7 +394,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                     <div key={tag} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 hover:bg-gray-50">
                       <span className="text-sm font-medium text-gray-800">{tag}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">{dirPath.length > 0 ? dirPath.map(p=>p.name).join(' / ') : currentDir.name}</span>
+                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">{currentDir.name}</span>
                         {canManageTags && (
                           <button onClick={() => handleRemoveTag(currentDir.id, tag)} className="text-red-400 hover:text-red-600 text-xs w-4 h-4 flex items-center justify-center">✕</button>
                         )}

@@ -155,6 +155,69 @@ function getDirectoryFullPath(dirId: string | number, dirs: Directory[]): string
   return path.join(' / ');
 }
 
+interface DirectoryOption {
+  id: number;
+  name: string;
+  is_public: boolean;
+  depth: number;
+  visualPrefix: string;
+}
+
+const getDirectoriesAsTreeOptions = (
+  dirs: Directory[], 
+  filterFn?: (d: Directory) => boolean
+): DirectoryOption[] => {
+  const baseDirs = filterFn ? dirs.filter(filterFn) : dirs;
+  const childrenMap = new Map<number | null, Directory[]>();
+  baseDirs.forEach(d => {
+    const parentId = d.parent;
+    if (!childrenMap.has(parentId)) {
+      childrenMap.set(parentId, []);
+    }
+    childrenMap.get(parentId)!.push(d);
+  });
+
+  const result: DirectoryOption[] = [];
+
+  const traverse = (parentId: number | null, depth: number, prefix: string) => {
+    const children = childrenMap.get(parentId) || [];
+    children.sort((a, b) => a.name.localeCompare(b.name));
+    
+    children.forEach((child, index) => {
+      const isLast = index === children.length - 1;
+      const currentPrefix = prefix + (isLast ? '└─ ' : '├─ ');
+      const nextPrefix = prefix + (isLast ? '   ' : '│  ');
+      
+      result.push({
+        id: child.id,
+        name: child.name,
+        is_public: child.is_public,
+        depth: depth,
+        visualPrefix: currentPrefix
+      });
+      
+      traverse(child.id, depth + 1, nextPrefix);
+    });
+  };
+
+  const activeIds = new Set(baseDirs.map(d => d.id));
+  const roots = baseDirs.filter(d => !d.parent || !activeIds.has(d.parent));
+  roots.sort((a, b) => a.name.localeCompare(b.name));
+  
+  roots.forEach((root, index) => {
+    result.push({
+      id: root.id,
+      name: root.name,
+      is_public: root.is_public,
+      depth: 0,
+      visualPrefix: '📂 '
+    });
+    traverse(root.id, 1, '');
+  });
+
+  return result;
+};
+
 const DirectoryNode = ({
   dir: dirProp, directories, selectedDirs, onToggleDir,
   allLessons, currentUser, onAddChild, onDelete, onRename, onTogglePublic
@@ -1608,9 +1671,13 @@ export default function App() {
               <div><label className="block text-sm mb-1">Tên thư mục</label><input type="text" required value={dirName} onChange={e=>setDirName(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div>
                 <label className="block text-sm mb-1">Thư mục cha</label>
-                <select value={dirParentId} onChange={e=>setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+                <select value={dirParentId} onChange={e=>setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Cấp cao nhất --</option>
-                  {directories.map(d => <option key={d.id} value={d.id}>{d.name} ({d.is_public ? 'Public' : 'Local'})</option>)}
+                  {getDirectoriesAsTreeOptions(directories).map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
+                    </option>
+                  ))}
                 </select>
               </div>
               {currentUser.role === 'ADMIN' && (
@@ -1639,9 +1706,13 @@ export default function App() {
               <div><label className="block text-sm mb-1">Khối lớp / Đối tượng</label><input type="text" value={upGrade} onChange={e=>setUpGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div>
                 <label className="block text-sm mb-1">Lưu vào thư mục</label>
-                <select value={upDirId} onChange={e=>setUpDirId(e.target.value)} className="w-full border rounded-lg p-2 text-sm">
+                <select value={upDirId} onChange={e=>setUpDirId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Không chọn --</option>
-                  {directories.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {getDirectoriesAsTreeOptions(directories).map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div><label className="block text-sm mb-1">File tài liệu (.docx, .pdf)</label><input type="file" required onChange={e=> e.target.files && setUpFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" /></div>
@@ -1672,11 +1743,13 @@ export default function App() {
                   required
                   value={targetPublicDirId} 
                   onChange={e => setTargetPublicDirId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm font-mono focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Chọn thư mục công khai --</option>
-                  {directories.filter(d => d.is_public).map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                  {getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.visualPrefix}{d.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1715,14 +1788,24 @@ export default function App() {
                 <select 
                   value={editDirId} 
                   onChange={e => setEditDirId(e.target.value)} 
-                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm font-mono focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Giữ nguyên / Chưa phân thư mục --</option>
-                  {directories.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.is_public ? '🌐 [Công khai] ' : '🔒 [Riêng tư] '} {getDirectoryFullPath(d.id, directories)}
-                    </option>
-                  ))}
+                  {(() => {
+                    const isPublicCard = editingLesson.status === 'PUBLISHED' || (() => {
+                      if (editingLesson.directory_ids && editingLesson.directory_ids.length > 0) {
+                        const firstDir = directories.find(d => d.id === editingLesson.directory_ids![0]);
+                        return firstDir ? firstDir.is_public : false;
+                      }
+                      return false;
+                    })();
+
+                    return getDirectoriesAsTreeOptions(directories, d => d.is_public === isPublicCard).map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </div>
               {(() => {

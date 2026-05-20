@@ -24,7 +24,7 @@ He_Thong_QLTT/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── App.tsx       # Component cốt lõi điều khiển toàn bộ ứng dụng
-│   │   │   ├── UploadPage.tsx # Thành phần hỗ trợ tải lên tệp giáo án
+│   │   │   ├── UploadPage.tsx # Trang đăng bài giảng mới (gồm Tree View chọn thư mục)
 │   │   │   ├── context.tsx   # React Context lưu trữ trạng thái chia sẻ (nếu có)
 │   │   │   └── components/   # Các trang và thành phần giao diện phụ trợ
 │   │   │       ├── AuthPage.tsx             # Giao diện Đăng nhập / Đăng ký
@@ -230,6 +230,11 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Input**: `dirId` (ID thư mục đích), `dirs` (Mảng tất cả thư mục hệ thống)
     *   **Output**: `string` (Chuỗi đường dẫn breadcrumb phân tách bởi dấu " / ")
 
+*   **`getDirectoriesAsTreeOptions`**
+    *   **Nhiệm vụ chính**: Đệ quy duyệt cây thư mục theo thứ tự tiền tố (DFS Pre-order) để xuất ra danh sách phẳng có căn lề thụt đầu dòng dạng cây trực quan (ví dụ: `├─`, `└─`, `📂`) dùng trong các select box.
+    *   **Input**: `dirs` (Mảng thư mục hệ thống), `filterFn` (Hàm lọc điều kiện tùy chọn)
+    *   **Output**: `DirectoryOption[]` (Mảng chứa id, name và visualPrefix thụt dòng dạng cây)
+
 *   **`DirectoryNode`**
     *   **Nhiệm vụ chính**: Component hiển thị một thư mục trên thanh bên cây thư mục, xử lý việc đóng/mở, đổi tên, xóa, gán công khai/riêng tư, và hiển thị trạng thái khóa.
     *   **Input**: Props (`dir`, `directories`, `selectedDirs`, `onToggleDir`, `allLessons`, `currentUser`, `onAddChild`, `onDelete`, `onRename`, `onTogglePublic`)
@@ -259,3 +264,22 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Nhiệm vụ chính**: Thành phần khởi chạy và quản lý chính: nắm giữ toàn bộ state quan trọng, thực hiện gọi API tương tác với Backend, và kết xuất toàn bộ bố cục trang Web QLTT. Tự động ẩn sidebar bộ lọc/thư mục công khai khi không ở tab thư viện chung, sử dụng giao diện chọn tab dạng thanh trượt/pill (Segmented Pill Container) cực kỳ hiện đại. Quản lý lưu trữ trạng thái đăng nhập `currentUser` qua `sessionStorage` để không bị mất đăng nhập khi reload trang, đồng thời tự động đăng xuất khi tắt trình duyệt/tab. Tích hợp tính năng hiển thị Hộp thoại hồ sơ chi tiết người đăng (`selectedCreatorForProfile`) khi bấm vào tên của họ ở card bài giảng hoặc tiêu đề xem chi tiết.
     *   **Input**: Không có
     *   **Output**: `JSX.Element` (Giao diện chính hệ thống)
+
+---
+
+### 3.3. File `protoc/src/app/UploadPage.tsx` (Trang Đăng Bài Giảng)
+
+*   **`TreeNode`** *(mới - refactored 2026-05-20)*
+    *   **Nhiệm vụ chính**: Component đệ quy hiển thị một nút trong cây thư mục trên trang đăng bài giảng; hỗ trợ mở/đóng nánh (expand/collapse), highlight thư mục được chọn, hiển thị badge "Quản lý" / "Công khai" inline, thụt lề theo chiều sâu.
+    *   **Input**: `dir` (Đối tượng Directory), `depth` (Chiều sâu trong cây, dùng để thụt lề)
+    *   **Output**: `JSX.Element` (Nút cây thư mục kèm các cây con nếu đối tượng được mở rộng)
+
+*   **`toggleExpand`**
+    *   **Nhiệm vụ chính**: Đảo trạng thái mở/đóng nánh cây của một thư mục trong `expandedIds` (Set các ID đang mở).
+    *   **Input**: `id` (ID thư mục), `e` (MouseEvent, dừng bubble)
+    *   **Output**: `void`
+
+*   **`selectDir`**
+    *   **Nhiệm vụ chính**: Chọn hoặc bỏ chọn thư mục làm đích tải lên; kiểm tra quyền cho Giáo viên trước khi cho phép chọn.
+    *   **Input**: `dir` (Đối tượng Directory)
+    *   **Output**: `void`
