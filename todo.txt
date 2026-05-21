@@ -24,3 +24,5 @@ minerU
 - Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp
 - Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung
 - Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau
+
+thứ nhất tui không có vấn đề dì với cái việc tui đi chơi hết, tui rất là thoải mái, chẳng qua là đó h tui không có up hình lên mxh, tui không biết là tại sao bạn lại hỏi câu này nhưng mà đó là những cái mà đó h tui đang suy nghĩ
