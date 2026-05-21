@@ -6,7 +6,7 @@ from .views import (
     ApprovalRequestDetailAPIView, LessonPlanDetailAPIView, 
     AdminUserListAPIView, AdminAssignPermissionAPIView,
     UserSelfPermissionsAPIView, LessonPlanProposeAPIView,
-    LessonPlanRatingAPIView
+    LessonPlanRatingAPIView, UserProfileUpdateAPIView
 )
 
 urlpatterns = [
@@ -24,4 +24,5 @@ urlpatterns = [
     path('admin/users/', AdminUserListAPIView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/permissions/', AdminAssignPermissionAPIView.as_view(), name='admin-assign-permissions'),
     path('users/me/permissions/', UserSelfPermissionsAPIView.as_view(), name='user-self-permissions'),
+    path('users/me/profile/', UserProfileUpdateAPIView.as_view(), name='user-profile-update'),
 ]

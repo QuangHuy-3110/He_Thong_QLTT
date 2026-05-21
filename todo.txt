@@ -18,11 +18,27 @@ minerU
 - trong cái card, khi bấm vào tên người đăng thì xuất hiện hộp thoại giới thiệu thông tin về người đó => xong
 - Những cái nào có sự xuất hiện của thư mục thì nên trình bày theo cấu trúc cây thư mục => xong
 - trong phần xét duyệt bài giảng hãy hiển thị file word đó trong trình duyệt và những thông tin về bài giảng đó => xong
-- Xây dựng chức năng bình luận, đánh giá cho 1 file giáo án dựa trên database đã xây dựng
-- Xây dựng chức năng phân trang, mỗi trang từ 10 đến 20 tài liệu, các tài liệu có thể được sắp xếp theo ngày tải, số sao, số lượt đánh giá
-- nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
-- Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp
+- Xây dựng chức năng bình luận, đánh giá cho 1 file giáo án dựa trên database đã xây dựng => xong
+- Xây dựng lại giao diện khi mà mở card, mở thì phải mở full màn hình sao khi mở full màn hình thì màn hình sẽ được chia làm 2 khu 1 khu để hiển thị các bình luận đánh giá, khu còn lại để hiển thị bài giảng và các thông tin khác của bài giảng => xong
+- Xây dựng chức năng phân trang, mỗi trang từ 10 đến 20 tài liệu, các tài liệu có thể được sắp xếp theo ngày tải, số sao, số lượt đánh giá => xong
+# - nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
+- Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp => xong
 - Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung
 - Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau
 
-thứ nhất tui không có vấn đề dì với cái việc tui đi chơi hết, tui rất là thoải mái, chẳng qua là đó h tui không có up hình lên mxh, tui không biết là tại sao bạn lại hỏi câu này nhưng mà đó là những cái mà đó h tui đang suy nghĩ
+- So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.
+
+- Thứ 1 là không có 2 file mẫu cho 2 đối tượng học sinh thành thị/nông thôn (chuyên biệt cho từng đối tượng)
+- Thứ 2 là do đã thống nhât từ trước là 1 file đưa lên hệ thống sẽ là file KH bài giảng hoàn chỉnh 
+    tại vì đầu tiên với nhu cầu là truy vấn tìm kiếm giáo án cho nhanh, tìm kiếm giáo án theo mô tả của ngta thì cần có file KHBG hoàn chỉnh
+    việc tụi em làm là đọc file trích xuất thông tin để đáp ứng nhu cầu truy vấn nên file phải chi tiết hóa một chút
+    
+    Trong trường hợp cô muốn tải 1 file với cấu trúc theo kiểu so sánh giữa 2 đối tượng học sinh thì
+        - Nó sẽ giúp ích được gì cho người sử dụng tài liệu của cô?
+        - Giả sử cô chỉ đưa ra ý tưởng thì không thể làm được.
+
+
+- vẽ 1 form cho gv cấp 3 chọn nhiều thứ, đối tượng HS, chọn phòng thiết bị
+chọn thời gian, phải vẽ hết (cô nói trong ghi âm) các sự lựa chọn của GV
+khi mà họ chọn thì bấm nút tìm nó ra cái gì?
+- cô upload từng file phải lấy được nhiều thông tin

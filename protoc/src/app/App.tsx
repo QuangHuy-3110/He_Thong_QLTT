@@ -653,6 +653,27 @@ export default function App() {
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
   const [selectedCreatorForProfile, setSelectedCreatorForProfile] = useState<User | null>(null);
 
+  // Profile Settings States
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [profileFullName, setProfileFullName] = useState<string>('');
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState<string>('');
+  const [profileNewPassword, setProfileNewPassword] = useState<string>('');
+  const [profileConfirmNewPassword, setProfileConfirmNewPassword] = useState<string>('');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (showProfileModal && currentUser) {
+      setProfileFullName(currentUser.full_name || '');
+      setProfileCurrentPassword('');
+      setProfileNewPassword('');
+      setProfileConfirmNewPassword('');
+      setProfileError(null);
+      setProfileSuccess(null);
+    }
+  }, [showProfileModal, currentUser]);
+
   // Upload Form
   const [upTitle, setUpTitle] = useState('');
   const [upDesc, setUpDesc] = useState('');
@@ -676,6 +697,11 @@ export default function App() {
   const [dirParentId, setDirParentId] = useState('');
   const [dirIsPublic, setDirIsPublic] = useState(false);
   const [dirAttrs, setDirAttrs] = useState('{}');
+
+  // Pagination & Sorting States
+  const [sortBy, setSortBy] = useState<string>('date_desc');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // All lessons (unfiltered) for counting and client-side filtering
   const [allLessonPlans, setAllLessonPlans] = useState<LessonPlan[]>([]);
@@ -707,6 +733,46 @@ export default function App() {
     }
   };
 
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser) return;
+
+    if (profileNewPassword && profileNewPassword !== profileConfirmNewPassword) {
+      setProfileError('Mật khẩu mới và xác nhận mật khẩu không khớp.');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+
+    try {
+      const response = await axios.post('/api/users/me/profile/', {
+        user_id: currentUser.id,
+        full_name: profileFullName,
+        new_password: profileNewPassword || undefined,
+        current_password: profileCurrentPassword || undefined,
+      });
+
+      setProfileSuccess(response.data.message || 'Cập nhật thông tin cá nhân thành công!');
+      
+      // Update local storage and currentUser state
+      const updatedUser = response.data.user;
+      setCurrentUser(updatedUser);
+      sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      
+      // Clear password fields
+      setProfileCurrentPassword('');
+      setProfileNewPassword('');
+      setProfileConfirmNewPassword('');
+    } catch (err: any) {
+      console.error(err);
+      setProfileError(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật thông tin.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   useEffect(() => {
     fetchLessonPlans(searchQuery);
   }, [currentUser]);
@@ -722,6 +788,38 @@ export default function App() {
   useEffect(() => {
     fetchMyPermissions();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedLessonForDetail) {
+      setRatingLoading(true);
+      axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
+        .then(res => {
+          setLessonRatings(res.data.ratings);
+          setRatingAvg(res.data.average_rating);
+          setRatingTotal(res.data.total_ratings);
+          if (currentUser) {
+            const mine = res.data.ratings.find((r: any) => r.user_id === currentUser.id);
+            if (mine) {
+              setMyRating(mine.rating);
+              setMyComment(mine.comment || '');
+            } else {
+              setMyRating(0);
+              setMyComment('');
+            }
+          }
+        })
+        .catch(err => {
+          console.error("Lỗi khi tải bình luận:", err);
+        })
+        .finally(() => {
+          setRatingLoading(false);
+        });
+    } else {
+      setLessonRatings([]);
+      setMyRating(0);
+      setMyComment('');
+    }
+  }, [selectedLessonForDetail, currentUser]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1032,6 +1130,44 @@ export default function App() {
     });
   }, [dirFilteredLessons, searchQuery, selectedTargetStudents, selectedTypes, selectedSubjects]);
 
+  // Sort the filtered plans based on current sort settings
+  const sortedLessonPlans = useMemo(() => {
+    const list = [...filteredLessonPlans];
+    list.sort((a, b) => {
+      if (sortBy === 'date_desc') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (sortBy === 'date_asc') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      if (sortBy === 'rating_desc') {
+        return (b.average_rating || 0) - (a.average_rating || 0);
+      }
+      if (sortBy === 'rating_asc') {
+        return (a.average_rating || 0) - (b.average_rating || 0);
+      }
+      if (sortBy === 'total_desc') {
+        return (b.total_ratings || 0) - (a.total_ratings || 0);
+      }
+      if (sortBy === 'total_asc') {
+        return (a.total_ratings || 0) - (b.total_ratings || 0);
+      }
+      return 0;
+    });
+    return list;
+  }, [filteredLessonPlans, sortBy]);
+
+  // Paginate the sorted plans
+  const paginatedLessonPlans = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedLessonPlans.slice(startIndex, startIndex + pageSize);
+  }, [sortedLessonPlans, currentPage, pageSize]);
+
+  // Reset page to 1 when filters or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDirs, selectedTargetStudents, selectedTypes, selectedSubjects, pageSize]);
+
 
   // Resolve managed directory IDs for the current teacher
   const currentUserManagedDirIds: number[] = myManagedDirIds;
@@ -1119,7 +1255,13 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <button onClick={handleLogout} className="ml-2 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                  <button 
+                    onClick={() => setShowProfileModal(true)} 
+                    className="ml-2 px-3 py-1.5 border border-blue-200 text-sm font-semibold rounded-xl text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 transition-all flex items-center gap-1.5 shadow-sm"
+                  >
+                    ⚙️ Cá nhân
+                  </button>
+                  <button onClick={handleLogout} className="ml-2 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                     Thoát
                   </button>
                 </div>
@@ -1273,11 +1415,51 @@ export default function App() {
             {/* ══ LIBRARY TAB ══ */}
             {homeTab === 'library' && (
               <>
-                <div className="mb-6">
-                  <p className="text-sm text-gray-500 font-medium">
-                    Tìm thấy {filteredLessonPlans.length} kết quả
-                    {selectedDirs.length > 0 && <span className="ml-1 text-blue-600">(trong {selectedDirs.length} thư mục đã chọn)</span>}
-                  </p>
+                <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-slate-50/60 border border-slate-100 p-4 rounded-2xl shadow-sm">
+                  <div>
+                    <p className="text-sm text-gray-600 font-semibold">
+                      🔍 Tìm thấy <span className="text-blue-600 font-extrabold">{filteredLessonPlans.length}</span> tài liệu
+                      {selectedDirs.length > 0 && <span className="ml-1 text-slate-500 font-normal">(trong {selectedDirs.length} thư mục đã chọn)</span>}
+                    </p>
+                    {filteredLessonPlans.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Hiển thị từ {((currentPage - 1) * pageSize) + 1} đến {Math.min(currentPage * pageSize, filteredLessonPlans.length)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Sort Selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sắp xếp:</span>
+                      <select
+                        value={sortBy}
+                        onChange={e => { setSortBy(e.target.value); setCurrentPage(1); }}
+                        className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all hover:bg-slate-50 cursor-pointer"
+                      >
+                        <option value="date_desc">📅 Mới nhất (Ngày tải)</option>
+                        <option value="date_asc">📅 Cũ nhất (Ngày tải)</option>
+                        <option value="rating_desc">⭐ Đánh giá cao nhất</option>
+                        <option value="rating_asc">⭐ Đánh giá thấp nhất</option>
+                        <option value="total_desc">💬 Nhiều đánh giá nhất</option>
+                        <option value="total_asc">💬 Ít đánh giá nhất</option>
+                      </select>
+                    </div>
+
+                    {/* Page Size Selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Hiển thị:</span>
+                      <select
+                        value={pageSize}
+                        onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all hover:bg-slate-50 cursor-pointer"
+                      >
+                        <option value={10}>10 tài liệu / trang</option>
+                        <option value={15}>15 tài liệu / trang</option>
+                        <option value={20}>20 tài liệu / trang</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 {loading ? (
@@ -1288,7 +1470,7 @@ export default function App() {
                   <div className="text-center py-20 text-gray-500 bg-gray-50 rounded-xl border border-gray-200">Không có tài liệu nào trong mục này.</div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {filteredLessonPlans.map((lesson) => (
+                    {paginatedLessonPlans.map((lesson) => (
                       <div 
                         key={lesson.id} 
                         onClick={() => setSelectedLessonForDetail(lesson)}
@@ -1355,6 +1537,107 @@ export default function App() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {filteredLessonPlans.length > pageSize && (
+                  <div className="mt-8 flex items-center justify-between border-t border-gray-100 pt-6">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${
+                          currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredLessonPlans.length / pageSize)))}
+                        disabled={currentPage === Math.ceil(filteredLessonPlans.length / pageSize)}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${
+                          currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        Sau
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500 font-medium">
+                          Trang <span className="font-extrabold text-gray-800">{currentPage}</span> /{' '}
+                          <span className="font-extrabold text-gray-800">
+                            {Math.ceil(filteredLessonPlans.length / pageSize)}
+                          </span>{' '}
+                          (Tổng <span className="font-extrabold text-gray-800">{filteredLessonPlans.length}</span> tài liệu)
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-xl shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-3 py-2 rounded-l-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${
+                              currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <span>◀</span>
+                          </button>
+                          
+                          {/* Render page numbers */}
+                          {(() => {
+                            const totalPages = Math.ceil(filteredLessonPlans.length / pageSize);
+                            const pageNumbers = [];
+                            for (let i = 1; i <= totalPages; i++) {
+                              if (totalPages > 7) {
+                                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                                  pageNumbers.push(i);
+                                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                                  pageNumbers.push('...');
+                                }
+                              } else {
+                                pageNumbers.push(i);
+                              }
+                            }
+                            const cleanPages = pageNumbers.filter((v, idx, arr) => v !== '...' || arr[idx - 1] !== '...');
+                            
+                            return cleanPages.map((pageNum, idx) => {
+                              if (pageNum === '...') {
+                                return (
+                                  <span key={`ellipsis-${idx}`} className="relative inline-flex items-center px-4 py-2 border border-gray-200 bg-white text-sm font-semibold text-gray-400 select-none">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={`page-${pageNum}`}
+                                  onClick={() => setCurrentPage(Number(pageNum))}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-bold transition-all ${
+                                    currentPage === pageNum
+                                      ? 'z-10 bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100'
+                                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                               );
+                            });
+                          })()}
+
+                          <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredLessonPlans.length / pageSize)))}
+                            disabled={currentPage === Math.ceil(filteredLessonPlans.length / pageSize)}
+                            className={`relative inline-flex items-center px-3 py-2 rounded-r-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${
+                              currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                          >
+                            <span>▶</span>
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
@@ -1847,278 +2130,315 @@ export default function App() {
 
       {/* Lesson Detail Modal (Xem chi tiết) */}
       {selectedLessonForDetail && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex justify-between items-start p-6 border-b border-gray-100">
+        <div className="fixed z-50 inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white w-screen h-screen flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
                <div>
-                 <h2 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">{selectedLessonForDetail.title}</h2>
-                 <div className="flex items-center gap-3 text-sm text-gray-500">
-                   <span 
-                     onClick={() => {
-                       if (selectedLessonForDetail.creator) {
-                         setSelectedCreatorForProfile(selectedLessonForDetail.creator);
-                       }
-                     }} 
-                     className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded transition-all" 
-                     title="Xem thông tin người đăng"
-                   >
-                     👤 {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}
+                 <div className="flex items-center gap-2 mb-1">
+                   <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-100/50">
+                     Chi tiết bài giảng
                    </span>
-                   <span>•</span>
-                   <span className="flex items-center gap-1">📅 {new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
+                   {selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0 && (
+                     <span className="text-xs font-semibold text-gray-400 truncate max-w-xs sm:max-w-md block" title={getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}>
+                       / {getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}
+                     </span>
+                   )}
                  </div>
+                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
                </div>
-               <button onClick={() => { setSelectedLessonForDetail(null); setShowRatingSection(false); setLessonRatings([]); setMyRating(0); setMyComment(''); }} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                  ✕
+               <button 
+                 onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }} 
+                 className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
+                 title="Đóng cửa sổ"
+               >
+                 <span className="text-xl">✕</span>
                </button>
             </div>
-            
-            <div className="p-6 overflow-y-auto flex-grow bg-gray-50/30">
-               <div className="mb-6">
-                 <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
-                 <div className="bg-white border border-gray-200 rounded-xl p-4 text-gray-600 leading-relaxed text-sm">
-                   {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
-                 </div>
-               </div>
 
-               <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <span className="block text-xs text-gray-500 font-medium mb-1">Đối tượng / Lớp</span>
-                    <span className="font-semibold text-gray-800">{selectedLessonForDetail.target_student || 'Chung'}</span>
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <span className="block text-xs text-gray-500 font-medium mb-1">Trạng thái phát hành</span>
-                    <span className={`font-semibold flex items-center gap-1 ${
-                      selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' :
-                      selectedLessonForDetail.status === 'PENDING' ? 'text-amber-600 animate-pulse' :
-                      selectedLessonForDetail.status === 'REJECTED' ? 'text-red-600' : 'text-sky-600'
-                    }`}>
-                      {selectedLessonForDetail.status === 'PUBLISHED' ? '🌐 Đã xuất bản (Public)' :
-                       selectedLessonForDetail.status === 'PENDING' ? '⏳ Chờ phê duyệt' :
-                       selectedLessonForDetail.status === 'REJECTED' ? '❌ Bị từ chối' : '🔒 Nội bộ (Local)'}
-                    </span>
-                  </div>
-                  <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <span className="block text-xs text-gray-500 font-medium mb-1">Thư mục lưu trữ</span>
-                    <span className="font-semibold text-violet-700 block truncate" title={
-                      selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0
-                        ? getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)
-                        : 'Chưa phân thư mục'
-                    }>
-                      📂 {
-                        selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0
-                          ? getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)
-                          : 'Chưa phân thư mục'
-                      }
-                    </span>
-                  </div>
-               </div>
-
-               {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).length > 0 && (
-                 <div className="mb-6">
-                   <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
-                   <div className="flex flex-wrap gap-2">
-                     {Object.entries(selectedLessonForDetail.attributes).map(([key, val]) => (
-                       <span key={key} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium border border-blue-100">
-                         {key}: {String(val)}
+            {/* Split Content */}
+            <div className="flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-50/20">
+               {/* Left Column - Lesson & Info */}
+               <div className="w-full lg:w-[60%] flex flex-col h-full border-b lg:border-b-0 lg:border-r border-gray-200/80 overflow-y-auto p-6 scrollbar-thin">
+                 {/* Creator and general info banner */}
+                 <div className="bg-white border border-gray-150 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                   <div className="flex items-center gap-3">
+                     <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shadow-blue-500/10">
+                       {(selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'A')[0].toUpperCase()}
+                     </div>
+                     <div>
+                       <span className="block text-xs text-gray-400 font-medium">Người đăng tải</span>
+                       <span 
+                         onClick={() => {
+                           if (selectedLessonForDetail.creator) {
+                             setSelectedCreatorForProfile(selectedLessonForDetail.creator);
+                           }
+                         }} 
+                         className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors" 
+                         title="Xem thông tin người đăng"
+                       >
+                         {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}
                        </span>
-                     ))}
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-4 text-sm text-gray-500">
+                     <div className="bg-slate-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                       <span>📅</span>
+                       <span className="font-semibold text-gray-700">{new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
+                     </div>
                    </div>
                  </div>
-               )}
 
-               {(selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) && (() => {
-                 const fileUrl = getLessonFileUrl(selectedLessonForDetail);
-                 const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
-                 const isPdfFile = fileUrl.toLowerCase().endsWith('.pdf');
-                 
-                 if (isPdfFile) {
-                   return (
-                     <div className="mt-6 border-t border-gray-200 pt-6">
-                       <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Xem tài liệu trực tuyến</h4>
-                       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-inner h-[600px]">
-                         <iframe 
-                           src={fileUrl} 
-                           className="w-full h-full border-0" 
-                           title="PDF Preview"
-                         />
-                       </div>
+                 {/* Description */}
+                 <div className="mb-6">
+                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
+                   <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
+                     {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
+                   </div>
+                 </div>
+
+                 {/* Key Metadata Cards */}
+                 <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                      <div className="text-2xl">🎓</div>
+                      <div>
+                        <span className="block text-[11px] text-gray-400 font-bold uppercase">Đối tượng / Lớp</span>
+                        <span className="font-bold text-gray-800 text-sm">{selectedLessonForDetail.target_student || 'Chung'}</span>
+                      </div>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                      <div className="text-2xl">🌍</div>
+                      <div>
+                        <span className="block text-[11px] text-gray-400 font-bold uppercase">Trạng thái phát hành</span>
+                        <span className={`font-extrabold text-sm flex items-center gap-1 ${
+                          selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' :
+                          selectedLessonForDetail.status === 'PENDING' ? 'text-amber-600 animate-pulse' :
+                          selectedLessonForDetail.status === 'REJECTED' ? 'text-red-600' : 'text-sky-600'
+                        }`}>
+                          {selectedLessonForDetail.status === 'PUBLISHED' ? 'Đã xuất bản (Public)' :
+                           selectedLessonForDetail.status === 'PENDING' ? 'Chờ phê duyệt' :
+                           selectedLessonForDetail.status === 'REJECTED' ? 'Bị từ chối' : 'Nội bộ (Local)'}
+                        </span>
+                      </div>
+                    </div>
+                 </div>
+
+                 {/* Additional attributes */}
+                 {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).length > 0 && (
+                   <div className="mb-6">
+                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
+                     <div className="flex flex-wrap gap-2 bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+                       {Object.entries(selectedLessonForDetail.attributes).map(([key, val]) => (
+                         <span key={key} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold border border-blue-100/50">
+                           {key}: {String(val)}
+                         </span>
+                       ))}
                      </div>
-                   );
-                 } else {
-                   const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
+                   </div>
+                 )}
+
+                 {/* Document Preview & Attachment */}
+                 {(selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) && (() => {
+                   const fileUrl = getLessonFileUrl(selectedLessonForDetail);
+                   const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
+                   const isPdfFile = fileUrl.toLowerCase().endsWith('.pdf');
                    
-                   if (isDocx) {
+                   if (isPdfFile) {
                      return (
-                       <div className="mt-6 border-t border-gray-200 pt-6">
-                         <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Xem chi tiết tài liệu Word (Offline)</h4>
-                         <DocxPreview fileUrl={fileUrl} />
+                       <div className="mt-2 border-t border-gray-100 pt-6">
+                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem tài liệu trực tuyến</h4>
+                         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm h-[600px] transition-all hover:shadow-md">
+                           <iframe 
+                             src={fileUrl} 
+                             className="w-full h-full border-0" 
+                             title="PDF Preview"
+                           />
+                         </div>
+                       </div>
+                     );
+                   } else {
+                     const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
+                     
+                     if (isDocx) {
+                       return (
+                         <div className="mt-2 border-t border-gray-100 pt-6">
+                           <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem chi tiết tài liệu Word (Offline)</h4>
+                           <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
+                             <DocxPreview fileUrl={fileUrl} />
+                           </div>
+                         </div>
+                       );
+                     }
+
+                     const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
+                     const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
+                     const fileIcon = isPptx ? '📊' : '📄';
+
+                     return (
+                       <div className="mt-2 border-t border-gray-100 pt-6">
+                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tài liệu đính kèm</h4>
+                         <div className="border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-white shadow-sm">
+                           <div className="text-6xl mb-4">{fileIcon}</div>
+                           <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
+                           <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
+                           
+                           <div className="max-w-md bg-blue-50/40 border border-blue-100 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 leading-relaxed">
+                             💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
+                           </div>
+
+                           <a 
+                             href={fileUrl} 
+                             download={fileName}
+                             target="_blank"
+                             rel="noopener noreferrer"
+                             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 hover:-translate-y-0.5 duration-150"
+                           >
+                             📥 Tải tài liệu về máy ngay
+                           </a>
+                         </div>
                        </div>
                      );
                    }
+                 })()}
+               </div>
 
-                   const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
-                   const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
-                   const fileIcon = isPptx ? '📊' : '📄';
-
-                   return (
-                     <div className="mt-6 border-t border-gray-200 pt-6">
-                       <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">Tài liệu đính kèm</h4>
-                       <div className="border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-gray-50/50">
-                         <div className="text-6xl mb-4">{fileIcon}</div>
-                         <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
-                         <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
-                         
-                         <div className="max-w-md bg-white border border-gray-200 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 shadow-sm">
-                           💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
-                         </div>
-
-                         <a 
-                           href={fileUrl} 
-                           download={fileName}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 transition-all flex items-center gap-2"
-                         >
-                           📥 Tải tài liệu về máy ngay
-                         </a>
-                       </div>
+               {/* Right Column - Ratings & Comments */}
+               <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
+                 {/* Rating Summary Card */}
+                 <div className="bg-gradient-to-br from-amber-50 to-orange-50/30 border border-amber-100 rounded-2xl p-5 mb-6 flex items-center gap-6 shadow-sm">
+                   <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
+                     <div className="text-4xl font-black text-amber-500">{ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0'}</div>
+                     <div className="flex text-amber-400 text-xs my-1.5 justify-center">
+                       {[1,2,3,4,5].map(star => (
+                         <span key={star} className="text-lg leading-none">{star <= Math.round(ratingAvg) ? '★' : '☆'}</span>
+                       ))}
                      </div>
-                   );
-                 }
-               })()}
-
-               {/* Rating & Comment Section */}
-               <div className="mt-6 border-t border-gray-200 pt-6">
-                 <div className="flex items-center justify-between mb-4">
-                   <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center gap-2">
-                     ⭐ Bình luận &amp; Đánh giá
-                     {ratingTotal > 0 && (
-                       <span className="text-xs font-normal text-gray-400 normal-case">
-                         {ratingAvg.toFixed(1)}/5 ({ratingTotal} đánh giá)
-                       </span>
-                     )}
-                   </h4>
-                   <button
-                     onClick={() => {
-                       setShowRatingSection(v => !v);
-                       if (!showRatingSection && selectedLessonForDetail) {
-                         setRatingLoading(true);
-                         axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`).then(res => {
-                           setLessonRatings(res.data.ratings);
-                           setRatingAvg(res.data.average_rating);
-                           setRatingTotal(res.data.total_ratings);
-                           if (currentUser) {
-                             const mine = res.data.ratings.find((r: any) => r.user_id === currentUser.id);
-                             if (mine) { setMyRating(mine.rating); setMyComment(mine.comment || ''); }
-                             else { setMyRating(0); setMyComment(''); }
-                           }
-                         }).finally(() => setRatingLoading(false));
-                       }
-                     }}
-                     className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
-                   >
-                     {showRatingSection ? 'Ẩn bình luận' : 'Xem bình luận'}
-                   </button>
+                     <div className="text-xs text-gray-500 font-bold">{ratingTotal} đánh giá</div>
+                   </div>
+                   <div>
+                     <h4 className="font-extrabold text-gray-900 text-base mb-1">Đánh giá chất lượng</h4>
+                     <p className="text-sm text-gray-600 leading-normal text-slate-500">
+                       {ratingTotal > 0 
+                         ? 'Đóng góp ý kiến từ đồng nghiệp giúp nâng cao chuyên môn và cải tiến giáo án.' 
+                         : 'Chưa có lượt đánh giá nào. Hãy chia sẻ nhận xét chuyên môn đầu tiên của bạn ở dưới!'}
+                     </p>
+                   </div>
                  </div>
 
-                 {showRatingSection && (
-                   <div className="space-y-4">
-                     {/* My Rating Form */}
-                     {currentUser && (
-                       <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4">
-                         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">Đánh giá của bạn</p>
-                         {/* Star selector */}
-                         <div className="flex items-center gap-1 mb-3">
-                           {[1,2,3,4,5].map(star => (
-                             <button
-                               key={star}
-                               onClick={() => setMyRating(star)}
-                               className={`text-2xl transition-transform hover:scale-110 ${star <= myRating ? 'text-amber-400' : 'text-gray-300'}`}
-                             >
-                               ★
-                             </button>
-                           ))}
-                           {myRating > 0 && (
-                             <span className="ml-2 text-sm font-semibold text-amber-600">{['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}</span>
-                           )}
-                         </div>
-                         <textarea
-                           value={myComment}
-                           onChange={e => setMyComment(e.target.value)}
-                           placeholder="Nhập nhận xét của bạn về bài giảng này..."
-                           rows={3}
-                           className="w-full text-sm border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none bg-white"
-                         />
-                         <div className="flex justify-end mt-2">
-                           <button
-                             disabled={myRating === 0 || ratingSubmitting}
-                             onClick={async () => {
-                               if (!currentUser || myRating === 0) return;
-                               setRatingSubmitting(true);
-                               try {
-                                 const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
-                                   user_id: currentUser.id, rating: myRating, comment: myComment
-                                 });
-                                 setRatingAvg(res.data.average_rating);
-                                 setRatingTotal(res.data.total_ratings);
-                                 // Refresh list
-                                 const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
-                                 setLessonRatings(res2.data.ratings);
-                               } catch { alert('Lỗi khi gửi đánh giá.'); }
-                               finally { setRatingSubmitting(false); }
-                             }}
-                             className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
-                               myRating === 0 || ratingSubmitting
-                                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                 : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-100'
-                             }`}
-                           >
-                             {ratingSubmitting ? '⟳ Đang gửi...' : '⭐ Gửi đánh giá'}
-                           </button>
-                         </div>
-                       </div>
-                     )}
+                 {/* My Rating Form */}
+                 {currentUser && (
+                   <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-6">
+                     <h4 className="text-sm font-extrabold text-gray-900 mb-3 flex items-center gap-1.5">
+                       ✍️ {myRating > 0 ? 'Cập nhật đánh giá của bạn' : 'Gửi đánh giá & nhận xét'}
+                     </h4>
+                     
+                     <div className="flex items-center gap-2 mb-3.5">
+                       {[1,2,3,4,5].map(star => (
+                         <button
+                           key={star}
+                           onClick={() => setMyRating(star)}
+                           type="button"
+                           className={`text-3xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${
+                             star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
+                           }`}
+                         >
+                           ★
+                         </button>
+                       ))}
+                       {myRating > 0 && (
+                         <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
+                           {['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}
+                         </span>
+                       )}
+                     </div>
 
-                     {/* Comments list */}
-                     {ratingLoading ? (
-                       <div className="text-center py-6 text-gray-400 text-sm">Đang tải đánh giá...</div>
-                     ) : lessonRatings.length === 0 ? (
-                       <div className="text-center py-6 text-gray-400 text-sm italic">Chưa có đánh giá nào. Hãy là người đầu tiên!</div>
-                     ) : (
-                       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                         {lessonRatings.map((r: any) => (
-                           <div key={r.id} className={`bg-white border rounded-xl p-4 ${currentUser?.id === r.user_id ? 'border-blue-200 bg-blue-50/30' : 'border-gray-100'}`}>
-                             <div className="flex items-start justify-between mb-2">
-                               <div className="flex items-center gap-2">
-                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                                   {(r.user_full_name || r.user_username || 'A')[0].toUpperCase()}
-                                 </div>
-                                 <div>
-                                   <p className="text-sm font-semibold text-gray-900">
-                                     {r.user_full_name || r.user_username}
-                                     {currentUser?.id === r.user_id && <span className="ml-1 text-xs text-blue-600 font-normal">(bạn)</span>}
-                                   </p>
-                                   <p className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString('vi-VN')}</p>
-                                 </div>
-                               </div>
-                               <div className="flex">
-                                 {[1,2,3,4,5].map(s => (
-                                   <span key={s} className={`text-base ${s <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
-                                 ))}
-                               </div>
-                             </div>
-                             {r.comment && <p className="text-sm text-gray-700 leading-relaxed ml-10">{r.comment}</p>}
-                           </div>
-                         ))}
-                       </div>
-                     )}
+                     <textarea
+                       value={myComment}
+                       onChange={e => setMyComment(e.target.value)}
+                       placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng (phương pháp giảng dạy, nội dung, kiến thức học tập, cấu trúc bài giảng...)"
+                       rows={3}
+                       className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
+                     />
+                     <div className="flex justify-end">
+                       <button
+                         disabled={myRating === 0 || ratingSubmitting}
+                         onClick={async () => {
+                           if (!currentUser || myRating === 0) return;
+                           setRatingSubmitting(true);
+                           try {
+                             const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
+                               user_id: currentUser.id, rating: myRating, comment: myComment
+                             });
+                             setRatingAvg(res.data.average_rating);
+                             setRatingTotal(res.data.total_ratings);
+                             // Refresh list
+                             const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
+                             setLessonRatings(res2.data.ratings);
+                           } catch { alert('Lỗi khi gửi đánh giá.'); }
+                             finally { setRatingSubmitting(false); }
+                         }}
+                         className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                           myRating === 0 || ratingSubmitting
+                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                             : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 hover:-translate-y-0.5'
+                         }`}
+                       >
+                         {ratingSubmitting ? '⟳ Đang gửi...' : '⭐ Gửi đánh giá'}
+                       </button>
+                     </div>
                    </div>
                  )}
+
+                 {/* Comments list */}
+                 <div className="flex flex-col flex-grow">
+                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tất cả nhận xét</h4>
+                   {ratingLoading ? (
+                     <div className="flex flex-col items-center justify-center py-12 text-gray-400 text-sm gap-2 bg-white border border-gray-150 rounded-2xl shadow-sm">
+                       <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                       <span>Đang tải nhận xét...</span>
+                     </div>
+                   ) : lessonRatings.length === 0 ? (
+                     <div className="text-center py-12 text-gray-400 text-sm italic bg-white border border-gray-155 rounded-2xl shadow-sm">
+                       Chưa có nhận xét nào. Hãy đóng góp ý kiến đầu tiên của bạn!
+                     </div>
+                   ) : (
+                     <div className="space-y-4 pr-1 flex-grow">
+                       {lessonRatings.map((r: any) => (
+                         <div key={r.id} className={`bg-white border rounded-2xl p-4 shadow-sm transition-all hover:shadow-md duration-200 ${currentUser?.id === r.user_id ? 'border-blue-200 bg-blue-50/10' : 'border-gray-100'}`}>
+                           <div className="flex items-start justify-between mb-2">
+                             <div className="flex items-center gap-3">
+                               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-extrabold shadow-sm flex-shrink-0">
+                                 {(r.user_full_name || r.user_username || 'A')[0].toUpperCase()}
+                               </div>
+                               <div>
+                                 <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                                   {r.user_full_name || r.user_username}
+                                   {currentUser?.id === r.user_id && <span className="text-[10px] text-blue-600 font-bold bg-blue-100 px-1.5 py-0.5 rounded-md uppercase">bạn</span>}
+                                 </p>
+                                 <p className="text-[10px] text-gray-400">📅 {new Date(r.created_at).toLocaleDateString('vi-VN')} {new Date(r.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</p>
+                               </div>
+                             </div>
+                             <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                               {[1,2,3,4,5].map(s => (
+                                 <span key={s} className={`text-sm ${s <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                               ))}
+                             </div>
+                           </div>
+                           {r.comment ? (
+                             <p className="text-sm text-gray-700 leading-relaxed ml-12">{r.comment}</p>
+                           ) : (
+                             <p className="text-sm text-gray-400 italic leading-relaxed ml-12">Đã xếp hạng {r.rating} sao và không để lại nhận xét.</p>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
                </div>
             </div>
 
-            <div className="p-6 border-t border-gray-100 bg-white flex items-center justify-end gap-3">
+            {/* Bottom Bar / Footer */}
+            <div className="p-5 border-t border-gray-100 bg-white flex items-center justify-end gap-3 flex-shrink-0">
                {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
                  <button 
                    onClick={() => {
@@ -2126,13 +2446,16 @@ export default function App() {
                      setSelectedLessonForDetail(null);
                      handleDeleteLesson(id);
                    }} 
-                   className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-colors mr-auto"
+                   className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-all flex items-center gap-1.5 mr-auto hover:shadow-sm"
                  >
                    🗑️ Xóa tài liệu
                  </button>
                )}
                
-               <button onClick={() => setSelectedLessonForDetail(null)} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
+               <button 
+                 onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }} 
+                 className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all hover:shadow-sm"
+               >
                  Đóng
                </button>
 
@@ -2144,9 +2467,9 @@ export default function App() {
                        setSelectedLessonForDetail(null);
                        openEditModal(l);
                      }} 
-                     className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-colors"
+                     className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-all hover:shadow-sm"
                    >
-                     ✏️ Chỉnh sửa
+                     ✏️ Chỉnh sửa thông tin
                    </button>
                    {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
                      <button 
@@ -2155,7 +2478,7 @@ export default function App() {
                          setSelectedLessonForDetail(null);
                          openProposeModal(l);
                        }} 
-                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-90 text-white font-bold transition-all"
+                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-95 text-white font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
                      >
                        🌐 Đề xuất công khai
                      </button>
@@ -2169,12 +2492,12 @@ export default function App() {
                     download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                    className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-all hover:shadow-md flex items-center justify-center gap-2"
                   >
                     ↓ Tải tài liệu về máy
                   </a>
                 ) : (
-                  <button disabled className="px-5 py-2.5 rounded-xl bg-gray-200 text-gray-500 font-bold cursor-not-allowed">
+                  <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-455 font-bold cursor-not-allowed border border-gray-200">
                     Không có file đính kèm
                   </button>
                 )}
@@ -2635,6 +2958,170 @@ export default function App() {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Profile Settings Modal */}
+      {showProfileModal && currentUser && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto backdrop-blur-md transition-all">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100/80 flex flex-col my-8 transform transition-transform scale-100">
+            {/* Header with gradient decoration */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 relative">
+              <div className="absolute right-4 top-4">
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="text-white/80 hover:text-white transition-colors text-2xl font-bold p-1 leading-none rounded-full hover:bg-white/10"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="flex items-center gap-4">
+                {/* Visual Avatar display */}
+                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center text-2xl font-black text-white shadow-md">
+                  {profileFullName ? profileFullName.charAt(0).toUpperCase() : currentUser.username.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">Hồ sơ cá nhân</h3>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs text-blue-100 font-semibold">@{currentUser.username}</span>
+                    <span className="text-[10px] px-2 py-0.5 bg-white/15 rounded-full font-bold uppercase tracking-wider text-white">
+                      {currentUser.role === 'ADMIN' ? 'Quản trị viên' : currentUser.role === 'TEACHER' ? 'Giáo viên' : 'Người dùng'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+              {profileSuccess && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold rounded-2xl flex items-center gap-2 shadow-sm animate-fade-in">
+                  <span>✓</span> {profileSuccess}
+                </div>
+              )}
+
+              {profileError && (
+                <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold rounded-2xl flex items-center gap-2 shadow-sm">
+                  <span>⚠</span> {profileError}
+                </div>
+              )}
+
+              {/* Personal Info Card Section */}
+              <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-4">
+                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <span>👤</span> Thông tin cơ bản
+                </h4>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Họ và tên hiển thị</label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      👤
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={profileFullName}
+                      onChange={e => setProfileFullName(e.target.value)}
+                      placeholder="Nhập họ và tên đầy đủ..."
+                      className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Change Card Section */}
+              <div className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl space-y-4">
+                <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  <span>🔑</span> Đổi mật khẩu bảo mật (Không bắt buộc)
+                </h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Mật khẩu mới</label>
+                    <div className="relative rounded-xl shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        🔒
+                      </div>
+                      <input
+                        type="password"
+                        value={profileNewPassword}
+                        onChange={e => setProfileNewPassword(e.target.value)}
+                        placeholder="Nhập mật khẩu mới (nếu muốn đổi)..."
+                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Xác nhận mật khẩu mới</label>
+                    <div className="relative rounded-xl shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        🔄
+                      </div>
+                      <input
+                        type="password"
+                        value={profileConfirmNewPassword}
+                        onChange={e => setProfileConfirmNewPassword(e.target.value)}
+                        placeholder="Xác nhận lại mật khẩu mới..."
+                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {profileNewPassword && (
+                  <div className="border-t border-slate-200/60 pt-3">
+                    <label className="block text-xs font-bold text-rose-600 mb-1.5 flex items-center gap-1">
+                      <span>⚠</span> Xác thực mật khẩu cũ để lưu thay đổi
+                    </label>
+                    <div className="relative rounded-xl shadow-sm animate-pulse">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-rose-400">
+                        🔑
+                      </div>
+                      <input
+                        type="password"
+                        required={!!profileNewPassword}
+                        value={profileCurrentPassword}
+                        onChange={e => setProfileCurrentPassword(e.target.value)}
+                        placeholder="Nhập mật khẩu hiện tại..."
+                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-rose-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all font-medium text-slate-700 bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer inside form */}
+              <div className="flex gap-3 justify-end border-t border-slate-100 pt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-semibold text-slate-600 shadow-sm"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={profileSaving}
+                  className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-100 ${
+                    profileSaving ? 'opacity-70 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {profileSaving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Đang lưu...
+                    </>
+                  ) : (
+                    'Lưu thay đổi'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

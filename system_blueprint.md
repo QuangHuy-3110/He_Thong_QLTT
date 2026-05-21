@@ -269,7 +269,15 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Output**: `None`
 
 *   **`App`**
-    *   **Nhiệm vụ chính**: Thành phần khởi chạy và quản lý chính: nắm giữ toàn bộ state quan trọng, thực hiện gọi API tương tác với Backend, và kết xuất toàn bộ bố cục trang Web QLTT. Tự động ẩn sidebar bộ lọc/thư mục công khai khi không ở tab thư viện chung, sử dụng giao diện chọn tab dạng thanh trượt/pill (Segmented Pill Container) cực kỳ hiện đại. Quản lý lưu trữ trạng thái đăng nhập `currentUser` qua `sessionStorage` để không bị mất đăng nhập khi reload trang, đồng thời tự động đăng xuất khi tắt trình duyệt/tab. Tích hợp tính năng hiển thị Hộp thoại hồ sơ chi tiết người đăng (`selectedCreatorForProfile`) khi bấm vào tên của họ ở card bài giảng hoặc tiêu đề xem chi tiết.
+    *   **Nhiệm vụ chính**: Thành phần khởi chạy và quản lý chính: nắm giữ toàn bộ state quan trọng, thực hiện gọi API tương tác với Backend, và kết xuất toàn bộ bố cục trang Web QLTT.
+    *   **Giao diện Chi tiết Bài giảng (Lesson Detail Modal - Refactored):** Được nâng cấp thành giao diện toàn màn hình dạng chia đôi (`split-pane` 60% trái / 40% phải). 
+        *   Cột Trái (60%): Chứa thông tin tổng quan, thông tin người đăng, tóm tắt bài học, thuộc tính bổ sung (`attributes`), và trình đọc tài liệu (PDF inline hoặc Word preview).
+        *   Cột Phải (40%): Tích hợp trực tiếp hệ thống phản hồi, đánh giá chất lượng (form đánh giá sao và nhập bình luận chi tiết), cùng danh sách các đánh giá thời gian thực từ đồng nghiệp.
+        *   **Tích hợp State & Logic Tự động:** Tự động kích hoạt hiệu ứng tải dữ liệu bình luận (`useEffect` kích hoạt khi `selectedLessonForDetail` thay đổi) để hiển thị ngay lập tức danh sách nhận xét mà không yêu cầu người dùng nhấn nút thủ công.
+    *   **Tính năng bổ sung khác:** 
+        *   **Cơ chế Phân trang & Sắp xếp tài liệu:** Sử dụng các State `sortBy` (định nghĩa tiêu chí sắp xếp), `currentPage` (trang hiện tại) và `pageSize` (kích thước trang từ 10 đến 20). Bộ đôi `useMemo` (`sortedLessonPlans`, `paginatedLessonPlans`) giúp thực hiện sắp xếp nhanh theo 6 tiêu chí (Mới nhất, Cũ nhất, Điểm sao cao/thấp, Lượt đánh giá nhiều/ít) và chia nhỏ danh sách hiển thị mượt mà. Trang tự động reset về trang 1 khi thay đổi bộ lọc hoặc kích thước trang.
+        *   **Hộp thoại chỉnh sửa thông tin cá nhân (UserProfile Modal):** Sử dụng các state kiểm soát hiển thị `showProfileModal` và các trường dữ liệu `profileFullName`, `profileCurrentPassword`, `profileNewPassword`, `profileConfirmNewPassword` kết hợp hàm `handleSaveProfile` gọi tới API `/api/users/me/profile/` để cập nhật đồng thời state `currentUser` và `sessionStorage` đồng bộ.
+        *   Tự động ẩn sidebar bộ lọc/thư mục công khai khi không ở tab thư viện chung, sử dụng giao diện chọn tab dạng thanh trượt/pill (Segmented Pill Container) cực kỳ hiện đại. Quản lý lưu trữ trạng thái đăng nhập `currentUser` qua `sessionStorage` để không bị mất đăng nhập khi reload trang, đồng thời tự động đăng xuất khi tắt trình duyệt/tab. Tích hợp tính năng hiển thị Hộp thoại hồ sơ chi tiết người đăng (`selectedCreatorForProfile`) khi bấm vào tên của họ ở card bài giảng hoặc tiêu đề xem chi tiết.
     *   **Input**: Không có
     *   **Output**: `JSX.Element` (Giao diện chính hệ thống)
 

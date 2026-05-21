@@ -27,6 +27,10 @@ graph TD
     *   `axios` cho việc gọi API tới Backend.
     *   `docx-preview` & `@cyntler/react-doc-viewer` phục vụ việc hiển thị và đọc trực tiếp file giáo án Word/PDF ngay trên web.
     *   `recharts` phục vụ thống kê dữ liệu.
+*   **Thiết kế Giao diện đặc trưng:**
+    *   **Bố cục Split-Pane Full-Screen (Toàn màn hình chia đôi):** Giao diện chi tiết giáo án (`Lesson Detail`) được thiết kế toàn màn hình dạng chia đôi tỷ lệ 60/40. Cột trái (60%) hiển thị tài liệu đính kèm trực tuyến (PDF Reader / DocxPreview / PowerPoint instructions) và Metadata giáo án. Cột phải (40%) tích hợp khu vực nhận xét, form đánh giá chất lượng (1-5 sao) và bình luận thời gian thực giúp giáo viên phản hồi thuận tiện nhất mà không làm gián đoạn việc xem giáo án.
+    *   **Bộ lọc, Phân trang & Sắp xếp Cao cấp (Advanced Filter, Pagination & Sorting):** Hệ thống tích hợp công cụ phân trang (10, 15, hoặc 20 tài liệu/trang) và bộ lọc sắp xếp đa chỉ tiêu (Mới nhất/Cũ nhất, Đánh giá trung bình cao/thấp, Tổng số lượt đánh giá nhiều/ít) thông qua cấu trúc `useMemo` phản hồi tức thì, bảo toàn tốc độ tìm kiếm và đếm số lượng tài liệu thư mục mà không gây trễ truy cập máy chủ.
+    *   **Giao diện Thay đổi Thông tin Cá nhân Chuyên nghiệp (UserProfile Modal):** Thiết kế hộp thoại hồ sơ cá nhân hiện đại hỗ trợ thay đổi họ tên và đổi mật khẩu bảo mật (yêu cầu xác thực mật khẩu hiện tại khi thay đổi). Giao diện sử dụng avatar biểu trưng, gradient màu sắc hài hòa và các biểu tượng trực quan.
 
 ### 2.2. Phía Backend (`backend/`)
 *   **Công nghệ cốt lõi:** Django 6.0.5 và Django REST Framework (DRF) 3.17.1.
@@ -37,6 +41,7 @@ graph TD
     *   Hệ thống Thư viện cá nhân (Personal Library) quản lý cây thư mục riêng tư và tài liệu cá nhân offline (`status = LOCAL`).
     *   Hệ thống Đề xuất công khai (Propose Public) cho phép người dùng gửi bài giảng cá nhân vào thư mục dùng chung để chờ kiểm duyệt và xuất bản.
     *   Hệ thống Vector hóa tài liệu (`DocumentChunk`) phục vụ tìm kiếm ngữ nghĩa và AI Chat (RAG).
+    *   API Cập nhật Hồ sơ cá nhân (`UserProfileUpdateAPIView` tại `/api/users/me/profile/`) thực hiện thay đổi họ tên hiển thị và đổi mật khẩu mã hóa an toàn sau khi đã xác thực mật khẩu cũ.
 
 ### 2.3. Cơ sở dữ liệu (`Database`)
 *   **Hệ quản trị:** PostgreSQL 16 tích hợp tiện ích mở rộng **pgvector**.

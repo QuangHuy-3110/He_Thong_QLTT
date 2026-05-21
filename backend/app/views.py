@@ -535,4 +535,38 @@ class LessonPlanRatingAPIView(APIView):
             'total_ratings': lesson.total_ratings,
             'created': created,
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+class UserProfileUpdateAPIView(APIView):
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        full_name = request.data.get('full_name')
+        new_password = request.data.get('new_password')
+        current_password = request.data.get('current_password')
+
+        if not user_id:
+            return Response({'error': 'Vui lòng cung cấp user_id.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Nếu muốn đổi mật khẩu, bắt buộc kiểm tra mật khẩu cũ
+        if new_password:
+            if not current_password:
+                return Response({'error': 'Vui lòng cung cấp mật khẩu cũ để thay đổi mật khẩu mới.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.check_password(current_password):
+                return Response({'error': 'Mật khẩu cũ không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(new_password)
+
+        if full_name is not None:
+            user.full_name = full_name
+
+        user.save()
+        serializer = UserSerializer(user)
+        return Response({
+            'message': 'Cập nhật thông tin cá nhân thành công!',
+            'user': serializer.data
+        }, status=status.HTTP_200_OK)
+
 
