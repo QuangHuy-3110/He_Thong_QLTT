@@ -496,6 +496,137 @@ const PermissionDirTreeNode = ({
   );
 };
 
+const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
+  if (!markdown) {
+    return <div className="text-gray-400 italic p-6 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">Không có nội dung Markdown được trích xuất cho giáo án này.</div>;
+  }
+
+  const lines = markdown.split('\n');
+  const renderedElements: React.ReactNode[] = [];
+  let inList = false;
+  let listItems: string[] = [];
+  let inTable = false;
+  let tableHeaders: string[] = [];
+  let tableRows: string[][] = [];
+
+  const flushList = (key: string) => {
+    if (listItems.length > 0) {
+      renderedElements.push(
+        <ul key={key} className="list-disc pl-6 my-4 space-y-2 text-gray-700 text-sm">
+          {listItems.map((item, idx) => (
+            <li key={idx}>{item}</li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+      inList = false;
+    }
+  };
+
+  const flushTable = (key: string) => {
+    if (tableHeaders.length > 0 || tableRows.length > 0) {
+      renderedElements.push(
+        <div key={key} className="overflow-x-auto my-5 border border-gray-200 rounded-xl shadow-sm bg-white">
+          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm text-left">
+            <thead className="bg-slate-50 font-semibold text-slate-700 border-b border-gray-200">
+              <tr>
+                {tableHeaders.map((h, idx) => (
+                  <th key={idx} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-150 text-gray-600 bg-white">
+              {tableRows.map((row, rowIdx) => (
+                <tr key={rowIdx} className="hover:bg-slate-50/50 transition-colors">
+                  {row.map((cell, cellIdx) => (
+                    <td key={cellIdx} className="px-4 py-3 max-w-xs break-words" title={cell}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableHeaders = [];
+      tableRows = [];
+      inTable = false;
+    }
+  };
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    const key = `line-${index}`;
+
+    if (trimmed.startsWith('|')) {
+      flushList(key + '-pre-tbl');
+      inTable = true;
+      const cells = trimmed
+        .split('|')
+        .map(c => c.trim())
+        .filter((c, i, arr) => i > 0 && i < arr.length - 1);
+      
+      if (trimmed.includes('---')) {
+        return;
+      }
+      
+      if (tableHeaders.length === 0) {
+        tableHeaders = cells;
+      } else {
+        tableRows.push(cells);
+      }
+      return;
+    } else {
+      flushTable(key + '-pre-non-tbl');
+    }
+
+    if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
+      inList = true;
+      const cleanText = trimmed.replace(/^[-*•]\s*/, '');
+      listItems.push(cleanText);
+      return;
+    } else {
+      flushList(key + '-pre-non-list');
+    }
+
+    if (trimmed.startsWith('# ')) {
+      renderedElements.push(<h1 key={key} className="text-xl sm:text-2xl font-bold text-gray-900 mt-6 mb-4 border-b pb-2 border-slate-100">{trimmed.slice(2)}</h1>);
+    } else if (trimmed.startsWith('## ')) {
+      renderedElements.push(<h2 key={key} className="text-lg font-bold text-slate-800 mt-5 mb-3">{trimmed.slice(3)}</h2>);
+    } else if (trimmed.startsWith('### ')) {
+      renderedElements.push(<h3 key={key} className="text-sm sm:text-base font-bold text-blue-600 mt-4 mb-2.5">{trimmed.slice(4)}</h3>);
+    } else if (trimmed === '---') {
+      renderedElements.push(<hr key={key} className="my-6 border-slate-200" />);
+    } else if (trimmed) {
+      let text = trimmed;
+      const parts = text.split('**');
+      if (parts.length > 1) {
+        const lineContent: React.ReactNode[] = [];
+        parts.forEach((part, pIdx) => {
+          if (pIdx % 2 === 1) {
+            lineContent.push(<strong key={pIdx} className="font-semibold text-gray-900">{part}</strong>);
+          } else {
+            lineContent.push(part);
+          }
+        });
+        renderedElements.push(<p key={key} className="text-sm text-gray-650 leading-relaxed my-2.5">{lineContent}</p>);
+      } else {
+        renderedElements.push(<p key={key} className="text-sm text-gray-650 leading-relaxed my-2.5">{trimmed}</p>);
+      }
+    }
+  });
+
+  flushList('final-list');
+  flushTable('final-table');
+
+  return (
+    <div className="bg-slate-50/50 rounded-2xl border border-gray-150 p-6 leading-relaxed max-w-none text-slate-800 shadow-inner">
+      <div className="bg-white rounded-xl border border-gray-200/80 p-6 shadow-sm">
+        {renderedElements}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([]);
   const [directories, setDirectories] = useState<Directory[]>([]);
@@ -638,6 +769,8 @@ export default function App() {
   const [showProposeModal, setShowProposeModal] = useState<boolean>(false);
   const [lessonToPropose, setLessonToPropose] = useState<LessonPlan | null>(null);
   const [targetPublicDirId, setTargetPublicDirId] = useState<string>('');
+  const [proposeError, setProposeError] = useState<string | null>(null);
+  const [proposeDuplicateId, setProposeDuplicateId] = useState<number | null>(null);
   
   const [selectedTargetStudents, setSelectedTargetStudents] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -656,6 +789,7 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
+  const [previewMode, setPreviewMode] = useState<'docx' | 'markdown'>('docx');
   const [selectedCreatorForProfile, setSelectedCreatorForProfile] = useState<User | null>(null);
 
   // Profile Settings States
@@ -796,6 +930,7 @@ export default function App() {
 
   useEffect(() => {
     if (selectedLessonForDetail) {
+      setPreviewMode('docx');
       setRatingLoading(true);
       axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
         .then(res => {
@@ -1048,12 +1183,32 @@ export default function App() {
   const openProposeModal = (lesson: LessonPlan) => {
     setLessonToPropose(lesson);
     setTargetPublicDirId('');
+    setProposeError(null);
+    setProposeDuplicateId(null);
     setShowProposeModal(true);
+
+    if (currentUser) {
+      axios.post(`/api/lesson-plans/${lesson.id}/check-duplicate/`, {
+        user_id: currentUser.id,
+        status: 'PENDING'
+      })
+      .then(res => {
+        if (res.data.is_duplicate) {
+          setProposeError(res.data.error);
+          setProposeDuplicateId(res.data.duplicate_id);
+        }
+      })
+      .catch(err => {
+        console.error("Lỗi kiểm tra trùng lặp tự động:", err);
+      });
+    }
   };
 
   const handleProposePublic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lessonToPropose || !targetPublicDirId || !currentUser) return;
+    setProposeError(null);
+    setProposeDuplicateId(null);
     try {
       const res = await axios.post(`/api/lesson-plans/${lessonToPropose.id}/propose/`, {
         user_id: currentUser.id,
@@ -1065,7 +1220,14 @@ export default function App() {
       setTargetPublicDirId('');
       fetchLessonPlans(searchQuery);
     } catch (err: any) {
-      alert('Lỗi gửi đề xuất: ' + (err.response?.data?.error || err.message));
+      if (err.response?.data?.error) {
+        setProposeError(err.response.data.error);
+        if (err.response.data.duplicate_id) {
+          setProposeDuplicateId(err.response.data.duplicate_id);
+        }
+      } else {
+        setProposeError('Lỗi gửi đề xuất: ' + err.message);
+      }
     }
   };
 
@@ -1206,6 +1368,23 @@ export default function App() {
         onRefreshDirs={fetchDirectories}
         managedDirectoryIds={currentUserManagedDirIds}
         uploadMode={uploadMode}
+        onViewDuplicate={(lessonId) => {
+          const existing = lessonPlans.find(l => l.id === lessonId);
+          if (existing) {
+            setCurrentView('home');
+            setSelectedLessonForDetail(existing);
+          } else {
+            axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
+              .then(res => {
+                setCurrentView('home');
+                setSelectedLessonForDetail(res.data);
+              })
+              .catch(err => {
+                console.error("Lỗi khi tải tài liệu trùng lặp:", err);
+                alert("Không thể tải thông tin chi tiết của tài liệu trùng lặp.");
+              });
+          }
+        }}
       />
     );
   }
@@ -2188,42 +2367,99 @@ export default function App() {
             <p className="text-sm text-gray-500 mb-4">
               Bạn đang đề xuất công khai tài liệu <strong>"{lessonToPropose.title}"</strong> lên thư viện chung của cộng đồng.
             </p>
-            <form onSubmit={handleProposePublic} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Chọn thư mục công khai muốn đưa tài liệu vào:
-                </label>
-                <select 
-                  required
-                  value={targetPublicDirId} 
-                  onChange={e => setTargetPublicDirId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm font-mono focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Chọn thư mục công khai --</option>
-                  {getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.visualPrefix}{d.name}
-                    </option>
-                  ))}
-                </select>
+
+            {proposeError && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex flex-col gap-3 shadow-sm">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-red-500 mt-0.5 text-base">⚠️</span>
+                  <div className="text-xs text-red-700 font-medium leading-relaxed">
+                    {proposeError}
+                  </div>
+                </div>
+                {proposeDuplicateId && (
+                  <div className="flex gap-2 justify-end mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProposeModal(false);
+                        const lessonId = proposeDuplicateId;
+                        setLessonToPropose(null);
+                        setProposeError(null);
+                        setProposeDuplicateId(null);
+
+                        const existing = lessonPlans.find(l => l.id === lessonId);
+                        if (existing) {
+                          setCurrentView('home');
+                          setSelectedLessonForDetail(existing);
+                        } else {
+                          axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
+                            .then(res => {
+                              setCurrentView('home');
+                              setSelectedLessonForDetail(res.data);
+                            })
+                            .catch(err => {
+                              console.error("Lỗi khi tải tài liệu trùng lặp:", err);
+                              alert("Không thể tải thông tin chi tiết của tài liệu trùng lặp.");
+                            });
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1"
+                    >
+                      🔍 Xem tài liệu đã có
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-gray-100">
+            )}
+
+            {!proposeDuplicateId ? (
+              <form onSubmit={handleProposePublic} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Chọn thư mục công khai muốn đưa tài liệu vào:
+                  </label>
+                  <select 
+                    required
+                    value={targetPublicDirId} 
+                    onChange={e => setTargetPublicDirId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm font-mono focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Chọn thư mục công khai --</option>
+                    {getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.visualPrefix}{d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-gray-100">
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowProposeModal(false); setLessonToPropose(null); }} 
+                    className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700"
+                  >
+                    Hủy
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={!targetPublicDirId}
+                    className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    Gửi đề xuất
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
                 <button 
                   type="button" 
-                  onClick={() => { setShowProposeModal(false); setLessonToPropose(null); }} 
-                  className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700"
+                  onClick={() => { setShowProposeModal(false); setLessonToPropose(null); setProposeError(null); setProposeDuplicateId(null); }} 
+                  className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-750 rounded-lg text-sm font-bold shadow-sm transition-colors"
                 >
-                  Hủy
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={!targetPublicDirId}
-                  className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-                >
-                  Gửi đề xuất
+                  Đóng cửa sổ
                 </button>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}
@@ -2334,7 +2570,11 @@ export default function App() {
             {/* Split Content */}
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-50/20">
                {/* Left Column - Lesson & Info */}
-               <div className="w-full lg:w-[60%] flex flex-col h-full border-b lg:border-b-0 lg:border-r border-gray-200/80 overflow-y-auto p-6 scrollbar-thin">
+               <div className={`w-full flex flex-col h-full overflow-y-auto p-6 scrollbar-thin ${
+                 selectedLessonForDetail.status === 'LOCAL'
+                   ? 'w-full'
+                   : 'lg:w-[60%] border-b lg:border-b-0 lg:border-r border-gray-200/80'
+               }`}>
                  {/* Creator and general info banner */}
                  <div className="bg-white border border-gray-150 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                    <div className="flex items-center gap-3">
@@ -2432,18 +2672,47 @@ export default function App() {
                        </div>
                      );
                    } else {
-                     const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');
-                     
-                     if (isDocx) {
-                       return (
-                         <div className="mt-2 border-t border-gray-100 pt-6">
-                           <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem chi tiết tài liệu Word (Offline)</h4>
-                           <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
-                             <DocxPreview fileUrl={fileUrl} />
-                           </div>
-                         </div>
-                       );
-                     }
+                     const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');                      if (isDocx) {
+                        return (
+                          <div className="mt-2 border-t border-gray-100 pt-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Xem chi tiết tài liệu</h4>
+                              <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewMode('docx')}
+                                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    previewMode === 'docx'
+                                      ? 'bg-white text-blue-600 shadow-sm'
+                                      : 'text-gray-500 hover:text-gray-900'
+                                  }`}
+                                >
+                                  📝 Bản Word gốc (Offline)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewMode('markdown')}
+                                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    previewMode === 'markdown'
+                                      ? 'bg-white text-blue-600 shadow-sm'
+                                      : 'text-gray-500 hover:text-gray-900'
+                                  }`}
+                                >
+                                  ⚡ Bản trích xuất Markdown
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {previewMode === 'docx' ? (
+                              <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
+                                <DocxPreview fileUrl={fileUrl} />
+                              </div>
+                            ) : (
+                              <MarkdownViewer markdown={selectedLessonForDetail.content_preview} />
+                            )}
+                          </div>
+                        );
+                      }
 
                      const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
                      const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
@@ -2478,7 +2747,8 @@ export default function App() {
                </div>
 
                {/* Right Column - Ratings & Comments */}
-               <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
+               {selectedLessonForDetail.status !== 'LOCAL' && (
+                 <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
                  {/* Rating Summary Card */}
                  <div className="bg-gradient-to-br from-amber-50 to-orange-50/30 border border-amber-100 rounded-2xl p-5 mb-6 flex items-center gap-6 shadow-sm">
                    <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
@@ -2611,6 +2881,7 @@ export default function App() {
                    )}
                  </div>
                </div>
+               )}
             </div>
 
             {/* Bottom Bar / Footer */}

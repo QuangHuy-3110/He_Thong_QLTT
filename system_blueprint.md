@@ -217,6 +217,12 @@ Chứa các định nghĩa cấu trúc dữ liệu cho Database (PostgreSQL + pg
     *   **Output**: `Response` (danh sách đánh giá hoặc đánh giá vừa tạo + thống kê mới nhất)
     *   **URL**: `GET/POST /api/lesson-plans/<pk>/ratings/`
 
+*   **`LessonPlanParseDocxAPIView`** *(mới - 2026-05-25)*
+    *   **Nhiệm vụ chính**: Phân tích tệp giáo án `.docx` được tải lên, bóc tách cấu trúc để trích xuất metadata và tự động điền form.
+    *   **Input**: POST body: `file` hoặc `file_base64`
+    *   **Output**: `Response` chứa JSON các trường trích xuất (title, description, grade, subject, duration, target_students, lesson_type, knowledge_tags, activities)
+    *   **URL**: `POST /api/lesson-plans/parse-docx/`
+
 ---
 
 ### 3.2. Phía Frontend (`protoc/src/`)

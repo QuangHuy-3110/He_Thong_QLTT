@@ -36,3 +36,12 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# ==========================================
+# Documents & Word temporary files
+# ==========================================
+*.docx
+*.DOCX
+~$*.docx
+~$*.DOCX
+

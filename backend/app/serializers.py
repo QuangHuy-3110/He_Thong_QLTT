@@ -18,6 +18,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
     directory_names = serializers.SerializerMethodField()
     file_path = serializers.SerializerMethodField()
     latest_feedback = serializers.SerializerMethodField()
+    content_preview = serializers.SerializerMethodField()
 
     def get_directory_ids(self, obj):
         return list(obj.directories.values_list('id', flat=True))
@@ -41,9 +42,28 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         req = ApprovalRequest.objects.filter(lesson_plan=obj).order_by('-created_at').first()
         return req.feedback if req else None
 
+    def get_content_preview(self, obj):
+        if obj.content_preview:
+            return obj.content_preview
+        # Fallback for existing or seeded documents: parse on-the-fly and save back
+        if obj.file_path and obj.file_path.name.endswith('.docx'):
+            import os
+            from .docx_parser import convert_docx_to_markdown
+            try:
+                file_path = obj.file_path.path
+                if os.path.exists(file_path):
+                    markdown = convert_docx_to_markdown(file_path)
+                    if markdown:
+                        obj.content_preview = markdown
+                        obj.save(update_fields=['content_preview'])
+                        return markdown
+            except Exception as e:
+                print(f"Error parsing fallback docx: {e}")
+        return ""
+
     class Meta:
         model = LessonPlan
-        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings']
+        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings', 'content_preview']
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title')

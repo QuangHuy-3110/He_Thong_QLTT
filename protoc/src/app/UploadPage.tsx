@@ -24,9 +24,10 @@ interface UploadPageProps {
   onRefreshDirs: () => void;
   managedDirectoryIds?: number[]; // IDs explicitly granted to current teacher
   uploadMode?: 'personal' | 'public'; // Controls which directories are shown
+  onViewDuplicate?: (id: number) => void;
 }
 
-export default function UploadPage({ directories, currentUser, onBack, onSuccess, onRefreshDirs, managedDirectoryIds = [], uploadMode = 'public' }: UploadPageProps) {
+export default function UploadPage({ directories, currentUser, onBack, onSuccess, onRefreshDirs, managedDirectoryIds = [], uploadMode = 'public', onViewDuplicate }: UploadPageProps) {
   // Selected directory for upload target
   const [selectedDirId, setSelectedDirId] = useState<number | null>(null);
   // Tree expanded nodes
@@ -142,6 +143,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [tagInput, setTagInput] = useState('');
 
   // Upload form state (right side)
+  const [parsing, setParsing] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [title, setTitle] = useState('');
@@ -152,7 +154,49 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [knowledgeSearch, setKnowledgeSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [duplicateId, setDuplicateId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (selectedFile: File) => {
+    setFile(selectedFile);
+    if (selectedFile.name.endsWith('.docx')) {
+      setParsing(true);
+      setUploadError(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        const res = await fetch('/api/lesson-plans/parse-docx/', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error('Parsing failed');
+        const data = await res.json();
+        
+        if (data.title) setTitle(data.title);
+        if (data.description) setDescription(data.description);
+        if (data.target_students && Array.isArray(data.target_students)) {
+          // Map backend strings to exact frontend options
+          const mappedTargets = data.target_students.map((t: string) => {
+            if (t.includes('thành thị')) return 'Học sinh thành thị';
+            if (t.includes('nông thôn')) return 'Học sinh nông thôn';
+            return t;
+          });
+          setSelectedTargets(mappedTargets);
+        }
+        if (data.lesson_type) {
+          setSelectedType(data.lesson_type);
+        }
+        if (data.knowledge_tags && Array.isArray(data.knowledge_tags)) {
+          setSelectedKnowledge(data.knowledge_tags);
+        }
+      } catch (err) {
+        console.error('Auto-extraction error:', err);
+      } finally {
+        setParsing(false);
+      }
+    }
+  };
 
   // Determine the currently selected directory
   const currentDir = directories.find(d => d.id === selectedDirId) || null;
@@ -245,7 +289,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     e.preventDefault();
     setDragOver(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped) setFile(dropped);
+    if (dropped) handleFileChange(dropped);
   };
 
   const toggleTarget = (val: string) => {
@@ -314,10 +358,23 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       formData.append('file', file);
 
       const res = await fetch('/api/lesson-plans/upload/', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        try {
+          const errData = await res.json();
+          if (errData.error) {
+            setUploadError(errData.error);
+            if (errData.duplicate_id) {
+              setDuplicateId(errData.duplicate_id);
+            }
+            setUploading(false);
+            return;
+          }
+        } catch {}
+        throw new Error('Upload failed');
+      }
       onSuccess();
-    } catch {
-      setUploadError('Lỗi khi tải lên. Vui lòng thử lại.');
+    } catch (err: any) {
+      setUploadError('Lỗi khi tải lên bài giảng. Vui lòng thử lại.');
     } finally {
       setUploading(false);
     }
@@ -444,8 +501,14 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/30'}`}
           >
-            <input ref={fileInputRef} type="file" accept=".docx,.pdf,.ppt,.pptx" className="hidden" onChange={e => e.target.files && setFile(e.target.files[0])} />
-            {file ? (
+            <input ref={fileInputRef} type="file" accept=".docx,.pdf,.ppt,.pptx" className="hidden" onChange={e => e.target.files && handleFileChange(e.target.files[0])} />
+            {parsing ? (
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
+                <p className="font-semibold text-blue-600 text-sm">⚡ Đang tự động trích xuất thông tin giáo án...</p>
+                <p className="text-xs text-gray-400 mt-1">Hệ thống đang bóc tách tiêu đề, mục tiêu, hoạt động...</p>
+              </div>
+            ) : file ? (
               <>
                 <div className="text-4xl mb-2">📄</div>
                 <p className="font-semibold text-gray-800">{file.name}</p>
@@ -552,7 +615,34 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           </div>
 
           {/* Submit */}
-          {uploadError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{uploadError}</div>}
+          {uploadError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 text-sm flex flex-col gap-3">
+              <p className="font-semibold flex items-center gap-1.5 leading-relaxed">
+                <span>⚠️</span> {uploadError}
+              </p>
+              {duplicateId && onViewDuplicate && (
+                <div className="flex flex-wrap gap-2.5 mt-1 border-t border-red-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadError(null);
+                      setDuplicateId(null);
+                    }}
+                    className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  >
+                    ✏️ Chỉnh sửa thông tin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onViewDuplicate(duplicateId)}
+                    className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-100"
+                  >
+                    👁️ Xem tài liệu đã có
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notice based on upload mode */}
           {uploadMode === 'personal' ? (

@@ -28,7 +28,16 @@ minerU
 - Sắp xếp và bộ lọc theo số sao, số lượt đánh giá ở thư viện chung => xong
 - Hiển thị số sao trung bình và số lượt đánh giá ở ngoại quan card (cả Thư viện chung và Thư viện cá nhân) => xong
 - Thêm bảo mật chống Code Injection (XSS) cho phần bình luận bằng cách lọc mã độc (HTML Escape) ở Backend => xong
-- 
+- Xây dựng bộ phân tích giáo án tự động (.docx) bóc tách metadata (tiêu đề, môn học, lớp, thời lượng, đối tượng, hoạt động, từ khóa) ở Backend và tự động điền (Auto-fill) form tải lên ở Frontend => xong
+- Xây dựng bộ chuyển đổi giáo án Word sang Markdown tuần tự và lưu trữ tự động vào cơ sở dữ liệu (PostgreSQL) phục vụ RAG => xong
+- Sửa lỗi hiển thị và tích hợp cơ chế bóc tách động dự phòng (on-the-fly fallback) cho các giáo án mẫu cũ => xong
+- Xây dựng nút chuyển đổi chế độ xem tài liệu (Bản Word gốc vs Bản Markdown) ngay trên giao diện => xong
+- Xây dựng bộ kết xuất bảng biểu và tiêu đề Markdown cao cấp sang HTML trên giao diện => xong
+- Xây dựng cơ chế chống tải tài liệu trùng lặp (trùng tiêu đề hoặc trùng lặp nội dung đến 95%) sử dụng thuật toán difflib SequenceMatcher tối ưu hóa hiệu năng cực cao => xong
+- Cập nhật cơ chế chống trùng lặp theo scope (Công khai / Cá nhân), nâng cấp UI/UX hiển thị thông báo trùng lặp dạng card tương tác cho phép "Chỉnh sửa lại" hoặc "Xem tài liệu đã có" tức thì => xong
+- Ẩn hoàn toàn cột bình luận & đánh giá khi mở xem tài liệu cá nhân (LOCAL) chi tiết và mở rộng cột hiển thị nội dung thông tin ra 100% chiều rộng màn hình để tối ưu hóa không gian => xong
+- Tích hợp kiểm tra trùng lặp tự động ngay khi vừa nhấn nút "Đề xuất công khai", hiển thị cảnh báo đỏ và nút xem tài liệu trùng lặp lập tức trước khi bắt chọn thư mục => xong
+
 
 
 - So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.

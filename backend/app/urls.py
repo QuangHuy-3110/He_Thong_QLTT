@@ -7,12 +7,15 @@ from .views import (
     AdminUserListAPIView, AdminAssignPermissionAPIView,
     UserSelfPermissionsAPIView, LessonPlanProposeAPIView,
     LessonPlanRatingAPIView, UserProfileUpdateAPIView,
-    LessonPlanWithdrawAPIView
+    LessonPlanWithdrawAPIView, LessonPlanParseDocxAPIView,
+    LessonPlanCheckDuplicateAPIView
 )
 
 urlpatterns = [
+    path('lesson-plans/parse-docx/', LessonPlanParseDocxAPIView.as_view(), name='lesson-plan-parse-docx'),
     path('lesson-plans/', LessonPlanListAPIView.as_view(), name='lesson-plan-list'),
     path('lesson-plans/<int:pk>/', LessonPlanDetailAPIView.as_view(), name='lesson-plan-detail'),
+    path('lesson-plans/<int:pk>/check-duplicate/', LessonPlanCheckDuplicateAPIView.as_view(), name='lesson-plan-check-duplicate'),
     path('lesson-plans/<int:pk>/propose/', LessonPlanProposeAPIView.as_view(), name='lesson-plan-propose'),
     path('lesson-plans/<int:pk>/withdraw/', LessonPlanWithdrawAPIView.as_view(), name='lesson-plan-withdraw'),
     path('lesson-plans/<int:pk>/ratings/', LessonPlanRatingAPIView.as_view(), name='lesson-plan-ratings'),

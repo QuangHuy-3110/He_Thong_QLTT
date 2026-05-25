@@ -92,6 +92,21 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             
         if file_obj:
             save_kwargs['file_path'] = file_obj
+            if file_obj.name.endswith('.docx'):
+                import tempfile
+                import os
+                from .docx_parser import convert_docx_to_markdown
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                    for chunk in file_obj.chunks():
+                        temp_file.write(chunk)
+                    temp_path = temp_file.name
+                try:
+                    save_kwargs['content_preview'] = convert_docx_to_markdown(temp_path)
+                except Exception as e:
+                    print(f"Error converting docx to markdown on update: {e}")
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
 
         # Xử lý cập nhật thư mục lưu tài liệu
         dir_id = self.request.data.get('directory_id')
@@ -137,6 +152,18 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                             save_kwargs['status'] = 'LOCAL'
                 except Directory.DoesNotExist:
                     pass
+
+        # Check duplicate on update
+        title_for_dup = self.request.data.get('title') or lesson.title
+        content_for_dup = save_kwargs.get('content_preview') or lesson.content_preview
+        status_for_dup = save_kwargs.get('status') or lesson.status
+        dup_error, dup_id = check_duplicate_lesson_plan(title_for_dup, content_for_dup, status_for_dup, user, exclude_id=lesson.id)
+        if dup_error:
+            from rest_framework.exceptions import APIException
+            class DuplicateException(APIException):
+                status_code = 400
+                default_detail = 'Duplicate document.'
+            raise DuplicateException({'error': dup_error, 'duplicate_id': dup_id})
 
         if user.role == 'USER' and save_kwargs.get('status') != 'LOCAL':
             # Bắt buộc phê duyệt lại cho người dùng bình thường
@@ -203,6 +230,66 @@ class DirectoryDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         serializer.save()
         return Response(serializer.data)
 
+
+def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclude_id=None):
+    from difflib import SequenceMatcher
+    from .models import LessonPlan
+    from django.db.models import Q
+
+    if not title:
+        return None, None
+
+    # Determine candidates filter based on destination status
+    if status_val in ['PUBLISHED', 'PENDING']:
+        candidates = LessonPlan.objects.filter(status__in=['PUBLISHED', 'PENDING'])
+    else:
+        # LOCAL uploads only check against the SAME user's LOCAL documents
+        if not user:
+            return None, None
+        candidates = LessonPlan.objects.filter(creator=user, status='LOCAL')
+
+    if exclude_id:
+        candidates = candidates.exclude(id=exclude_id)
+
+    # 1. Exact title check
+    title_str = str(title).strip()
+    title_query = candidates.filter(title__iexact=title_str)
+    if title_query.exists():
+        existing = title_query.first()
+        dir_path = ""
+        if existing.directories.exists():
+            dir_name = existing.directories.first().name
+            dir_path = f" tại thư mục '{dir_name}'"
+        scope = "công khai" if existing.status in ['PUBLISHED', 'PENDING'] else "cá nhân"
+        return f'Tài liệu này đã tồn tại {scope}{dir_path} với tên "{title_str}".', existing.id
+
+    # 2. Near-duplicate content check
+    if content_preview and str(content_preview).strip():
+        uploaded_cleaned = str(content_preview).strip()
+        len_uploaded = len(uploaded_cleaned)
+        
+        content_candidates = candidates.exclude(content_preview="").exclude(content_preview__isnull=True)
+        for cand in content_candidates:
+            if not cand.content_preview:
+                continue
+            cand_cleaned = str(cand.content_preview).strip()
+            len_cand = len(cand_cleaned)
+            # Only compare if lengths are within 5% tolerance
+            if abs(len_cand - len_uploaded) <= len_uploaded * 0.05:
+                # Fast upper bound check
+                quick_ratio = SequenceMatcher(None, uploaded_cleaned, cand_cleaned).real_quick_ratio()
+                if quick_ratio > 0.95:
+                    # Accurate check
+                    ratio = SequenceMatcher(None, uploaded_cleaned, cand_cleaned).ratio()
+                    if ratio > 0.95:
+                        dir_path = ""
+                        if cand.directories.exists():
+                            dir_name = cand.directories.first().name
+                            dir_path = f" tại thư mục '{dir_name}'"
+                        scope = "công khai" if cand.status in ['PUBLISHED', 'PENDING'] else "cá nhân"
+                        return f'Nội dung tài liệu trùng lặp {int(ratio*100)}% với bài giảng "{cand.title}" trong thư viện {scope}{dir_path}.', cand.id
+    return None, None
+
 class LessonPlanUploadAPIView(APIView):
     def post(self, request):
         user_id = request.data.get('user_id')
@@ -227,6 +314,28 @@ class LessonPlanUploadAPIView(APIView):
         if isinstance(attrs, str):
             attrs = json.loads(attrs)
             
+        content_preview = ""
+        if file_obj and file_obj.name.lower().endswith('.docx'):
+            import tempfile
+            import os
+            from .docx_parser import convert_docx_to_markdown
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                for chunk in file_obj.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
+            try:
+                content_preview = convert_docx_to_markdown(temp_path)
+            except Exception as e:
+                print(f"Error converting docx to markdown: {e}")
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+        # Check duplicate
+        dup_error, dup_id = check_duplicate_lesson_plan(title, content_preview, status_val, user)
+        if dup_error:
+            return Response({'error': dup_error, 'duplicate_id': dup_id}, status=status.HTTP_400_BAD_REQUEST)
+
         lp = LessonPlan.objects.create(
             creator=user,
             title=title,
@@ -234,6 +343,7 @@ class LessonPlanUploadAPIView(APIView):
             target_student=target_student,
             status=status_val,
             file_path=file_obj,
+            content_preview=content_preview,
             attributes=attrs
         )
         
@@ -459,6 +569,11 @@ class LessonPlanProposeAPIView(APIView):
         if lesson.creator != user and user.role != 'ADMIN':
             return Response({'error': 'Bạn không có quyền đề xuất tài liệu này.'}, status=status.HTTP_403_FORBIDDEN)
             
+        # Check duplicate before proposing
+        dup_error, dup_id = check_duplicate_lesson_plan(lesson.title, lesson.content_preview, 'PENDING', user, exclude_id=lesson.id)
+        if dup_error:
+            return Response({'error': dup_error, 'duplicate_id': dup_id}, status=status.HTTP_400_BAD_REQUEST)
+
         # Liên kết bài giảng với thư mục công khai được chọn
         lesson.directories.clear()
         lesson.directories.add(directory)
@@ -476,6 +591,30 @@ class LessonPlanProposeAPIView(APIView):
         )
         
         return Response({'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!'})
+
+class LessonPlanCheckDuplicateAPIView(APIView):
+    def post(self, request, pk):
+        user_id = request.data.get('user_id')
+        status_val = request.data.get('status', 'PENDING')
+        
+        try:
+            lesson = LessonPlan.objects.get(id=pk)
+            user = User.objects.get(id=user_id) if user_id else None
+        except (LessonPlan.DoesNotExist, User.DoesNotExist):
+            return Response({'error': 'Thông tin không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        dup_error, dup_id = check_duplicate_lesson_plan(
+            lesson.title, 
+            lesson.content_preview, 
+            status_val, 
+            user, 
+            exclude_id=lesson.id
+        )
+        return Response({
+            'is_duplicate': dup_error is not None,
+            'error': dup_error,
+            'duplicate_id': dup_id
+        })
 
 class LessonPlanRatingAPIView(APIView):
     """GET: Lấy danh sách đánh giá của bài giảng. POST: Tạo hoặc cập nhật đánh giá."""
@@ -615,4 +754,45 @@ class LessonPlanWithdrawAPIView(APIView):
             # Hủy các yêu cầu duyệt đang chờ (nếu có)
             ApprovalRequest.objects.filter(lesson_plan=lesson, status='PENDING').update(status='REJECTED', feedback='Tác giả thu hồi tài liệu.')
             return Response({'message': 'Đã thu hồi bài giảng về thư viện cá nhân!'}, status=status.HTTP_200_OK)
-
+
+class LessonPlanParseDocxAPIView(APIView):
+    def post(self, request):
+        import os
+        import tempfile
+        from django.core.files.base import ContentFile
+        from .docx_parser import parse_docx_lesson_plan
+
+        file_obj = request.FILES.get('file')
+        file_base64 = request.data.get('file_base64')
+
+        if not file_obj and not file_base64:
+            return Response({'error': 'Vui lòng cung cấp tệp tin.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Handle Base64 file format if supplied
+        if file_base64 and 'data' in file_base64:
+            import base64
+            try:
+                format, imgstr = file_base64['data'].split(';base64,')
+                file_data = base64.b64decode(imgstr)
+                file_name = file_base64.get('name', 'temp_lesson.docx')
+                file_obj = ContentFile(file_data, name=file_name)
+            except Exception as e:
+                return Response({'error': f'Lỗi giải mã Base64: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Write to temporary file for parsing
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+            for chunk in file_obj.chunks():
+                temp_file.write(chunk)
+            temp_path = temp_file.name
+
+        try:
+            parsed_data = parse_docx_lesson_plan(temp_path)
+            return Response(parsed_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': f'Lỗi phân tích file Word: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+

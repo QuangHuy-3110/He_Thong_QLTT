@@ -34,12 +34,14 @@ graph TD
     *   **Click biểu tượng Logo quay về Tab Thư viện chung:** Biểu tượng 📚 trên Navigation Bar khi được bấm sẽ đồng thời đặt lại `currentView='home'`, xóa bộ lọc thư mục (`selectedDirs=[]`) và chuyển về `homeTab='library'` (Tab Thư viện chung).
     *   **Tách biệt nút Tải tài liệu lên theo từng tab (uploadMode):** Nút "+ Đăng bài giảng" trên Navigation Bar chỉ hiển thị các thư mục công khai (`uploadMode='public'`). Nút "+ Thêm mới" và nút "+ Tải tài liệu lên" (trong Empty State) ở Tab Thư viện cá nhân đã được sửa đổi và tích hợp rành mạch để thiết lập đúng `uploadMode='personal'`, đảm bảo chỉ hiển thị các thư mục cá nhân riêng tư của người dùng hiện tại, ngăn chặn việc hiển thị sai lệch hoặc chọn nhầm các thư mục dùng chung (publish).
     *   **Đồng bộ Layout Card Thư viện:** Card hiển thị tài liệu trong Tab Thư viện cá nhân đã được tái cấu trúc để nhất quán với Tab Thư viện chung: cùng cấu trúc header/badge/description/footer, cùng badge "Xem chi tiết ↗" hover effect, và nút "↓ Tải tài liệu" trong footer. Giữ riêng phần hiển thị phản hồi từ chối chỉ có ở cá nhân.
+    *   **Tự động điền Form từ file Word (Auto-fill & Auto-extraction):** Khi người dùng tải tệp giáo án `.docx` lên ở Upload Modal, hệ thống tự động gọi API bóc tách dữ liệu để điền sẵn các trường: Tiêu đề bài giảng, Mô tả/Tóm tắt, Đối tượng học sinh, Loại hình tiết dạy và các Từ khóa kiến thức.
 
 ### 2.2. Phía Backend (`backend/`)
 *   **Công nghệ cốt lõi:** Django 6.0.5 và Django REST Framework (DRF) 3.17.1.
 *   **Tính năng chính:**
     *   Quản lý danh mục thư mục dạng cây đệ quy (`Directory`).
     *   Quản lý bài giảng/giáo án (`LessonPlan`) kế thừa thuộc tính linh hoạt từ thư mục cha.
+    *   Bộ phân tích giáo án Word tự động (`docx_parser.py`) sử dụng thư viện `python-docx` để bóc tách thông tin cấu trúc giáo án (tiêu đề, môn học, lớp học, thời gian, đối tượng, tiến trình giảng dạy, từ khóa kiến thức) dưới dạng JSON.
     *   Hệ thống kiểm duyệt giáo án (`ApprovalRequest`) phân quyền đệ quy cho Giáo viên và Admin.
     *   Hệ thống Thư viện cá nhân (Personal Library) quản lý cây thư mục riêng tư và tài liệu cá nhân offline (`status = LOCAL`).
     *   Hệ thống Đề xuất công khai (Propose Public) cho phép người dùng gửi bài giảng cá nhân vào thư mục dùng chung để chờ kiểm duyệt và xuất bản.
