@@ -515,11 +515,14 @@ class LessonPlanRatingAPIView(APIView):
         except LessonPlan.DoesNotExist:
             return Response({'error': 'Bài giảng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
 
+        import html
+        escaped_comment = html.escape(comment.strip())
+
         # Tạo mới hoặc cập nhật (mỗi user chỉ được đánh giá 1 lần)
         obj, created = LessonPlanRating.objects.update_or_create(
             user=user,
             lesson_plan=lesson,
-            defaults={'rating': rating_val, 'comment': comment}
+            defaults={'rating': rating_val, 'comment': escaped_comment}
         )
 
         # Tính lại average_rating và total_ratings
@@ -569,4 +572,47 @@ class UserProfileUpdateAPIView(APIView):
             'user': serializer.data
         }, status=status.HTTP_200_OK)
 
+
+class LessonPlanWithdrawAPIView(APIView):
+    """Cho phép chủ tài liệu gỡ bài PUBLISHED/PENDING xuống.
+    
+    action='delete' → Xóa hoàn toàn bài giảng.
+    action='retract' → Thu hồi về thư viện cá nhân (status=LOCAL, xóa khỏi thư mục công khai).
+    """
+    def post(self, request, pk):
+        user_id = request.data.get('user_id')
+        action = request.data.get('action')  # 'delete' or 'retract'
+
+        if not user_id or action not in ('delete', 'retract'):
+            return Response(
+                {'error': 'Vui lòng cung cấp user_id và action (delete/retract).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            lesson = LessonPlan.objects.get(id=pk)
+        except LessonPlan.DoesNotExist:
+            return Response({'error': 'Bài giảng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Chỉ chủ sở hữu hoặc ADMIN mới được thao tác
+        if lesson.creator != user and user.role != 'ADMIN':
+            return Response({'error': 'Bạn không có quyền thao tác với bài giảng này.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if action == 'delete':
+            lesson.delete()
+            return Response({'message': 'Đã xóa bài giảng thành công!'}, status=status.HTTP_200_OK)
+
+        elif action == 'retract':
+            # Thu hồi: xóa khỏi thư mục công khai, đổi status về LOCAL
+            lesson.directories.clear()
+            lesson.status = 'LOCAL'
+            lesson.save(update_fields=['status'])
+            # Hủy các yêu cầu duyệt đang chờ (nếu có)
+            ApprovalRequest.objects.filter(lesson_plan=lesson, status='PENDING').update(status='REJECTED', feedback='Tác giả thu hồi tài liệu.')
+            return Response({'message': 'Đã thu hồi bài giảng về thư viện cá nhân!'}, status=status.HTTP_200_OK)
 

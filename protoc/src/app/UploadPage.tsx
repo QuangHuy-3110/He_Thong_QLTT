@@ -23,9 +23,10 @@ interface UploadPageProps {
   onSuccess: () => void;
   onRefreshDirs: () => void;
   managedDirectoryIds?: number[]; // IDs explicitly granted to current teacher
+  uploadMode?: 'personal' | 'public'; // Controls which directories are shown
 }
 
-export default function UploadPage({ directories, currentUser, onBack, onSuccess, onRefreshDirs, managedDirectoryIds = [] }: UploadPageProps) {
+export default function UploadPage({ directories, currentUser, onBack, onSuccess, onRefreshDirs, managedDirectoryIds = [], uploadMode = 'public' }: UploadPageProps) {
   // Selected directory for upload target
   const [selectedDirId, setSelectedDirId] = useState<number | null>(null);
   // Tree expanded nodes
@@ -37,8 +38,23 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     return [rootId, ...children.flatMap(c => getAllDescendants(c.id))];
   };
 
+  // ── Filter directories by mode ──
+  // personal mode: only show private dirs owned by currentUser
+  // public mode: show all public dirs (+ teacher's managed dirs as before)
+  const modeFilteredDirs: Directory[] = (() => {
+    if (uploadMode === 'personal') {
+      return directories.filter(d => !d.is_public && (currentUser ? d.user === currentUser.id : false));
+    }
+    // public mode: show only public directories
+    return directories.filter(d => d.is_public);
+  })();
+
   const allowedDirIds: Set<number> = (() => {
-    if (!currentUser || currentUser.role !== 'TEACHER') return new Set(directories.map(d => d.id));
+    if (uploadMode === 'personal') {
+      // All personal dirs of user are selectable
+      return new Set(modeFilteredDirs.map(d => d.id));
+    }
+    if (!currentUser || currentUser.role !== 'TEACHER') return new Set(modeFilteredDirs.map(d => d.id));
     const ids = new Set<number>();
     managedDirectoryIds.forEach(id => getAllDescendants(id).forEach(did => ids.add(did)));
     return ids;
@@ -54,19 +70,19 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   };
 
   const selectDir = (dir: Directory) => {
-    if (currentUser?.role === 'TEACHER' && !allowedDirIds.has(dir.id)) return;
+    if (uploadMode === 'public' && currentUser?.role === 'TEACHER' && !allowedDirIds.has(dir.id)) return;
     setSelectedDirId(prev => prev === dir.id ? null : dir.id);
   };
 
-  // Recursive tree node component
+  // Recursive tree node component — only shows dirs matching current mode
   const TreeNode = ({ dir, depth }: { dir: Directory; depth: number }) => {
-    const children = directories
+    const children = modeFilteredDirs
       .filter(d => d.parent === dir.id)
-      .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
+      .filter(d => uploadMode !== 'public' || currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
     const hasChildren = children.length > 0;
     const isExpanded = expandedIds.has(dir.id);
     const isSelected = selectedDirId === dir.id;
-    const isAllowed = currentUser?.role !== 'TEACHER' || allowedDirIds.has(dir.id);
+    const isAllowed = uploadMode === 'personal' ? true : (currentUser?.role !== 'TEACHER' || allowedDirIds.has(dir.id));
     const isManaged = managedDirectoryIds.includes(dir.id);
 
     return (
@@ -118,9 +134,9 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     );
   };
 
-  const rootDirs = directories
+  const rootDirs = modeFilteredDirs
     .filter(d => !d.parent)
-    .filter(d => currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
+    .filter(d => uploadMode !== 'public' || currentUser?.role !== 'TEACHER' || allowedDirIds.has(d.id));
 
   // Knowledge tag management
   const [tagInput, setTagInput] = useState('');
@@ -263,26 +279,28 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       formData.append('target_student', selectedTargets.join(', '));
       
       // Status logic:
-      // - ADMIN → always PUBLISHED
-      // - TEACHER + manages target dir (or no dir selected → LOCAL personal) → PUBLISHED
-      // - TEACHER + no managed dirs or uploading to unmanaged dir → PENDING
-      // - USER → always PENDING (needs approval)
+      // PERSONAL MODE:
+      //   - Always save as LOCAL (personal library)
+      // PUBLIC MODE:
+      //   - ADMIN → always PUBLISHED
+      //   - TEACHER + manages target dir → PUBLISHED
+      //   - TEACHER + no managed dirs or uploading to unmanaged dir → PENDING
+      //   - USER → always PENDING (needs approval)
       let defaultStatus: string;
-      if (currentUser.role === 'ADMIN') {
+      if (uploadMode === 'personal') {
+        // Personal mode: always save as LOCAL regardless of role
+        defaultStatus = 'LOCAL';
+      } else if (currentUser.role === 'ADMIN') {
         defaultStatus = selectedDirId ? 'PUBLISHED' : 'LOCAL';
       } else if (currentUser.role === 'TEACHER') {
         if (!selectedDirId) {
-          // No directory chosen: save as personal LOCAL
           defaultStatus = 'LOCAL';
         } else if (allowedDirIds.has(selectedDirId)) {
-          // Teacher manages this directory → publish directly
           defaultStatus = 'PUBLISHED';
         } else {
-          // Teacher doesn't manage target dir → needs approval
           defaultStatus = 'PENDING';
         }
       } else {
-        // Regular USER → always needs approval
         defaultStatus = 'PENDING';
       }
       formData.append('status', defaultStatus);
@@ -315,7 +333,12 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           ← Trang chủ
         </button>
         <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-gray-900">Đăng bài giảng mới</h1>
+        <h1 className="text-lg font-bold text-gray-900">
+          {uploadMode === 'personal' ? '💾 Lưu vào Thư viện Cá nhân' : '📢 Đăng bài giảng mới'}
+        </h1>
+        {uploadMode === 'personal' && (
+          <span className="ml-2 px-2.5 py-0.5 bg-sky-100 text-sky-700 text-xs font-bold rounded-full border border-sky-200">Chế độ cá nhân</span>
+        )}
       </div>
 
       <div className="max-w-[1400px] mx-auto p-6 grid grid-cols-[380px_1fr] gap-6">
@@ -345,15 +368,19 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           {/* Directory Tree */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cây thư mục</p>
-              {currentUser?.role === 'TEACHER' && managedDirectoryIds.length > 0 && (
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {uploadMode === 'personal' ? '🔒 Thư mục cá nhân' : '📂 Cây thư mục công khai'}
+              </p>
+              {uploadMode === 'public' && currentUser?.role === 'TEACHER' && managedDirectoryIds.length > 0 && (
                 <p className="text-[10px] text-blue-500">🔒 {allowedDirIds.size} thư mục có quyền</p>
               )}
             </div>
             <div className="p-2 max-h-[340px] overflow-y-auto">
               {rootDirs.length === 0 ? (
                 <p className="px-2 py-4 text-sm text-gray-400 italic text-center">
-                  {currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Chưa có thư mục nào.'}
+                  {uploadMode === 'personal'
+                    ? 'Bạn chưa có thư mục cá nhân nào. Tạo thư mục trong tab Thư viện cá nhân trước.'
+                    : currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Chưa có thư mục nào.'}
                 </p>
               ) : (
                 rootDirs.map(dir => (
@@ -527,23 +554,32 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           {/* Submit */}
           {uploadError && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{uploadError}</div>}
 
-          {/* Notice for regular users */}
-          {currentUser && currentUser.role === 'USER' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-              ⚠️ Bài giảng của bạn sẽ được lưu ở trạng thái <strong>Chờ duyệt</strong>. Giáo viên hoặc Admin có thẩm quyền sẽ xem xét và phê duyệt.
-            </div>
-          )}
-          {/* Notice for Teacher uploading to unmanaged dir */}
-          {currentUser && currentUser.role === 'TEACHER' && selectedDirId && !allowedDirIds.has(selectedDirId) && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
-              ⚠️ Thư mục này không thuộc quyền quản lý của bạn. Bài giảng sẽ ở trạng thái <strong>Chờ duyệt</strong>.
-            </div>
-          )}
-          {/* Notice for Teacher with no dir selected */}
-          {currentUser && currentUser.role === 'TEACHER' && !selectedDirId && (
+          {/* Notice based on upload mode */}
+          {uploadMode === 'personal' ? (
             <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-700">
-              💾 Không chọn thư mục → bài giảng sẽ được lưu vào <strong>Thư viện cá nhân</strong> của bạn (LOCAL).
+              💾 Tài liệu sẽ được lưu vào <strong>Thư viện cá nhân</strong> của bạn (LOCAL). Chỉ bạn mới xem được.
             </div>
+          ) : (
+            <>
+              {/* Notice for regular users */}
+              {currentUser && currentUser.role === 'USER' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                  ⚠️ Bài giảng của bạn sẽ được lưu ở trạng thái <strong>Chờ duyệt</strong>. Giáo viên hoặc Admin có thẩm quyền sẽ xem xét và phê duyệt.
+                </div>
+              )}
+              {/* Notice for Teacher uploading to unmanaged dir */}
+              {currentUser && currentUser.role === 'TEACHER' && selectedDirId && !allowedDirIds.has(selectedDirId) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                  ⚠️ Thư mục này không thuộc quyền quản lý của bạn. Bài giảng sẽ ở trạng thái <strong>Chờ duyệt</strong>.
+                </div>
+              )}
+              {/* Notice for Teacher with no dir selected */}
+              {currentUser && currentUser.role === 'TEACHER' && !selectedDirId && (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-700">
+                  💾 Không chọn thư mục → bài giảng sẽ được lưu vào <strong>Thư viện cá nhân</strong> của bạn (LOCAL).
+                </div>
+              )}
+            </>
           )}
 
           <button
@@ -552,11 +588,15 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
             className={`w-full py-4 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 ${
               uploading || !file || !title.trim()
                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                : uploadMode === 'personal'
+                ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-lg shadow-sky-200'
                 : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 hover:shadow-blue-300'
             }`}
           >
             {uploading ? (
               <><span className="animate-spin">⟳</span> Đang tải lên...</>
+            ) : uploadMode === 'personal' ? (
+              <><span>💾</span> Lưu vào thư viện cá nhân</>
             ) : currentUser?.role === 'ADMIN' ? (
               <><span>📢</span> Đăng bài giảng công khai</>
             ) : currentUser?.role === 'TEACHER' && selectedDirId && allowedDirIds.has(selectedDirId) ? (

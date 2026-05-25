@@ -2,7 +2,7 @@
 
 Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực tế của hệ thống QLTT trên môi trường local.
 
-*Cập nhật lần cuối: 2026-05-20 23:55 (Giờ Việt Nam)*
+*Cập nhật lần cuối: 2026-05-25 12:50 (Giờ Việt Nam)*
 
 ---
 
@@ -54,6 +54,14 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
 
 ## 4. Lịch sử thay đổi UI gần nhất
 
+*   **2026-05-25**: Tích hợp **Bộ lọc Sắp xếp & Hiển thị ngoại quan số sao** — Xác nhận tính năng sắp xếp theo số sao (Rating) và lượt đánh giá (Total Ratings) hoạt động hoàn hảo dựa trên cơ chế `useMemo` ở Frontend. Đồng thời, đã bổ sung thêm badge **⭐ Số sao trung bình (Số lượt đánh giá)** hiển thị trực quan ở ngoại quan card của cả Thư viện chung và Thư viện cá nhân.
+*   **2026-05-25**: Thêm **Bảo mật chống Code Injection cho Bình luận** — Tích hợp thư viện `html` ở Backend Django, tự động escape toàn bộ nội dung bình luận (`html.escape(comment)`) trước khi lưu trữ vào Database để ngăn chặn triệt để các cuộc tấn công XSS / chèn mã độc.
+*   **2026-05-25**: Sửa lỗi **Nút Tải tài liệu lên trong Empty State của Cá nhân** — Nút "+ Tải tài liệu lên" xuất hiện khi thư viện cá nhân trống đã được sửa đổi để set đúng `uploadMode='personal'` trước khi chuyển trang, đảm bảo cây thư mục hiển thị đúng chỉ là các thư mục cá nhân riêng tư chứ không bị lẫn thư mục công khai của publish.
+*   **2026-05-25**: Sửa **Click biểu tượng logo** quay về **Tab Thư viện chung** — Bổ sung `setHomeTab('library')` vào `onClick` của biểu tượng hệ thống (logo 📚) trên Navigation Bar, đảm bảo khi bấm biểu tượng sẽ luôn quay về tab **Thư viện chung** (không còn bị kẹt ở tab cá nhân/lịch sử nếu đang xem chúng).
+*   **2026-05-25**: Đồng bộ **layout card Tư viện cá nhân** — Tái cấu trúc card hiển thị tài liệu trong tab **Thư viện cá nhân** để thống nhất và nhất quán với card trong tab **Thư viện chung**: (1) Thay thế badge trạng thái dạng pill nhỏ bằng badge dạng `rounded-md` đồng bộ màu sắc (sky/amber/rose/emerald); (2) Thêm badge hover **"Xem chi tiết ↗"** ở header card; (3) Thêm nút **"↓ Tải tài liệu"** vào footer (chuyển sang liên kết tải file tương tự thư viện chung); (4) Sắp xếp lại thứ tự badge: đối tượng HS → trạng thái → đường dẫn thư mục; giữ nguyên hộp phản hồi từ chối.
+*   **2026-05-25**: Sửa lỗi **dropdown "Lưu vào thư mục" trong Edit Modal** — Khi chỉnh sửa tài liệu cá nhân (`LOCAL`), dropdown thư mục chỉ hiển thị thư mục riêng của người dùng hiện tại (`!is_public && user === currentUser.id`), không còn hiện lẫn thư mục công khai hay thư mục private của người khác. ADMIN được phép thấy tất cả thư mục private để tiện quản trị.
+*   **2026-05-25**: Bổ sung **Thanh tìm kiếm & Bộ lọc sắp xếp cho Thư viện cá nhân** — Thêm 2 state mới `personalSearchQuery` và `personalSortBy`. Trong tab Thư viện cá nhân, bổ sung: ô tìm kiếm realtime theo tên/mô tả (có nút xóa ✕), dropdown sắp xếp (Mới nhất/Cũ nhất/Tên A→Z/Tên Z→A), dòng thông tin kết quả tìm kiếm, và trạng thái empty state riêng khi tìm không thấy.
+*   **2026-05-25**: Tách biệt **Chế độ Thêm Tài liệu (uploadMode)** — Thêm prop `uploadMode: 'personal' | 'public'` vào `UploadPage.tsx`. Khi bấm "+ Thêm mới" ở Tab Thư viện cá nhân sẽ hiển thị **chỉ thư mục riêng** của người dùng (`!is_public && user === currentUser.id`); khi bấm "Đăng bài giảng" ở Navigation Bar sẽ hiển thị **chỉ thư mục công khai**. Tiêu đề, màu nút, thông báo hướng dẫn đều thay đổi theo mode.
 *   **2026-05-21**: Xây dựng **Giao diện Thay đổi Thông tin Cá nhân Chuyên nghiệp (UserProfile Modal)** — Thiết kế hộp thoại hồ sơ cá nhân hiện đại hỗ trợ thay đổi họ tên hiển thị và đổi mật khẩu bảo mật. Hỗ trợ xác thực bằng mật khẩu hiện tại khi thay đổi mật khẩu mới để đảm bảo tính an toàn tối đa cho giáo viên. Tích hợp trực tiếp nút kích hoạt "⚙️ Cá nhân" phong cách trên Navigation Bar.
 *   **2026-05-21**: Xây dựng **Bộ lọc Sắp xếp & Phân trang tài liệu (Pagination & Sorting)** — Bổ sung thanh điều khiển đầu danh sách tài liệu thư viện chung cho phép sắp xếp theo: Ngày tải (mới nhất/cũ nhất), Số sao đánh giá (cao nhất/thấp nhất), và Tổng số lượt nhận xét (nhiều/ít). Đồng thời hỗ trợ phân trang động tùy chọn kích thước (10, 15, hoặc 20 tài liệu/trang) với thanh phân trang cao cấp tự động căn chỉnh số lượng trang, hiển thị dấu ba chấm (`...`) khi có quá nhiều trang.
 *   **2026-05-21**: Tái cấu trúc giao diện **Chi tiết Bài giảng (Lesson Detail)** thành **Full-screen Split-Pane Layout** — Thay thế modal cũ bằng giao diện toàn màn hình cực kỳ hiện đại, chia đôi theo tỷ lệ 60% bên trái (xem trước tài liệu trực tiếp Word/PDF và Metadata) và 40% bên phải (phần Bình luận & Đánh giá). 

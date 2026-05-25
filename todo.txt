@@ -23,8 +23,13 @@ minerU
 - Xây dựng chức năng phân trang, mỗi trang từ 10 đến 20 tài liệu, các tài liệu có thể được sắp xếp theo ngày tải, số sao, số lượt đánh giá => xong
 # - nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
 - Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp => xong
-- Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung
-- Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau
+- Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung => xong
+- Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau => xong
+- Sắp xếp và bộ lọc theo số sao, số lượt đánh giá ở thư viện chung => xong
+- Hiển thị số sao trung bình và số lượt đánh giá ở ngoại quan card (cả Thư viện chung và Thư viện cá nhân) => xong
+- Thêm bảo mật chống Code Injection (XSS) cho phần bình luận bằng cách lọc mã độc (HTML Escape) ở Backend => xong
+- 
+
 
 - So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.
 

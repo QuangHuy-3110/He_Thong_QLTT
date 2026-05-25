@@ -43,7 +43,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LessonPlan
-        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback']
+        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings']
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title')

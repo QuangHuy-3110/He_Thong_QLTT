@@ -503,6 +503,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'home' | 'upload'>('home');
   const [homeTab, setHomeTab] = useState<'library' | 'history' | 'personal'>('library');
+  const [uploadMode, setUploadMode] = useState<'personal' | 'public'>('public');
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem('currentUser');
@@ -628,6 +629,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDirs, setSelectedDirs] = useState<number[]>([]);
   const [selectedPersonalDirs, setSelectedPersonalDirs] = useState<number[]>([]);
+
+  // Personal Library Search & Sort
+  const [personalSearchQuery, setPersonalSearchQuery] = useState('');
+  const [personalSortBy, setPersonalSortBy] = useState<string>('date_desc');
   
   // States for Proposing to Public
   const [showProposeModal, setShowProposeModal] = useState<boolean>(false);
@@ -1064,6 +1069,25 @@ export default function App() {
     }
   };
 
+  const handleWithdrawLesson = async (lessonId: number, action: 'delete' | 'retract') => {
+    if (!currentUser) return;
+    const labels = {
+      delete: { confirm: 'Xóa vĩnh viễn bài giảng này? Không thể khôi phục lại.', success: 'Đã xóa bài giảng thành công!' },
+      retract: { confirm: 'Thu hồi bài giảng về thư viện cá nhân? Bài sẽ biến mất khỏi thư viện chung và lịch sử đóng góp.', success: 'Đã thu hồi bài giảng về thư viện cá nhân!' }
+    };
+    if (!window.confirm(labels[action].confirm)) return;
+    try {
+      const res = await axios.post(`/api/lesson-plans/${lessonId}/withdraw/`, {
+        user_id: currentUser.id,
+        action
+      });
+      alert(res.data.message || labels[action].success);
+      fetchLessonPlans(searchQuery);
+    } catch (err: any) {
+      alert('Lỗi: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
   // Filter root directories (only public ones for the main Shared Library)
   const rootDirs = directories.filter(d => !d.parent && d.is_public);
 
@@ -1181,6 +1205,7 @@ export default function App() {
         onSuccess={() => { setCurrentView('home'); fetchLessonPlans(searchQuery); }}
         onRefreshDirs={fetchDirectories}
         managedDirectoryIds={currentUserManagedDirIds}
+        uploadMode={uploadMode}
       />
     );
   }
@@ -1192,7 +1217,7 @@ export default function App() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedDirs([]); }}>
+            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedDirs([]); setHomeTab('library'); }}>
                 <div className="bg-blue-600 rounded text-white p-1 font-bold text-xl leading-none">📚</div>
                 <span className="font-bold text-xl text-gray-900 hidden sm:block">Hệ thống quản lý tri thức</span>
               </div>
@@ -1239,7 +1264,7 @@ export default function App() {
                         )}
                       </button>
                     )}
-                    <button onClick={() => setCurrentView('upload')} className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-semibold transition-colors flex items-center gap-1">
+                    <button onClick={() => { setUploadMode('public'); setCurrentView('upload'); }} className="px-3 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-semibold transition-colors flex items-center gap-1">
                       <span>+</span> Đăng bài giảng
                     </button>
                   </div>
@@ -1491,6 +1516,16 @@ export default function App() {
                           ) : (
                             <span className="px-2 py-1 bg-sky-50 text-sky-700 border border-sky-100 text-xs font-medium rounded-md">📄 Cá nhân</span>
                           )}
+                          {/* Rating & Total Comments Badge */}
+                          {(lesson.total_ratings > 0 || (lesson.average_rating && lesson.average_rating > 0)) ? (
+                            <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold rounded-md flex items-center gap-1">
+                              ⭐ {Number(lesson.average_rating || 0).toFixed(1)} ({lesson.total_ratings} đánh giá)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 text-xs font-medium rounded-md flex items-center gap-1">
+                              ⭐ Chưa có đánh giá
+                            </span>
+                          )}
                           {/* Directory full path breadcrumb badge */}
                           {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
                             lesson.directory_ids.map((dirId, i) => (
@@ -1692,9 +1727,6 @@ export default function App() {
                               {lesson.status === 'REJECTED' && (
                                 <span className="inline-flex items-center gap-1 px-3 py-1 bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-bold">❌ Bị từ chối</span>
                               )}
-                              {lesson.status === 'LOCAL' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-sky-100 text-sky-700 border border-sky-200 rounded-full text-xs font-bold">💾 Lưu cục bộ</span>
-                              )}
                             </div>
                           </div>
 
@@ -1712,7 +1744,7 @@ export default function App() {
                           )}
 
                           {/* Action Row */}
-                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
                             <button
                               onClick={() => setSelectedLessonForDetail(lesson)}
                               className="px-4 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors"
@@ -1737,8 +1769,30 @@ export default function App() {
                                 ✏ Chỉnh sửa
                               </button>
                             )}
+                            {/* PUBLISHED: Retract to personal (remove from public) */}
+                            {lesson.status === 'PUBLISHED' && (
+                              <button
+                                onClick={() => handleWithdrawLesson(lesson.id, 'retract')}
+                                title="Thu hồi về thư viện cá nhân — bài sẽ biến mất khỏi thư viện chung"
+                                className="px-4 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-xs font-semibold hover:bg-violet-100 transition-colors flex items-center gap-1"
+                              >
+                                ↓ Thu hồi về cá nhân
+                              </button>
+                            )}
+                            {/* PENDING: Cancel submission */}
+                            {lesson.status === 'PENDING' && (
+                              <button
+                                onClick={() => handleWithdrawLesson(lesson.id, 'retract')}
+                                title="Hủy gửi duyệt, đưa về thư viện cá nhân"
+                                className="px-4 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg text-xs font-semibold hover:bg-orange-100 transition-colors flex items-center gap-1"
+                              >
+                                ↩ Hủy chờ duyệt
+                              </button>
+                            )}
+
+                            {/* Delete permanently — all statuses */}
                             <button
-                              onClick={() => handleDeleteLesson(lesson.id)}
+                              onClick={() => handleWithdrawLesson(lesson.id, 'delete')}
                               className="px-4 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition-colors ml-auto"
                             >
                               🗑 Xóa
@@ -1774,6 +1828,34 @@ export default function App() {
                 : myPersonalLessons.filter(l => 
                     l.directory_ids?.some(dirId => selectedPersonalDirs.includes(dirId))
                   );
+
+              // Apply search query filter
+              const searchedPersonalLessons = (() => {
+                const q = personalSearchQuery.trim().toLowerCase();
+                if (!q) return dirFilteredPersonalLessons;
+                const qClean = removeAccents(q);
+                return dirFilteredPersonalLessons.filter(l => {
+                  const title = (l.title || '').toLowerCase();
+                  const desc = (l.description || '').toLowerCase();
+                  return (
+                    title.includes(q) || desc.includes(q) ||
+                    removeAccents(title).includes(qClean) || removeAccents(desc).includes(qClean)
+                  );
+                });
+              })();
+
+              // Apply sort
+              const sortedPersonalLessons = (() => {
+                const list = [...searchedPersonalLessons];
+                list.sort((a, b) => {
+                  if (personalSortBy === 'date_desc') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                  if (personalSortBy === 'date_asc') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                  if (personalSortBy === 'title_asc') return (a.title || '').localeCompare(b.title || '', 'vi');
+                  if (personalSortBy === 'title_desc') return (b.title || '').localeCompare(a.title || '', 'vi');
+                  return 0;
+                });
+                return list;
+              })();
 
               return (
                 <div className="flex flex-col lg:flex-row gap-6 min-h-[500px]">
@@ -1825,16 +1907,18 @@ export default function App() {
                   </div>
 
                   {/* Right: Personal Lessons list */}
-                  <div className="flex-grow">
-                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-grow min-w-0">
+                    {/* Header: title + count + add button */}
+                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div>
                         <h2 className="text-xl font-bold text-gray-900">Thư viện cá nhân</h2>
                         <p className="text-sm text-gray-500 mt-1">Tài liệu riêng tư và thư mục cá nhân của bạn.</p>
                       </div>
                       <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <span className="text-sm bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-full font-semibold">{dirFilteredPersonalLessons.length} tài liệu</span>
+                        <span className="text-sm bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-full font-semibold">{sortedPersonalLessons.length} tài liệu</span>
                         <button 
                           onClick={() => {
+                            setUploadMode('personal');
                             if (selectedPersonalDirs.length > 0) {
                               setUpDirId(selectedPersonalDirs[0].toString());
                             } else {
@@ -1849,71 +1933,148 @@ export default function App() {
                       </div>
                     </div>
 
-                    {dirFilteredPersonalLessons.length === 0 ? (
+                    {/* Search + Sort bar */}
+                    <div className="mb-5 flex flex-col sm:flex-row gap-3 bg-slate-50/60 border border-slate-100 p-3 rounded-2xl shadow-sm">
+                      {/* Search input */}
+                      <div className="flex-grow flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+                        <span className="text-gray-400 text-sm">🔍</span>
+                        <input
+                          type="text"
+                          value={personalSearchQuery}
+                          onChange={e => setPersonalSearchQuery(e.target.value)}
+                          placeholder="Tìm kiếm tài liệu cá nhân..."
+                          className="flex-grow bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
+                        />
+                        {personalSearchQuery && (
+                          <button onClick={() => setPersonalSearchQuery('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                        )}
+                      </div>
+                      {/* Sort selector */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:block">Sắp xếp:</span>
+                        <select
+                          value={personalSortBy}
+                          onChange={e => setPersonalSortBy(e.target.value)}
+                          className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all hover:bg-slate-50 cursor-pointer"
+                        >
+                          <option value="date_desc">📅 Mới nhất</option>
+                          <option value="date_asc">📅 Cũ nhất</option>
+                          <option value="title_asc">🔤 Tên A→Z</option>
+                          <option value="title_desc">🔤 Tên Z→A</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Result info line */}
+                    {personalSearchQuery && (
+                      <p className="text-xs text-gray-500 mb-3 font-medium">
+                        🔍 Tìm thấy <span className="text-sky-600 font-bold">{sortedPersonalLessons.length}</span> tài liệu{selectedPersonalDirs.length > 0 && <span className="text-slate-400"> (trong thư mục đã chọn)</span>}
+                      </p>
+                    )}
+
+                    {sortedPersonalLessons.length === 0 ? (
                       <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                         <div className="text-5xl mb-4">💾</div>
-                        <p className="text-gray-500 font-medium">Không tìm thấy tài liệu nào.</p>
-                        <p className="text-sm text-gray-400 mt-1">Hãy tải tệp lên hoặc tạo thư mục cá nhân để bắt đầu quản lý.</p>
-                        <button 
-                          onClick={() => {
-                            if (selectedPersonalDirs.length > 0) {
-                              setUpDirId(selectedPersonalDirs[0].toString());
-                            } else {
-                              setUpDirId('');
-                            }
-                            setCurrentView('upload');
-                          }} 
-                          className="mt-4 px-5 py-2 bg-sky-600 text-white rounded-xl text-sm font-semibold hover:bg-sky-700"
-                        >
-                          + Tải tài liệu lên
-                        </button>
+                        <p className="text-gray-500 font-medium">{personalSearchQuery ? 'Không tìm thấy tài liệu phù hợp.' : 'Không tìm thấy tài liệu nào.'}</p>
+                        <p className="text-sm text-gray-400 mt-1">{personalSearchQuery ? 'Thử từ khóa khác hoặc xóa bộ lọc.' : 'Hãy tải tệp lên hoặc tạo thư mục cá nhân để bắt đầu quản lý.'}</p>
+                        {!personalSearchQuery && (
+                          <button 
+                            onClick={() => {
+                              setUploadMode('personal');
+                              if (selectedPersonalDirs.length > 0) {
+                                setUpDirId(selectedPersonalDirs[0].toString());
+                              } else {
+                                setUpDirId('');
+                              }
+                              setCurrentView('upload');
+                            }} 
+                            className="mt-4 px-5 py-2 bg-sky-600 text-white rounded-xl text-sm font-semibold hover:bg-sky-700"
+                          >
+                            + Tải tài liệu lên
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                        {dirFilteredPersonalLessons.map(lesson => (
+                        {sortedPersonalLessons.map(lesson => (
                           <div 
                             key={lesson.id} 
                             onClick={() => setSelectedLessonForDetail(lesson)}
-                            className="bg-white rounded-2xl border border-sky-100/60 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all cursor-pointer flex flex-col justify-between group"
+                            className="bg-white rounded-2xl border border-sky-100/60 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all cursor-pointer flex flex-col relative group"
                           >
-                            <div>
-                              <div className="flex items-start justify-between gap-3 mb-3">
-                                <h3 className="font-bold text-gray-900 text-base leading-snug flex-grow group-hover:text-sky-700 transition-colors">{lesson.title}</h3>
-                                {lesson.status === 'LOCAL' ? (
-                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold">🔒 Riêng tư</span>
-                                ) : lesson.status === 'PENDING' ? (
-                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">⏳ Chờ duyệt</span>
-                                ) : lesson.status === 'REJECTED' ? (
-                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-[10px] font-bold">❌ Bị từ chối</span>
-                                ) : (
-                                  <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-bold">🌐 Công khai</span>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-1.5 mb-3">
-                                {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
-                                  lesson.directory_ids.map((dirId, i) => (
-                                    <span key={i} className="px-2 py-0.5 bg-violet-50 text-violet-700 border border-violet-100 text-xs rounded-md max-w-[220px] truncate" title={getDirectoryFullPath(dirId, directories)}>
-                                      📂 {getDirectoryFullPath(dirId, directories)}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="px-2 py-0.5 bg-gray-50 text-gray-400 border border-gray-100 text-xs rounded-md">📄 Chưa phân thư mục</span>
-                                )}
-                                {lesson.target_student && (
-                                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 text-xs rounded-md">📖 {lesson.target_student}</span>
-                                )}
-                              </div>
-                              {lesson.description && <p className="text-sm text-gray-600 line-clamp-2 mb-3">{lesson.description}</p>}
-                              {lesson.latest_feedback && (
-                                <div className="mb-3 p-2 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700">
-                                  <strong>Phản hồi duyệt:</strong> {lesson.latest_feedback}
-                                </div>
+                            {/* Card Header: Title + hover badge */}
+                            <div className="flex justify-between items-start gap-3 mb-3">
+                              <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-sky-700 transition-colors flex-grow">{lesson.title}</h3>
+                              <span className="text-xs font-semibold text-sky-500 whitespace-nowrap bg-sky-50 px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">Xem chi tiết ↗</span>
+                            </div>
+
+                            {/* Badges row */}
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                              {/* Target Student */}
+                              {lesson.target_student && (
+                                <span className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs font-medium rounded-md flex items-center gap-1">📖 {lesson.target_student}</span>
+                              )}
+                              {/* Status Badge */}
+                              {lesson.status === 'LOCAL' ? (
+                                <span className="px-2 py-1 bg-sky-50 text-sky-700 border border-sky-100 text-xs font-medium rounded-md">💾 Cá nhân</span>
+                              ) : lesson.status === 'PENDING' ? (
+                                <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-100 text-xs font-medium rounded-md animate-pulse">⏳ Chờ duyệt</span>
+                              ) : lesson.status === 'REJECTED' ? (
+                                <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-100 text-xs font-medium rounded-md">❌ Bị từ chối</span>
+                              ) : (
+                                <span className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-medium rounded-md">👥 Công khai</span>
+                              )}
+                              {/* Rating & Total Comments Badge */}
+                              {(lesson.total_ratings > 0 || (lesson.average_rating && lesson.average_rating > 0)) ? (
+                                <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold rounded-md flex items-center gap-1">
+                                  ⭐ {Number(lesson.average_rating || 0).toFixed(1)} ({lesson.total_ratings} đánh giá)
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 bg-slate-50 text-slate-400 border border-slate-200 text-xs font-medium rounded-md flex items-center gap-1">
+                                  ⭐ Chưa có đánh giá
+                                </span>
+                              )}
+                              {/* Directory path badges */}
+                              {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
+                                lesson.directory_ids.map((dirId, i) => (
+                                  <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[220px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                                    📂 {getDirectoryFullPath(dirId, directories)}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="px-2 py-1 bg-gray-50 text-gray-400 border border-gray-100 text-xs font-medium rounded-md">📄 Chưa phân thư mục</span>
                               )}
                             </div>
-                            
-                            <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-auto text-xs text-gray-400">
-                              <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
-                              <span className="text-xs font-bold text-sky-600 group-hover:underline">Xem chi tiết ↗</span>
+
+                            {/* Description */}
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-3 flex-grow">{lesson.description || 'Chưa có mô tả.'}</p>
+
+                            {/* Rejection feedback */}
+                            {lesson.latest_feedback && (
+                              <div className="mb-3 p-2 bg-rose-50 border border-rose-100 rounded-lg text-xs text-rose-700">
+                                <strong>💬 Phản hồi duyệt:</strong> {lesson.latest_feedback}
+                              </div>
+                            )}
+
+                            {/* Footer: date + download */}
+                            <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-50 text-xs text-gray-400">
+                              <div className="flex items-center gap-2">
+                                <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
+                              </div>
+                              {lesson.file_path || lesson.file_url ? (
+                                <a
+                                  href={getLessonFileUrl(lesson)}
+                                  download={getFileName(lesson.file_url || lesson.file_path)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                                >
+                                  ↓ Tải tài liệu
+                                </a>
+                              ) : (
+                                <span className="text-gray-300">Không có file</span>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -2085,7 +2246,8 @@ export default function App() {
                 >
                   <option value="">-- Giữ nguyên / Chưa phân thư mục --</option>
                   {(() => {
-                    const isPublicCard = editingLesson.status === 'PUBLISHED' || (() => {
+                    // Determine if this lesson is public (published or in a public directory)
+                    const isPublicLesson = editingLesson.status === 'PUBLISHED' || (() => {
                       if (editingLesson.directory_ids && editingLesson.directory_ids.length > 0) {
                         const firstDir = directories.find(d => d.id === editingLesson.directory_ids![0]);
                         return firstDir ? firstDir.is_public : false;
@@ -2093,11 +2255,24 @@ export default function App() {
                       return false;
                     })();
 
-                    return getDirectoriesAsTreeOptions(directories, d => d.is_public === isPublicCard).map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
-                      </option>
-                    ));
+                    if (isPublicLesson) {
+                      // Show only public directories (for public/published lessons)
+                      return getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.visualPrefix}{d.name} 👥
+                        </option>
+                      ));
+                    } else {
+                      // Show only THIS user's personal (private) directories
+                      return getDirectoriesAsTreeOptions(
+                        directories,
+                        d => !d.is_public && (currentUser.role === 'ADMIN' ? true : d.user === currentUser.id)
+                      ).map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.visualPrefix}{d.name} 🔒
+                        </option>
+                      ));
+                    }
                   })()}
                 </select>
               </div>
@@ -2374,6 +2549,7 @@ export default function App() {
                              // Refresh list
                              const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
                              setLessonRatings(res2.data.ratings);
+                             fetchLessonPlans(searchQuery);
                            } catch { alert('Lỗi khi gửi đánh giá.'); }
                              finally { setRatingSubmitting(false); }
                          }}

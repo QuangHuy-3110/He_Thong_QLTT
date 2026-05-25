@@ -6,13 +6,15 @@ from .views import (
     ApprovalRequestDetailAPIView, LessonPlanDetailAPIView, 
     AdminUserListAPIView, AdminAssignPermissionAPIView,
     UserSelfPermissionsAPIView, LessonPlanProposeAPIView,
-    LessonPlanRatingAPIView, UserProfileUpdateAPIView
+    LessonPlanRatingAPIView, UserProfileUpdateAPIView,
+    LessonPlanWithdrawAPIView
 )
 
 urlpatterns = [
     path('lesson-plans/', LessonPlanListAPIView.as_view(), name='lesson-plan-list'),
     path('lesson-plans/<int:pk>/', LessonPlanDetailAPIView.as_view(), name='lesson-plan-detail'),
     path('lesson-plans/<int:pk>/propose/', LessonPlanProposeAPIView.as_view(), name='lesson-plan-propose'),
+    path('lesson-plans/<int:pk>/withdraw/', LessonPlanWithdrawAPIView.as_view(), name='lesson-plan-withdraw'),
     path('lesson-plans/<int:pk>/ratings/', LessonPlanRatingAPIView.as_view(), name='lesson-plan-ratings'),
     path('lesson-plans/upload/', LessonPlanUploadAPIView.as_view(), name='lesson-plan-upload'),
     path('directories/', DirectoryListCreateAPIView.as_view(), name='directory-list-create'),
