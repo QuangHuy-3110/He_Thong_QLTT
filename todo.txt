@@ -37,6 +37,13 @@ minerU
 - Cập nhật cơ chế chống trùng lặp theo scope (Công khai / Cá nhân), nâng cấp UI/UX hiển thị thông báo trùng lặp dạng card tương tác cho phép "Chỉnh sửa lại" hoặc "Xem tài liệu đã có" tức thì => xong
 - Ẩn hoàn toàn cột bình luận & đánh giá khi mở xem tài liệu cá nhân (LOCAL) chi tiết và mở rộng cột hiển thị nội dung thông tin ra 100% chiều rộng màn hình để tối ưu hóa không gian => xong
 - Tích hợp kiểm tra trùng lặp tự động ngay khi vừa nhấn nút "Đề xuất công khai", hiển thị cảnh báo đỏ và nút xem tài liệu trùng lặp lập tức trước khi bắt chọn thư mục => xong
+- Nâng cấp Tìm kiếm thông minh (PostgreSQL Full-Text Search gộp Vector & điểm Rank) và Bộ lọc nâng cao dạng Hybrid (sidebar Multi-select Checkbox lớp học JSONField + topbar Popover bộ lọc nhanh) => xong
+- Tinh chỉnh và hợp nhất thanh tìm kiếm đa nhiệm ngữ cảnh (Unified Contextual Search) cho cả 3 tab Thư viện chung, Cá nhân và Lịch sử => xong
+- Thiết kế lại góc thông tin cá nhân (name card): căn giữa đối xứng hoàn hảo, xóa nút Cá nhân thừa, click trực tiếp vào tên/vai trò để chỉnh sửa, thêm hiệu ứng di chuột bút chì absolute không làm xê dịch chữ => xong
+- Loại bỏ các bài giảng rác thiếu tệp tin và seed lại 9 bài giảng mẫu chuyên sâu phủ kín 100% tất cả các thư mục con trong hệ thống => xong
+- Tinh giản hiển thị thư mục trong Card bài giảng: dùng thuật toán lọc nút lá, chỉ hiển thị 1 đường dẫn chi tiết duy nhất (ví dụ Vật lý / Sóng dừng) thay vì hiện lặp cả thư mục cha => xong
+- Sửa lỗi đếm trùng lặp (double-counting) số lượng bài giảng trong cây thư mục bằng cơ chế lọc ID độc bản => xong
+- Sửa lỗi tạo nhiều bản ghi yêu cầu phê duyệt (Approval Request) trùng lặp khi người dùng cập nhật hoặc đổi thư mục đề xuất công khai => xong
 
 
 

@@ -27,19 +27,61 @@ class LessonPlanListAPIView(generics.ListAPIView):
     serializer_class = LessonPlanSerializer
 
     def get_queryset(self):
-        queryset = LessonPlan.objects.all().order_by('-created_at')
+        queryset = LessonPlan.objects.all()
         q = self.request.query_params.get('q', None)
         user_id = self.request.query_params.get('user_id', None)
         dir_id = self.request.query_params.get('directory_id', None)
         
+        # 1. PostgreSQL Full-Text Search (FTS)
         if q:
-            queryset = queryset.filter(Q(title__icontains=q) | Q(description__icontains=q))
+            from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+            vector = SearchVector('title', weight='A') + SearchVector('content_preview', weight='B')
+            query = SearchQuery(q)
+            queryset = queryset.annotate(rank=SearchRank(vector, query)).filter(rank__gte=0.01).order_by('-rank')
+        else:
+            queryset = queryset.order_by('-created_at')
             
+        # 2. JSONField Array Filtering (attributes__lop)
+        classes = self.request.query_params.getlist('lop')
+        if len(classes) == 1 and ',' in classes[0]:
+            classes = classes[0].split(',')
+        if classes:
+            class_queries = Q()
+            for cls in classes:
+                cls_clean = cls.strip()
+                if cls_clean:
+                    class_queries |= Q(attributes__lop__contains=[cls_clean])
+            queryset = queryset.filter(class_queries)
+
+        # 3. Dynamic Attribute Filtering (Type / Loại hình)
+        types = self.request.query_params.getlist('type')
+        if len(types) == 1 and ',' in types[0]:
+            types = types[0].split(',')
+        if types:
+            type_queries = Q()
+            for t in types:
+                t_clean = t.strip()
+                if t_clean:
+                    type_queries |= Q(attributes__contains={"Loại hình": t_clean})
+            queryset = queryset.filter(type_queries)
+
+        # 4. Dynamic Attribute Filtering (Subject / Môn học)
+        subjects = self.request.query_params.getlist('subject')
+        if len(subjects) == 1 and ',' in subjects[0]:
+            subjects = subjects[0].split(',')
+        if subjects:
+            subj_queries = Q()
+            for s in subjects:
+                s_clean = s.strip()
+                if s_clean:
+                    subj_queries |= Q(attributes__contains={"Môn học": s_clean})
+            queryset = queryset.filter(subj_queries)
+
+        # 5. Directory Filter
         if dir_id:
-            # Lấy tất cả thư mục con nếu là thư mục cha, hoặc chỉ lấy chính nó
             queryset = queryset.filter(directories__id=dir_id)
             
-        # If user_id provided, return PUBLISHED and their own LOCAL/DRAFT
+        # 6. User Access Scope (PUBLISHED vs Owner LOCAL/DRAFT)
         if user_id:
             queryset = queryset.filter(Q(status='PUBLISHED') | Q(creator_id=user_id))
         else:
@@ -139,9 +181,12 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                                 # Tự động tạo/cập nhật yêu cầu xét duyệt
                                 ApprovalRequest.objects.update_or_create(
                                     lesson_plan=lesson,
-                                    requester=user,
-                                    target_directory=target_directory,
-                                    defaults={'status': 'PENDING', 'feedback': ''}
+                                    defaults={
+                                        'requester': user,
+                                        'target_directory': target_directory,
+                                        'status': 'PENDING',
+                                        'feedback': ''
+                                    }
                                 )
                         else:
                             # Thư mục cá nhân -> Cập nhật trực tiếp, đổi trạng thái thành LOCAL
@@ -175,9 +220,12 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             if directory:
                 ApprovalRequest.objects.update_or_create(
                     lesson_plan=lesson,
-                    requester=user,
-                    target_directory=directory,
-                    defaults={'status': 'PENDING', 'feedback': ''}
+                    defaults={
+                        'requester': user,
+                        'target_directory': directory,
+                        'status': 'PENDING',
+                        'feedback': ''
+                    }
                 )
         else:
             serializer.save(**save_kwargs)
@@ -585,9 +633,12 @@ class LessonPlanProposeAPIView(APIView):
         # Tạo mới/Cập nhật yêu cầu xét duyệt (ApprovalRequest)
         ApprovalRequest.objects.update_or_create(
             lesson_plan=lesson,
-            requester=user,
-            target_directory=directory,
-            defaults={'status': 'PENDING', 'feedback': ''}
+            defaults={
+                'requester': user,
+                'target_directory': directory,
+                'status': 'PENDING',
+                'feedback': ''
+            }
         )
         
         return Response({'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!'})

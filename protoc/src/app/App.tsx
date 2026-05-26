@@ -116,12 +116,9 @@ interface User {
   role: string;
 }
 
-// Count lessons in a directory and all its descendants
+// Count lessons in a directory and all its descendants (deduplicated)
 function countLessonsInDir(dirId: number, directories: Directory[], allLessons: LessonPlan[]): number {
-  const childIds = directories.filter(d => d.parent === dirId).map(d => d.id);
-  const directCount = allLessons.filter(l => l.directory_ids?.includes(dirId)).length;
-  const childCount = childIds.reduce((sum, cid) => sum + countLessonsInDir(cid, directories, allLessons), 0);
-  return directCount + childCount;
+  return getLessonsInDir(dirId, directories, allLessons).length;
 }
 
 // Collect all lesson IDs in a directory and its descendants
@@ -627,6 +624,48 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
   );
 };
 
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderSnippet(content: string | undefined | null, query: string): React.ReactNode {
+  if (!content || !query.trim()) return null;
+  
+  const queryClean = query.trim().toLowerCase();
+  const contentLower = content.toLowerCase();
+  const idx = contentLower.indexOf(queryClean);
+  
+  let snippet = "";
+  let startIdx = 0;
+  let endIdx = 0;
+  
+  if (idx !== -1) {
+    startIdx = Math.max(0, idx - 40);
+    endIdx = Math.min(content.length, idx + queryClean.length + 80);
+    snippet = content.slice(startIdx, endIdx);
+    if (startIdx > 0) snippet = "..." + snippet;
+    if (endIdx < content.length) snippet = snippet + "...";
+  } else {
+    // Fallback if not found in content body
+    snippet = content.slice(0, 100);
+    if (content.length > 100) snippet += "...";
+  }
+  
+  const parts = snippet.split(new RegExp(`(${escapeRegExp(queryClean)})`, 'gi'));
+  return (
+    <div className="text-[11px] text-slate-500 bg-amber-50/20 border border-amber-100/50 rounded-xl p-3 my-3 leading-relaxed max-w-none shadow-sm">
+      <span className="text-[9px] font-extrabold text-amber-600 block uppercase mb-1 tracking-wider">🎯 Kết quả tìm thấy trong nội dung:</span>
+      <p className="line-clamp-2 italic text-gray-650">
+        {parts.map((part, i) => 
+          part.toLowerCase() === queryClean
+            ? <mark key={i} className="bg-yellow-200 text-yellow-900 font-bold px-1 rounded-sm shadow-sm">{part}</mark>
+            : part
+        )}
+      </p>
+    </div>
+  );
+}
+
 export default function App() {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([]);
   const [directories, setDirectories] = useState<Directory[]>([]);
@@ -775,6 +814,9 @@ export default function App() {
   const [selectedTargetStudents, setSelectedTargetStudents] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
+  const [selectedTietDay, setSelectedTietDay] = useState<string[]>([]);
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState<boolean>(false);
 
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string, checked: boolean) => {
     if (checked) setter(prev => [...prev, value]);
@@ -844,15 +886,32 @@ export default function App() {
 
   // All lessons (unfiltered) for counting and client-side filtering
   const [allLessonPlans, setAllLessonPlans] = useState<LessonPlan[]>([]);
+  const [unfilteredLessons, setUnfilteredLessons] = useState<LessonPlan[]>([]);
 
   const fetchLessonPlans = async (query: string = '') => {
     setLoading(true);
     try {
-      // Always fetch all lesson plans to perform instant client-side searching & filtering
       let url = '/api/lesson-plans/';
-      if (currentUser) url += `?user_id=${currentUser.id}`;
+      const params = new URLSearchParams();
+      if (currentUser) params.append('user_id', currentUser.id.toString());
+      if (query.trim()) params.append('q', query.trim());
+      
+      selectedClasses.forEach(c => params.append('lop', c));
+      selectedTypes.forEach(t => params.append('type', t));
+      selectedSubjects.forEach(s => params.append('subject', s));
+      
+      const paramStr = params.toString();
+      if (paramStr) url += `?${paramStr}`;
+      
       const response = await axios.get(url);
       setAllLessonPlans(response.data);
+
+      // Fetch unfiltered lessons to keep the filter sidebar properties stable
+      let unfilteredUrl = '/api/lesson-plans/';
+      if (currentUser) unfilteredUrl += `?user_id=${currentUser.id}`;
+      const unfilteredResponse = await axios.get(unfilteredUrl);
+      setUnfilteredLessons(unfilteredResponse.data);
+
       setError(null);
     } catch (err) {
       setError('Lỗi khi tải dữ liệu từ máy chủ.');
@@ -912,9 +971,22 @@ export default function App() {
     }
   };
 
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
+
   useEffect(() => {
-    fetchLessonPlans(searchQuery);
-  }, [currentUser]);
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    fetchLessonPlans(debouncedSearchQuery);
+  }, [currentUser, debouncedSearchQuery, selectedClasses, selectedTypes, selectedSubjects, selectedTietDay]);
+
+  useEffect(() => {
+    setPersonalSearchQuery(debouncedSearchQuery);
+  }, [debouncedSearchQuery]);
 
   useEffect(() => {
     fetchDirectories();
@@ -1263,62 +1335,50 @@ export default function App() {
     return Array.from(result.values());
   }, [selectedDirs, directories, allLessonPlans]);
 
-  // Dynamic subject list from current dir-filtered pool
+  // Stable directory-only filtered pool for calculating available subjects in the sidebar
+  const dirUnfilteredLessons = useMemo(() => {
+    if (selectedDirs.length === 0) return unfilteredLessons;
+    const result = new Map<number, LessonPlan>();
+    selectedDirs.forEach(dirId => {
+      getLessonsInDir(dirId, directories, unfilteredLessons).forEach(l => result.set(l.id, l));
+    });
+    return Array.from(result.values());
+  }, [selectedDirs, directories, unfilteredLessons]);
+
+  // Dynamic subject list from current dir-filtered pool (stable when checking boxes)
   const availableSubjects = useMemo(() => {
     const subjects = new Set<string>();
-    dirFilteredLessons.forEach(l => {
+    dirUnfilteredLessons.forEach(l => {
       const s = l.attributes?.['Môn học'];
       if (s) subjects.add(s);
     });
     return Array.from(subjects).sort();
+  }, [dirUnfilteredLessons]);
+
+  // Search & dynamic filters are fully executed on PostgreSQL Server-side.
+  // We only apply the directory folder scope client-side here.
+  const filteredLessonPlans = useMemo(() => {
+    return dirFilteredLessons;
   }, [dirFilteredLessons]);
 
-  // Apply remaining checkbox filters AND dynamic approximate search query
-  const filteredLessonPlans = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const queryClean = removeAccents(query);
-
-    return dirFilteredLessons.filter(lesson => {
-      // 1. Dynamic Approximate/Sub-string Search (Title & Description, case & accent insensitive)
-      if (query) {
-        const title = (lesson.title || '').toLowerCase();
-        const desc = (lesson.description || '').toLowerCase();
-        const titleClean = removeAccents(title);
-        const descClean = removeAccents(desc);
-
-        const matchesQuery = 
-          title.includes(query) || 
-          desc.includes(query) || 
-          titleClean.includes(queryClean) || 
-          descClean.includes(queryClean);
-
-        if (!matchesQuery) return false;
-      }
-
-      // 2. Check Target Student
-      if (selectedTargetStudents.length > 0 && !selectedTargetStudents.includes(lesson.target_student || '')) {
-        return false;
-      }
-
-      // 3. Check Type
-      const type = lesson.attributes?.['Loại hình'] || '';
-      if (selectedTypes.length > 0 && !selectedTypes.includes(type)) {
-        return false;
-      }
-
-      // 4. Check Subject
-      const subject = lesson.attributes?.['Môn học'] || '';
-      if (selectedSubjects.length > 0 && !selectedSubjects.includes(subject)) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [dirFilteredLessons, searchQuery, selectedTargetStudents, selectedTypes, selectedSubjects]);
+  // Auto-switch sort to Relevance when FTS query is active, and revert to Newest when empty
+  useEffect(() => {
+    if (debouncedSearchQuery.trim()) {
+      setSortBy('relevance');
+    } else {
+      setSortBy('date_desc');
+    }
+  }, [debouncedSearchQuery]);
 
   // Sort the filtered plans based on current sort settings
   const sortedLessonPlans = useMemo(() => {
     const list = [...filteredLessonPlans];
+    
+    // Relevance order is already sorted by SearchRank at PostgreSQL server-side level
+    if (sortBy === 'relevance') {
+      return list;
+    }
+    
     list.sort((a, b) => {
       if (sortBy === 'date_desc') {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -1393,7 +1453,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       {/* Navigation Bar */}
       <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-6">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedDirs([]); setHomeTab('library'); }}>
@@ -1402,20 +1462,117 @@ export default function App() {
               </div>
             </div>
             
-            <div className="flex items-center gap-4 flex-grow max-w-2xl mx-12">
-               <form onSubmit={handleSearch} className="flex-grow flex shadow-sm rounded-full bg-gray-50 border border-gray-200 overflow-hidden">
-                 <div className="px-4 py-2 text-gray-400">🔍</div>
+            <div className="flex items-center gap-2 flex-grow max-w-3xl mx-8 relative">
+               <form onSubmit={handleSearch} className="flex-grow flex items-center pr-1 shadow-sm rounded-full bg-gray-50 border border-gray-200 overflow-hidden">
+                 <div className="pl-4 text-gray-400">🔍</div>
                  <input
                    type="text"
                    value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                   className="w-full bg-transparent focus:outline-none text-sm text-gray-700 placeholder-gray-500 py-2"
-                   placeholder="Tìm kiếm kế hoạch bài giảng theo tên hoặc nội dung..."
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPersonalSearchQuery(e.target.value);
+                    }}
+                   className="w-full bg-transparent focus:outline-none text-sm text-gray-700 placeholder-gray-550 py-2 px-2"
+                   placeholder={
+                     homeTab === 'library'
+                       ? "Tìm kiếm tên bài, nội dung giáo án..."
+                       : homeTab === 'personal'
+                       ? "Tìm kiếm tài liệu cá nhân..."
+                       : "Tìm kiếm trong lịch sử đóng góp..."
+                   }
                  />
-                 <button type="submit" className="px-4 bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 transition-colors">
+                 
+                 {/* Integrated Filter Icon Trigger */}
+                 <button 
+                   type="button"
+                   onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+                   className={`p-2 rounded-full transition-all mr-1.5 flex items-center justify-center ${
+                     showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0
+                       ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                       : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
+                   }`}
+                   title="Bộ lọc nâng cao"
+                 >
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                   </svg>
+                 </button>
+                 
+                 <button type="submit" className="px-4 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mr-0.5 shadow-sm">
                    Tìm
                  </button>
                </form>
+               
+               {/* Popover Dropdown Panel */}
+               {showAdvancedFilter && (
+                 <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl p-5 z-40 animate-in fade-in slide-in-from-top-3 duration-250">
+                     <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                       <h4 className="font-extrabold text-sm text-gray-900">🎛️ Bộ lọc nâng cao</h4>
+                       <button 
+                         onClick={() => { setSelectedTietDay([]); setSelectedSubjects([]); }} 
+                         className="text-xs text-blue-600 hover:text-blue-800 font-bold"
+                       >
+                         Xóa bộ lọc
+                       </button>
+                     </div>
+                     
+                     {/* Filter by Duration / Tiết dạy */}
+                     <div className="mb-4">
+                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Số tiết học (Tiết dạy)</label>
+                       <div className="grid grid-cols-3 gap-2">
+                         {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
+                           const isSelected = selectedTietDay.includes(tiet);
+                           return (
+                             <button
+                               key={tiet}
+                               type="button"
+                               onClick={() => {
+                                 setSelectedTietDay(prev => 
+                                   prev.includes(tiet) ? prev.filter(p => p !== tiet) : [...prev, tiet]
+                                 );
+                               }}
+                               className={`py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${
+                                 isSelected 
+                                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                   : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                               }`}
+                             >
+                               {tiet}
+                             </button>
+                           );
+                         })}
+                       </div>
+                     </div>
+                     
+                     {/* Filter by Subject / Môn học */}
+                     <div>
+                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Môn học / Kiến thức</label>
+                       <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                         {['Sinh học', 'Toán học', 'Vật lý', 'Hóa học', 'Tin học', 'Công nghệ', 'Địa lý'].map(subj => {
+                           const isSelected = selectedSubjects.includes(subj);
+                           return (
+                             <button
+                               key={subj}
+                               type="button"
+                               onClick={() => {
+                                 setSelectedSubjects(prev => 
+                                   prev.includes(subj) ? prev.filter(p => p !== subj) : [...prev, subj]
+                                 );
+                               }}
+                               className={`py-1 px-2.5 rounded-full text-[11px] font-semibold border transition-all ${
+                                 isSelected
+                                   ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                               }`}
+                             >
+                               {subj}
+                             </button>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   </div>
+                 )}
             </div>
 
             <div className="flex items-center">
@@ -1447,9 +1604,18 @@ export default function App() {
                       <span>+</span> Đăng bài giảng
                     </button>
                   </div>
-                  <div className="text-right hidden md:block">
-                    <div className="text-sm font-semibold text-gray-900">{currentUser.full_name || currentUser.username}</div>
-                    <div className="text-xs text-gray-500 font-medium">
+                  <div 
+                    onClick={() => setShowProfileModal(true)}
+                    className="flex flex-col items-center justify-center hidden md:flex cursor-pointer hover:bg-blue-50/80 border border-transparent hover:border-blue-100 p-1.5 px-4 rounded-2xl transition-all select-none group relative"
+                    title="Chỉnh sửa thông tin cá nhân"
+                  >
+                    <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 flex items-center justify-center gap-1 w-full relative pr-4">
+                      <span>{currentUser.full_name || currentUser.username}</span>
+                      <svg className="w-3.5 h-3.5 hidden group-hover:block text-blue-500 absolute right-0 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                      </svg>
+                    </div>
+                    <div className="text-xs text-gray-500 font-medium w-full text-center pr-4">
                       {currentUser.role === 'ADMIN' ? (
                         <span className="text-red-600 font-bold">Admin</span>
                       ) : currentUser.role === 'TEACHER' ? (
@@ -1459,12 +1625,6 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setShowProfileModal(true)} 
-                    className="ml-2 px-3 py-1.5 border border-blue-200 text-sm font-semibold rounded-xl text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 transition-all flex items-center gap-1.5 shadow-sm"
-                  >
-                    ⚙️ Cá nhân
-                  </button>
                   <button onClick={handleLogout} className="ml-2 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors">
                     Thoát
                   </button>
@@ -1529,6 +1689,23 @@ export default function App() {
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh thành thị')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh thành thị', e.target.checked)} /> Học sinh thành thị</label>
                 <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTargetStudents.includes('Học sinh nông thôn')} onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh nông thôn', e.target.checked)} /> Học sinh nông thôn</label>
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Lớp học</h3>
+              <div className="flex flex-col gap-2">
+                {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(cls => (
+                  <label key={cls} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                      checked={selectedClasses.includes(cls)} 
+                      onChange={e => handleFilterChange(setSelectedClasses, cls, e.target.checked)} 
+                    /> 
+                    {cls}
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -1641,6 +1818,9 @@ export default function App() {
                         onChange={e => { setSortBy(e.target.value); setCurrentPage(1); }}
                         className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all hover:bg-slate-50 cursor-pointer"
                       >
+                        {debouncedSearchQuery.trim() && (
+                          <option value="relevance">🎯 Mức độ tương đồng (Relevance)</option>
+                        )}
                         <option value="date_desc">📅 Mới nhất (Ngày tải)</option>
                         <option value="date_asc">📅 Cũ nhất (Ngày tải)</option>
                         <option value="rating_desc">⭐ Đánh giá cao nhất</option>
@@ -1705,18 +1885,29 @@ export default function App() {
                               ⭐ Chưa có đánh giá
                             </span>
                           )}
-                          {/* Directory full path breadcrumb badge */}
+                          {/* Directory full path breadcrumb badge (Deepest/Leaf paths only to avoid parent redundancy) */}
                           {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
-                            lesson.directory_ids.map((dirId, i) => (
-                              <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[250px] truncate" title={getDirectoryFullPath(dirId, directories)}>
-                                📂 {getDirectoryFullPath(dirId, directories)}
-                              </span>
-                            ))
+                            (() => {
+                              const leafDirIds = lesson.directory_ids.filter(dirId => {
+                                const hasChildInList = lesson.directory_ids.some(otherId => {
+                                  if (otherId === dirId) return false;
+                                  const otherDir = directories.find(d => d.id === otherId);
+                                  return otherDir && otherDir.parent === dirId;
+                                });
+                                return !hasChildInList;
+                              });
+                              return leafDirIds.map((dirId, i) => (
+                                <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[250px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                                  📂 {getDirectoryFullPath(dirId, directories)}
+                                </span>
+                              ));
+                            })()
                           ) : (
                             <span className="px-2 py-1 bg-gray-50 text-gray-400 border border-gray-100 text-xs font-medium rounded-md">📄 Không có thư mục</span>
                           )}
                         </div>
                         <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">{lesson.description || 'Chưa có mô tả.'}</p>
+                        {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
                         <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 text-xs text-gray-400">
                           <div className="flex items-center gap-2">
                             <span 
@@ -1861,6 +2052,18 @@ export default function App() {
             {homeTab === 'history' && currentUser && (() => {
               const myLessons = allLessonPlans
                 .filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL')
+                .filter(l => {
+                  const q = debouncedSearchQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  const qClean = removeAccents(q);
+                  const title = (l.title || '').toLowerCase();
+                  const desc = (l.description || '').toLowerCase();
+                  const content = (l.content_preview || '').toLowerCase();
+                  return (
+                    title.includes(q) || desc.includes(q) || content.includes(q) ||
+                    removeAccents(title).includes(qClean) || removeAccents(desc).includes(qClean) || removeAccents(content).includes(qClean)
+                  );
+                })
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
               return (
                 <div>
@@ -1913,6 +2116,8 @@ export default function App() {
                           {lesson.description && (
                             <p className="text-sm text-gray-600 line-clamp-2 mb-3">{lesson.description}</p>
                           )}
+
+                          {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
 
                           {/* Rejection Feedback Box */}
                           {lesson.status === 'REJECTED' && lesson.latest_feedback && (
@@ -2120,12 +2325,15 @@ export default function App() {
                         <input
                           type="text"
                           value={personalSearchQuery}
-                          onChange={e => setPersonalSearchQuery(e.target.value)}
+                          onChange={e => {
+                            setSearchQuery(e.target.value);
+                            setPersonalSearchQuery(e.target.value);
+                          }}
                           placeholder="Tìm kiếm tài liệu cá nhân..."
                           className="flex-grow bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
                         />
                         {personalSearchQuery && (
-                          <button onClick={() => setPersonalSearchQuery('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                          <button onClick={() => { setSearchQuery(''); setPersonalSearchQuery(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                         )}
                       </div>
                       {/* Sort selector */}
@@ -2213,13 +2421,23 @@ export default function App() {
                                   ⭐ Chưa có đánh giá
                                 </span>
                               )}
-                              {/* Directory path badges */}
+                              {/* Directory path badges (Deepest/Leaf paths only to avoid parent redundancy) */}
                               {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
-                                lesson.directory_ids.map((dirId, i) => (
-                                  <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[220px] truncate" title={getDirectoryFullPath(dirId, directories)}>
-                                    📂 {getDirectoryFullPath(dirId, directories)}
-                                  </span>
-                                ))
+                                (() => {
+                                  const leafDirIds = lesson.directory_ids.filter(dirId => {
+                                    const hasChildInList = lesson.directory_ids.some(otherId => {
+                                      if (otherId === dirId) return false;
+                                      const otherDir = directories.find(d => d.id === otherId);
+                                      return otherDir && otherDir.parent === dirId;
+                                    });
+                                    return !hasChildInList;
+                                  });
+                                  return leafDirIds.map((dirId, i) => (
+                                    <span key={i} className="px-2 py-1 bg-violet-50 text-violet-700 border border-violet-100 text-xs font-medium rounded-md flex items-center gap-1 max-w-[220px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                                      📂 {getDirectoryFullPath(dirId, directories)}
+                                    </span>
+                                  ));
+                                })()
                               ) : (
                                 <span className="px-2 py-1 bg-gray-50 text-gray-400 border border-gray-100 text-xs font-medium rounded-md">📄 Chưa phân thư mục</span>
                               )}
@@ -2227,6 +2445,8 @@ export default function App() {
 
                             {/* Description */}
                             <p className="text-sm text-gray-600 mb-3 line-clamp-3 flex-grow">{lesson.description || 'Chưa có mô tả.'}</p>
+
+                            {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
 
                             {/* Rejection feedback */}
                             {lesson.latest_feedback && (
