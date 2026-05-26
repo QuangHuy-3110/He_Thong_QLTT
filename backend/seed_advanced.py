@@ -94,7 +94,29 @@ lp1 = LessonPlan.objects.create(
         'Loại hình': 'Lý thuyết',
         'Tiết dạy': '2 tiết',
         'lop': ['Lớp 10', 'Lớp 11'],
-        'Cấp học': 'THPT'
+        'Cấp học': 'THPT',
+        'tien_trinh_day_hoc': [
+            {
+                'ten_hoat_dong': 'Hoạt động 1: Khởi động & Nhận thức vấn đề',
+                'thoi_gian': '10 phút',
+                'tom_tat': 'Giáo viên chiếu clip ngắn về thực trạng béo phì học đường và thói quen ăn uống nhanh của giới trẻ. Học sinh thảo luận nhóm.'
+            },
+            {
+                'ten_hoat_dong': 'Hoạt động 2: Hình thành kiến thức về chất dinh dưỡng',
+                'thoi_gian': '30 phút',
+                'tom_tat': 'Giáo viên giảng giải về các nhóm vitamin A, B, C, D và vai trò của chất xơ, protein, nước. Hướng dẫn phân tích hàm lượng bao bì.'
+            },
+            {
+                'ten_hoat_dong': 'Hoạt động 3: Luyện tập & Thiết kế thực đơn',
+                'thoi_gian': '40 phút',
+                'tom_tat': 'Học sinh làm việc theo nhóm để lập bảng tính calo và đề xuất thực đơn dinh dưỡng khoa học hoàn hảo cho cả tuần.'
+            },
+            {
+                'ten_hoat_dong': 'Hoạt động 4: Báo cáo & Tổng kết cuộc thi',
+                'thoi_gian': '10 phút',
+                'tom_tat': 'Đại diện nhóm thuyết trình thực đơn của mình trước lớp. Giáo viên đánh giá, nhận xét và trao quà khuyến khích.'
+            }
+        ]
     }
 )
 LessonPlanDirectory.objects.create(lesson_plan=lp1, directory=sinh_hoc)
@@ -132,7 +154,24 @@ lp2 = LessonPlan.objects.create(
         'Loại hình': 'Thực hành',
         'Tiết dạy': '3 tiết',
         'lop': ['Lớp 11'],
-        'Cấp học': 'THPT'
+        'Cấp học': 'THPT',
+        'tien_trinh_day_hoc': [
+            {
+                'ten_hoat_dong': 'Hoạt động 1: Nhận diện lục lạp',
+                'thoi_gian': '30 phút',
+                'tom_tat': 'Học sinh tiến hành tiêu bản tế bào thực vật và nhận diện bào quan lục lạp dưới kính hiển vi quang học.'
+            },
+            {
+                'ten_hoat_dong': 'Hoạt động 2: Chiết rút sắc tố diệp lục',
+                'thoi_gian': '45 phút',
+                'tom_tat': 'Thực hành chiết rút sắc tố diệp lục từ lá cây tươi bằng cồn 90 độ, quan sát sự đổi màu của dung dịch.'
+            },
+            {
+                'ten_hoat_dong': 'Hoạt động 3: Thí nghiệm chứng minh giải phóng oxy',
+                'thoi_gian': '60 phút',
+                'tom_tat': 'Lắp đặt mô hình thí nghiệm cây rong đuôi chó trong cốc nước dưới ánh sáng, ghi nhận bọt khí oxy giải phóng ra.'
+            }
+        ]
     }
 )
 LessonPlanDirectory.objects.create(lesson_plan=lp2, directory=sinh_hoc)

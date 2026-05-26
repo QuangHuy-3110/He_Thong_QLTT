@@ -151,6 +151,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState('');
   const [selectedKnowledge, setSelectedKnowledge] = useState<string[]>([]);
+  const [parsedActivities, setParsedActivities] = useState<any[]>([]);
   const [knowledgeSearch, setKnowledgeSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -189,6 +190,9 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         }
         if (data.knowledge_tags && Array.isArray(data.knowledge_tags)) {
           setSelectedKnowledge(data.knowledge_tags);
+        }
+        if (data.activities && Array.isArray(data.activities)) {
+          setParsedActivities(data.activities);
         }
       } catch (err) {
         console.error('Auto-extraction error:', err);
@@ -352,7 +356,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       formData.append('attributes', JSON.stringify({
         'Loại hình': selectedType,
         'Môn học': selectedKnowledge.join(', '),
-        knowledge_tags: selectedKnowledge
+        knowledge_tags: selectedKnowledge,
+        tien_trinh_day_hoc: parsedActivities
       }));
       if (selectedDirId) formData.append('directory_id', selectedDirId.toString());
       formData.append('file', file);

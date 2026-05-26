@@ -98,71 +98,92 @@ def parse_docx_lesson_plan(file_path):
         lesson_type = "Thực hành"
 
     # 7. Extract Activities (Tiến trình dạy học)
+    # 7. Extract Activities (Tiến trình dạy học)
     activities = []
-    for i, p in enumerate(doc.paragraphs):
-        text = p.text.strip()
-        match = re.match(r"^(Hoạt động\s+\d+|HĐ\s*\d+)\s*:\s*(.*)", text, re.IGNORECASE)
-        if match:
-            act_name = match.group(0).strip()
-            act_time = "10 phút"
-            act_desc = ""
-            
-            for j in range(1, 6):
-                if i + j < len(doc.paragraphs):
-                    next_text = doc.paragraphs[i + j].text.strip()
-                    if not next_text:
-                        continue
-                    time_match = re.search(r"(\d+\s*phút)", next_text, re.IGNORECASE)
-                    if time_match:
-                        act_time = time_match.group(1).strip()
-                    if not act_desc and len(next_text) > 20 and "Mục tiêu" not in next_text and "Tổ chức" not in next_text:
-                        act_desc = next_text
-            
-            if not act_desc:
-                for j in range(1, 10):
-                    if i + j < len(doc.paragraphs):
-                        t = doc.paragraphs[i + j].text.strip()
-                        if t and len(t) > 30 and "Hoạt động" not in t:
-                            act_desc = t
-                            break
-            
-            if act_desc:
-                sentences = re.split(r'(?<=[.!?])\s+', act_desc)
-                act_desc = " ".join(sentences[:2]).strip()
-            else:
-                act_desc = "Tổ chức hoạt động giảng dạy trải nghiệm thực tế."
-            
-            activities.append({
-                "ten_hoat_dong": act_name,
-                "thoi_gian": act_time,
-                "tom_tat": act_desc
-            })
-            if len(activities) >= 5:
-                break
-                
-    # Table fallback
-    if not activities:
-        for table in doc.tables:
+    
+    # Prioritize table overview extraction (Khung tiến trình dạy học)
+    for table in doc.tables:
+        if len(table.rows) > 1:
             headers = [cell.text.strip().lower() for cell in table.rows[0].cells]
             is_timeline_table = any("hoạt động" in h or "hđ" in h for h in headers)
-            if is_timeline_table and len(table.rows) > 1:
+            if is_timeline_table:
                 for row in table.rows[1:6]:
                     cells = [c.text.strip() for c in row.cells]
                     if len(cells) >= 2:
-                        act_name = cells[0]
+                        raw_name = cells[0]
                         act_desc = cells[1] if len(cells) > 1 else ""
-                        time_match = re.search(r"(\d+\s*phút)", act_name + " " + act_desc, re.IGNORECASE)
+                        
+                        # Extract time (e.g. "10 phút")
+                        time_match = re.search(r"(\d+\s*phút)", raw_name + " " + act_desc, re.IGNORECASE)
                         act_time = time_match.group(1) if time_match else "15 phút"
                         
-                        sentences = re.split(r'(?<=[.!?])\s+', act_desc)
-                        act_desc = " ".join(sentences[:2]).strip() if act_desc else "Hoạt động dạy học chi tiết."
-                        
+                        # Clean time from activity name (e.g. "HĐ 1 (10 phút)" -> "HĐ 1")
+                        act_name = re.sub(r"\(\s*\d+\s*phút\s*\)", "", raw_name, flags=re.IGNORECASE).strip()
+                        act_name = re.sub(r"\d+\s*phút", "", act_name, flags=re.IGNORECASE).strip()
+                        # Clean trailing dashes, colons or spaces
+                        act_name = re.sub(r"[\s\-:]+$", "", act_name).strip()
+                        if not act_name:
+                            act_name = raw_name
+                            
+                        # Extract main content cleanly
+                        if act_desc:
+                            # Keep full content if it is a concise overview (under 250 chars), otherwise take first 2 sentences
+                            act_desc_clean = act_desc.strip()
+                            if len(act_desc_clean) > 250:
+                                sentences = re.split(r'(?<=[.!?])\s+', act_desc_clean)
+                                act_desc_clean = " ".join(sentences[:2]).strip()
+                        else:
+                            act_desc_clean = "Hoạt động dạy học chi tiết."
+                            
                         activities.append({
                             "ten_hoat_dong": act_name,
                             "thoi_gian": act_time,
-                            "tom_tat": act_desc
+                            "tom_tat": act_desc_clean
                         })
                 break
+                
+    # Fallback to scanning paragraphs if no overview table was found
+    if not activities:
+        for i, p in enumerate(doc.paragraphs):
+            text = p.text.strip()
+            match = re.match(r"^(Hoạt động\s+\d+|HĐ\s*\d+)\s*:\s*(.*)", text, re.IGNORECASE)
+            if match:
+                act_name = match.group(0).strip()
+                act_time = "10 phút"
+                act_desc = ""
+                
+                for j in range(1, 6):
+                    if i + j < len(doc.paragraphs):
+                        next_text = doc.paragraphs[i + j].text.strip()
+                        if not next_text:
+                            continue
+                        time_match = re.search(r"(\d+\s*phút)", next_text, re.IGNORECASE)
+                        if time_match:
+                            act_time = time_match.group(1).strip()
+                        if not act_desc and len(next_text) > 20 and "Mục tiêu" not in next_text and "Tổ chức" not in next_text:
+                            act_desc = next_text
+                
+                if not act_desc:
+                    for j in range(1, 10):
+                        if i + j < len(doc.paragraphs):
+                            t = doc.paragraphs[i + j].text.strip()
+                            if t and len(t) > 30 and "Hoạt động" not in t:
+                                act_desc = t
+                                break
+                
+                if act_desc:
+                    sentences = re.split(r'(?<=[.!?])\s+', act_desc)
+                    act_desc = " ".join(sentences[:2]).strip()
+                else:
+                    act_desc = "Tổ chức hoạt động giảng dạy trải nghiệm thực tế."
+                
+                activities.append({
+                    "ten_hoat_dong": act_name,
+                    "thoi_gian": act_time,
+                    "tom_tat": act_desc
+                })
+                if len(activities) >= 5:
+                    break
 
     # 8. Extract Knowledge Tags (Từ khóa)
     knowledge_tags = []
@@ -188,8 +209,8 @@ def parse_docx_lesson_plan(file_path):
             
         description = ", ".join(description_parts)
         if activities:
-            act_titles = [a["ten_hoat_dong"] for a in activities]
-            description += ". Gồm các hoạt động chính: " + ", ".join(act_titles) + "."
+            act_details = [f"{a['ten_hoat_dong']}: {a['tom_tat']}" for a in activities]
+            description += ". Gồm các hoạt động chính: " + "; ".join(act_details) + "."
         elif not description:
             description = "Bài giảng dạy học giáo án được tải lên hệ thống."
     else:

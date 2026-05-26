@@ -109,6 +109,51 @@ interface LessonPlan {
   latest_feedback?: string | null;
 }
 
+interface Activity {
+  ten_hoat_dong: string;
+  thoi_gian: string;
+  tom_tat: string;
+}
+
+interface LessonActivitiesTimelineProps {
+  activities?: Activity[];
+}
+
+const LessonActivitiesTimeline: React.FC<LessonActivitiesTimelineProps> = ({ activities }) => {
+  if (!activities || !Array.isArray(activities) || activities.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6">
+      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tiến trình dạy học (Tóm tắt hoạt động)</h4>
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+        <div className="relative border-l-2 border-blue-100 ml-3 pl-6 space-y-6 py-2">
+          {activities.map((act, index) => (
+            <div key={index} className="relative">
+              {/* Connector Dot */}
+              <span className="absolute -left-[31px] top-1 bg-white border-2 border-blue-500 rounded-full w-4.5 h-4.5 flex items-center justify-center shadow-sm">
+                <span className="bg-blue-500 rounded-full w-2 h-2"></span>
+              </span>
+              
+              {/* Node content */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 justify-between">
+                <h5 className="font-bold text-gray-800 text-sm leading-snug">{act.ten_hoat_dong}</h5>
+                <span className="inline-flex self-start sm:self-auto items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100/60 shadow-sm whitespace-nowrap">
+                  ⏱️ {act.thoi_gian || '10 phút'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                {act.tom_tat || 'Tổ chức hoạt động giảng dạy trải nghiệm thực tế.'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface User {
   id: number;
   username: string;
@@ -2221,9 +2266,10 @@ export default function App() {
                 return dirFilteredPersonalLessons.filter(l => {
                   const title = (l.title || '').toLowerCase();
                   const desc = (l.description || '').toLowerCase();
+                  const content = (l.content_preview || '').toLowerCase();
                   return (
-                    title.includes(q) || desc.includes(q) ||
-                    removeAccents(title).includes(qClean) || removeAccents(desc).includes(qClean)
+                    title.includes(q) || desc.includes(q) || content.includes(q) ||
+                    removeAccents(title).includes(qClean) || removeAccents(desc).includes(qClean) || removeAccents(content).includes(qClean)
                   );
                 });
               })();
@@ -2292,14 +2338,29 @@ export default function App() {
 
                   {/* Right: Personal Lessons list */}
                   <div className="flex-grow min-w-0">
-                    {/* Header: title + count + add button */}
-                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    {/* Header: title + count + add button with inline sort */}
+                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-gray-100 pb-4">
                       <div>
                         <h2 className="text-xl font-bold text-gray-900">Thư viện cá nhân</h2>
                         <p className="text-sm text-gray-500 mt-1">Tài liệu riêng tư và thư mục cá nhân của bạn.</p>
                       </div>
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <span className="text-sm bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1.5 rounded-full font-semibold">{sortedPersonalLessons.length} tài liệu</span>
+                      <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+                        {/* Sort Selector */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sắp xếp:</span>
+                          <select
+                            value={personalSortBy}
+                            onChange={e => setPersonalSortBy(e.target.value)}
+                            className="text-xs font-bold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all hover:bg-slate-50 cursor-pointer"
+                          >
+                            <option value="date_desc">📅 Mới nhất</option>
+                            <option value="date_asc">📅 Cũ nhất</option>
+                            <option value="title_asc">🔤 Tên A→Z</option>
+                            <option value="title_desc">🔤 Tên Z→A</option>
+                          </select>
+                        </div>
+                        
+                        <span className="text-xs bg-sky-50 text-sky-700 border border-sky-100 px-3 py-2 rounded-xl font-bold whitespace-nowrap">{sortedPersonalLessons.length} tài liệu</span>
                         <button 
                           onClick={() => {
                             setUploadMode('personal');
@@ -2310,45 +2371,10 @@ export default function App() {
                             }
                             setCurrentView('upload');
                           }} 
-                          className="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors"
+                          className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors whitespace-nowrap shadow-sm hover:shadow"
                         >
                           + Thêm mới
                         </button>
-                      </div>
-                    </div>
-
-                    {/* Search + Sort bar */}
-                    <div className="mb-5 flex flex-col sm:flex-row gap-3 bg-slate-50/60 border border-slate-100 p-3 rounded-2xl shadow-sm">
-                      {/* Search input */}
-                      <div className="flex-grow flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
-                        <span className="text-gray-400 text-sm">🔍</span>
-                        <input
-                          type="text"
-                          value={personalSearchQuery}
-                          onChange={e => {
-                            setSearchQuery(e.target.value);
-                            setPersonalSearchQuery(e.target.value);
-                          }}
-                          placeholder="Tìm kiếm tài liệu cá nhân..."
-                          className="flex-grow bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
-                        />
-                        {personalSearchQuery && (
-                          <button onClick={() => { setSearchQuery(''); setPersonalSearchQuery(''); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-                        )}
-                      </div>
-                      {/* Sort selector */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:block">Sắp xếp:</span>
-                        <select
-                          value={personalSortBy}
-                          onChange={e => setPersonalSortBy(e.target.value)}
-                          className="text-xs font-semibold bg-white border border-gray-200 rounded-xl px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all hover:bg-slate-50 cursor-pointer"
-                        >
-                          <option value="date_desc">📅 Mới nhất</option>
-                          <option value="date_asc">📅 Cũ nhất</option>
-                          <option value="title_asc">🔤 Tên A→Z</option>
-                          <option value="title_desc">🔤 Tên Z→A</option>
-                        </select>
                       </div>
                     </div>
 
@@ -2859,18 +2885,24 @@ export default function App() {
                  </div>
 
                  {/* Additional attributes */}
-                 {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).length > 0 && (
-                   <div className="mb-6">
-                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
-                     <div className="flex flex-wrap gap-2 bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-                       {Object.entries(selectedLessonForDetail.attributes).map(([key, val]) => (
-                         <span key={key} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold border border-blue-100/50">
-                           {key}: {String(val)}
-                         </span>
-                       ))}
-                     </div>
-                   </div>
-                 )}
+                  {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).filter(k => k !== 'tien_trinh_day_hoc' && k !== 'knowledge_tags').length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
+                      <div className="flex flex-wrap gap-2 bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+                        {Object.entries(selectedLessonForDetail.attributes)
+                          .filter(([key]) => key !== 'tien_trinh_day_hoc' && key !== 'knowledge_tags')
+                          .map(([key, val]) => (
+                            <span key={key} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold border border-blue-100/50">
+                              {key}: {String(val)}
+                            </span>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render activities timeline if exists */}
+                  <LessonActivitiesTimeline activities={selectedLessonForDetail.attributes?.tien_trinh_day_hoc} />
 
                  {/* Document Preview & Attachment */}
                  {(selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) && (() => {

@@ -74,7 +74,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
             for s in subjects:
                 s_clean = s.strip()
                 if s_clean:
-                    subj_queries |= Q(attributes__contains={"Môn học": s_clean})
+                    subj_queries |= Q(**{"attributes__Môn học__icontains": s_clean})
             queryset = queryset.filter(subj_queries)
 
         # 5. Directory Filter
@@ -617,31 +617,59 @@ class LessonPlanProposeAPIView(APIView):
         if lesson.creator != user and user.role != 'ADMIN':
             return Response({'error': 'Bạn không có quyền đề xuất tài liệu này.'}, status=status.HTTP_403_FORBIDDEN)
             
+        # Check if the user is ADMIN or a TEACHER with permission in the target directory
+        has_permission = False
+        if user.role == 'ADMIN':
+            has_permission = True
+        elif user.role == 'TEACHER':
+            managed_ids = get_user_managed_directories(user)
+            if directory.id in managed_ids:
+                has_permission = True
+
+        target_status = 'PUBLISHED' if has_permission else 'PENDING'
+
         # Check duplicate before proposing
-        dup_error, dup_id = check_duplicate_lesson_plan(lesson.title, lesson.content_preview, 'PENDING', user, exclude_id=lesson.id)
+        dup_error, dup_id = check_duplicate_lesson_plan(lesson.title, lesson.content_preview, target_status, user, exclude_id=lesson.id)
         if dup_error:
             return Response({'error': dup_error, 'duplicate_id': dup_id}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Liên kết bài giảng với thư mục công khai được chọn
-        lesson.directories.clear()
+        # Liên kết bài giảng với thư mục công khai được chọn (giữ nguyên thư mục cá nhân cũ)
         lesson.directories.add(directory)
         
-        # Chuyển trạng thái bài giảng sang PENDING để chờ duyệt
-        lesson.status = 'PENDING'
+        # Cập nhật trạng thái bài giảng
+        lesson.status = target_status
         lesson.save()
         
-        # Tạo mới/Cập nhật yêu cầu xét duyệt (ApprovalRequest)
-        ApprovalRequest.objects.update_or_create(
-            lesson_plan=lesson,
-            defaults={
-                'requester': user,
-                'target_directory': directory,
-                'status': 'PENDING',
-                'feedback': ''
-            }
-        )
-        
-        return Response({'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!'})
+        if has_permission:
+            # Nếu có quyền: Duyệt tự động và thành công ngay lập tức!
+            ApprovalRequest.objects.update_or_create(
+                lesson_plan=lesson,
+                defaults={
+                    'requester': user,
+                    'target_directory': directory,
+                    'status': 'APPROVED',
+                    'feedback': 'Tự động duyệt do người đăng có quyền quản trị thư mục.'
+                }
+            )
+            return Response({
+                'message': 'Đã xuất bản tài liệu công khai thành công (Tự động duyệt)!',
+                'published': True
+            })
+        else:
+            # Tạo mới/Cập nhật yêu cầu xét duyệt (ApprovalRequest)
+            ApprovalRequest.objects.update_or_create(
+                lesson_plan=lesson,
+                defaults={
+                    'requester': user,
+                    'target_directory': directory,
+                    'status': 'PENDING',
+                    'feedback': ''
+                }
+            )
+            return Response({
+                'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!',
+                'published': False
+            })
 
 class LessonPlanCheckDuplicateAPIView(APIView):
     def post(self, request, pk):

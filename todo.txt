@@ -24,6 +24,8 @@ minerU
 # - nâng cấp giao diện Quản trị người dùng & Phân quyền hệ thống cho chuyên nghiệp hơn khi mà hệ thống có cả nghìn người dùng
 - Xây dựng giao diện chỉnh sửa thông tin của cá nhân của người dùng cho chuyên nghiệp => xong
 - Khi bấm vào biểu tượng (hình ảnh của phần hệ thống quản lý tri thức) thì hãy quay về tab thư viện chung => xong
+- sắp xếp đánh giá bằng sao => xong (đã có sẵn bộ lọc "⭐ Đánh giá cao nhất / ⭐ Đánh giá thấp nhất" trong dropdown Sắp xếp của Thư viện chung)
+- tài liệu của thư viện cá nhân khi publish sẽ không bị mất => xong (đã chỉnh sửa API Đề xuất để không làm sạch directories cũ, giữ nguyên liên kết thư mục cá nhân)
 - Đồng bộ hiển thị ở tab thư viện cá nhân và thư viện chung cho giống nhau => xong
 - Sắp xếp và bộ lọc theo số sao, số lượt đánh giá ở thư viện chung => xong
 - Hiển thị số sao trung bình và số lượt đánh giá ở ngoại quan card (cả Thư viện chung và Thư viện cá nhân) => xong
@@ -43,7 +45,8 @@ minerU
 - Loại bỏ các bài giảng rác thiếu tệp tin và seed lại 9 bài giảng mẫu chuyên sâu phủ kín 100% tất cả các thư mục con trong hệ thống => xong
 - Tinh giản hiển thị thư mục trong Card bài giảng: dùng thuật toán lọc nút lá, chỉ hiển thị 1 đường dẫn chi tiết duy nhất (ví dụ Vật lý / Sóng dừng) thay vì hiện lặp cả thư mục cha => xong
 - Sửa lỗi đếm trùng lặp (double-counting) số lượng bài giảng trong cây thư mục bằng cơ chế lọc ID độc bản => xong
-- Sửa lỗi tạo nhiều bản ghi yêu cầu phê duyệt (Approval Request) trùng lặp khi người dùng cập nhật hoặc đổi thư mục đề xuất công khai => xong
+- Thiết kế và tích hợp component LessonActivitiesTimeline hiển thị tiến trình dạy học dạng Vertical Timeline scannable, thoáng mắt dưới phần thông tin tổng quan và trên phần preview tài liệu; tự động ẩn an toàn nếu không có dữ liệu => xong
+
 
 
 
@@ -63,3 +66,7 @@ minerU
 chọn thời gian, phải vẽ hết (cô nói trong ghi âm) các sự lựa chọn của GV
 khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - cô upload từng file phải lấy được nhiều thông tin
+
+
+
+
