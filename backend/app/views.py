@@ -83,7 +83,15 @@ class LessonPlanListAPIView(generics.ListAPIView):
             
         # 6. User Access Scope (PUBLISHED vs Owner LOCAL/DRAFT)
         if user_id:
-            queryset = queryset.filter(Q(status='PUBLISHED') | Q(creator_id=user_id))
+            try:
+                from .models import User
+                requesting_user = User.objects.get(id=user_id)
+                if requesting_user.role == 'ADMIN':
+                    pass
+                else:
+                    queryset = queryset.filter(Q(status='PUBLISHED') | Q(creator_id=user_id))
+            except User.DoesNotExist:
+                queryset = queryset.filter(status='PUBLISHED')
         else:
             queryset = queryset.filter(status='PUBLISHED')
             
@@ -170,6 +178,7 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                                 lesson.directories.add(target_directory)
                                 current_attrs = attrs if attrs is not None else lesson.attributes
                                 save_kwargs['attributes'] = {**target_directory.attributes, **current_attrs}
+                                save_kwargs['status'] = 'PUBLISHED'
                             else:
                                 # Không có quyền quản trị thư mục đích -> Cần xét duyệt
                                 lesson.directories.clear()
@@ -291,10 +300,10 @@ def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclud
     if status_val in ['PUBLISHED', 'PENDING']:
         candidates = LessonPlan.objects.filter(status__in=['PUBLISHED', 'PENDING'])
     else:
-        # LOCAL uploads only check against the SAME user's LOCAL documents
+        # LOCAL uploads check against the SAME user's LOCAL documents and their own public/pending documents
         if not user:
             return None, None
-        candidates = LessonPlan.objects.filter(creator=user, status='LOCAL')
+        candidates = LessonPlan.objects.filter(creator=user)
 
     if exclude_id:
         candidates = candidates.exclude(id=exclude_id)
@@ -306,8 +315,14 @@ def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclud
         existing = title_query.first()
         dir_path = ""
         if existing.directories.exists():
-            dir_name = existing.directories.first().name
-            dir_path = f" tại thư mục '{dir_name}'"
+            directory = existing.directories.first()
+            path_components = []
+            curr = directory
+            while curr:
+                path_components.insert(0, curr.name)
+                curr = curr.parent
+            full_path = " / ".join(path_components)
+            dir_path = f" tại thư mục '{full_path}'"
         scope = "công khai" if existing.status in ['PUBLISHED', 'PENDING'] else "cá nhân"
         return f'Tài liệu này đã tồn tại {scope}{dir_path} với tên "{title_str}".', existing.id
 
@@ -332,8 +347,14 @@ def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclud
                     if ratio > 0.95:
                         dir_path = ""
                         if cand.directories.exists():
-                            dir_name = cand.directories.first().name
-                            dir_path = f" tại thư mục '{dir_name}'"
+                            directory = cand.directories.first()
+                            path_components = []
+                            curr = directory
+                            while curr:
+                                path_components.insert(0, curr.name)
+                                curr = curr.parent
+                            full_path = " / ".join(path_components)
+                            dir_path = f" tại thư mục '{full_path}'"
                         scope = "công khai" if cand.status in ['PUBLISHED', 'PENDING'] else "cá nhân"
                         return f'Nội dung tài liệu trùng lặp {int(ratio*100)}% với bài giảng "{cand.title}" trong thư viện {scope}{dir_path}.', cand.id
     return None, None
@@ -346,7 +367,30 @@ class LessonPlanUploadAPIView(APIView):
         title = request.data.get('title')
         description = request.data.get('description', '')
         target_student = request.data.get('target_student', '')
-        status_val = request.data.get('status', 'LOCAL')
+        # Enforce status based on user role and target directory permissions
+        resolved_status = 'LOCAL'
+        directory = None
+        dir_id = request.data.get('directory_id')
+        if dir_id:
+            try:
+                directory = Directory.objects.get(id=dir_id)
+                if directory.is_public:
+                    has_permission = False
+                    if user and user.role == 'ADMIN':
+                        has_permission = True
+                    elif user and user.role == 'TEACHER':
+                        managed_ids = get_user_managed_directories(user)
+                        if directory.id in managed_ids:
+                            has_permission = True
+                    resolved_status = 'PUBLISHED' if has_permission else 'PENDING'
+                else:
+                    resolved_status = 'LOCAL'
+            except Directory.DoesNotExist:
+                resolved_status = 'LOCAL'
+        else:
+            resolved_status = 'LOCAL'
+
+        status_val = resolved_status
         
         file_base64 = request.data.get('file_base64', None)
         file_obj = None
@@ -396,9 +440,7 @@ class LessonPlanUploadAPIView(APIView):
         )
         
         # If directory specified, add to it
-        dir_id = request.data.get('directory_id')
-        if dir_id:
-            directory = Directory.objects.get(id=dir_id)
+        if directory:
             lp.directories.add(directory)
             # Kế thừa thuộc tính thư mục nếu có
             lp.attributes = {**directory.attributes, **lp.attributes}
@@ -468,6 +510,9 @@ class ApprovalRequestDetailAPIView(APIView):
             # Cập nhật trạng thái bài giảng
             lp = req.lesson_plan
             lp.status = 'PUBLISHED'
+            # Đảm bảo bài giảng chỉ thuộc về 1 thư mục công khai (xóa thư mục cá nhân cũ)
+            lp.directories.clear()
+            lp.directories.add(req.target_directory)
             lp.save()
             return Response({'message': 'Duyệt bài giảng thành công!'})
         elif action == 'REJECT':
@@ -534,9 +579,135 @@ class AdminUserListAPIView(APIView):
                 'username': u.username,
                 'full_name': u.full_name,
                 'role': u.role,
+                'is_active': u.is_active,
                 'managed_directories': managed_dirs
             })
         return Response(data)
+
+    def post(self, request):
+        admin_id = request.data.get('admin_id')
+        if not admin_id:
+            return Response({'error': 'Unauthorized'}, status=403)
+        try:
+            admin = User.objects.get(id=admin_id)
+            if admin.role != 'ADMIN':
+                return Response({'error': 'Unauthorized'}, status=403)
+        except User.DoesNotExist:
+            return Response({'error': 'Unauthorized'}, status=403)
+
+        username = request.data.get('username')
+        password = request.data.get('password')
+        full_name = request.data.get('full_name', '')
+        role = request.data.get('role', 'USER')
+
+        if not username or not password:
+            return Response({'error': 'Username và password là bắt buộc.'}, status=400)
+
+        if User.objects.filter(username__iexact=username).exists():
+            return Response({'error': 'Tên tài khoản này đã tồn tại.'}, status=400)
+
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            full_name=full_name,
+            role=role
+        )
+        return Response({
+            'message': 'Đã tạo người dùng mới thành công!',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.full_name,
+                'role': user.role,
+                'is_active': user.is_active,
+                'managed_directories': []
+            }
+        }, status=201)
+
+class AdminUserDetailAPIView(APIView):
+    def patch(self, request, pk):
+        admin_id = request.data.get('admin_id')
+        if not admin_id:
+            return Response({'error': 'Unauthorized'}, status=403)
+        try:
+            admin = User.objects.get(id=admin_id)
+            if admin.role != 'ADMIN':
+                return Response({'error': 'Unauthorized'}, status=403)
+        except User.DoesNotExist:
+            return Response({'error': 'Unauthorized'}, status=403)
+
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=404)
+
+        if user.id == admin.id:
+            return Response({'error': 'Không thể tự thay đổi thông tin/vai trò hoặc khóa tài khoản của bản thân tại trang quản trị.'}, status=400)
+
+        if user.role == 'ADMIN':
+            return Response({'error': 'Không được phép thay đổi thông tin hoặc khóa/mở khóa tài khoản Quản trị viên khác.'}, status=400)
+
+        username = request.data.get('username')
+        password = request.data.get('password')
+        full_name = request.data.get('full_name')
+        role = request.data.get('role')
+        is_active = request.data.get('is_active')
+
+        if username and username.lower() != user.username.lower():
+            if User.objects.filter(username__iexact=username).exists():
+                return Response({'error': 'Tên tài khoản này đã tồn tại.'}, status=400)
+            user.username = username
+
+        if password:
+            user.set_password(password)
+
+        if full_name is not None:
+            user.full_name = full_name
+
+        if role:
+            user.role = role
+
+        if is_active is not None:
+            user.is_active = bool(is_active)
+
+        user.save()
+        managed_dirs = list(Directory.objects.filter(user=user).values_list('id', flat=True))
+        return Response({
+            'message': 'Cập nhật thông tin thành công!',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.full_name,
+                'role': user.role,
+                'is_active': user.is_active,
+                'managed_directories': managed_dirs
+            }
+        })
+
+    def delete(self, request, pk):
+        admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+        if not admin_id:
+            return Response({'error': 'Unauthorized'}, status=403)
+        try:
+            admin = User.objects.get(id=admin_id)
+            if admin.role != 'ADMIN':
+                return Response({'error': 'Unauthorized'}, status=403)
+        except User.DoesNotExist:
+            return Response({'error': 'Unauthorized'}, status=403)
+
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=404)
+
+        if user.id == admin.id:
+            return Response({'error': 'Không thể tự xóa chính mình.'}, status=400)
+
+        if user.role == 'ADMIN':
+            return Response({'error': 'Không được phép xóa tài khoản Quản trị viên khác.'}, status=400)
+
+        user.delete()
+        return Response({'message': 'Xóa tài khoản thành công!'})
 
 class UserSelfPermissionsAPIView(APIView):
     """Allows any logged-in user (including Teachers) to fetch their own managed directory IDs."""
@@ -633,7 +804,8 @@ class LessonPlanProposeAPIView(APIView):
         if dup_error:
             return Response({'error': dup_error, 'duplicate_id': dup_id}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Liên kết bài giảng với thư mục công khai được chọn (giữ nguyên thư mục cá nhân cũ)
+        # Một file giáo án chỉ được tồn tại trong 1 địa chỉ thư mục (xóa thư mục cá nhân cũ khi chuyển sang công khai)
+        lesson.directories.clear()
         lesson.directories.add(directory)
         
         # Cập nhật trạng thái bài giảng
@@ -763,6 +935,8 @@ class UserProfileUpdateAPIView(APIView):
         full_name = request.data.get('full_name')
         new_password = request.data.get('new_password')
         current_password = request.data.get('current_password')
+        avatar_file = request.FILES.get('avatar')
+        avatar_base64 = request.data.get('avatar_base64')
 
         if not user_id:
             return Response({'error': 'Vui lòng cung cấp user_id.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -783,8 +957,16 @@ class UserProfileUpdateAPIView(APIView):
         if full_name is not None:
             user.full_name = full_name
 
+        if avatar_file:
+            user.avatar = avatar_file
+        elif avatar_base64 and 'data' in avatar_base64:
+            import base64
+            from django.core.files.base import ContentFile
+            format, imgstr = avatar_base64['data'].split(';base64,')
+            user.avatar = ContentFile(base64.b64decode(imgstr), name=avatar_base64['name'])
+
         user.save()
-        serializer = UserSerializer(user)
+        serializer = UserSerializer(user, context={'request': request})
         return Response({
             'message': 'Cập nhật thông tin cá nhân thành công!',
             'user': serializer.data

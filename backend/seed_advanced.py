@@ -119,7 +119,6 @@ lp1 = LessonPlan.objects.create(
         ]
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp1, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp1, directory=con_nguoi)
 
 
@@ -174,7 +173,6 @@ lp2 = LessonPlan.objects.create(
         ]
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp2, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp2, directory=thuc_vat)
 
 
@@ -212,7 +210,6 @@ lp3 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp3, directory=toan_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp3, directory=luong_giac)
 
 
@@ -250,7 +247,6 @@ lp4 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp4, directory=vat_ly)
 LessonPlanDirectory.objects.create(lesson_plan=lp4, directory=chuyen_dong)
 
 
@@ -288,7 +284,6 @@ lp5 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp5, directory=vat_ly)
 LessonPlanDirectory.objects.create(lesson_plan=lp5, directory=chuyen_dong)
 
 
@@ -321,7 +316,6 @@ lp6 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp6, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp6, directory=vi_sinh)
 
 
@@ -354,7 +348,6 @@ lp7 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp7, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp7, directory=sinh_thai)
 
 
@@ -387,7 +380,6 @@ lp8 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp8, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp8, directory=cong_nghe)
 
 
@@ -420,7 +412,6 @@ lp9 = LessonPlan.objects.create(
         'Cấp học': 'THPT'
     }
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp9, directory=vat_ly)
 LessonPlanDirectory.objects.create(lesson_plan=lp9, directory=song_dung)
 
 print("Seeding completed successfully with physical docx files and full markdown previews!")

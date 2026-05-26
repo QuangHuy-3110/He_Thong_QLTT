@@ -39,7 +39,6 @@ lp1 = LessonPlan.objects.create(
     creator=admin,
     attributes={'Môn học': 'Di truyền học', 'Cấp học': 'THPT'}
 )
-LessonPlanDirectory.objects.create(lesson_plan=lp1, directory=sinh_hoc)
 LessonPlanDirectory.objects.create(lesson_plan=lp1, directory=thuc_vat)
 
 lp2 = LessonPlan.objects.create(

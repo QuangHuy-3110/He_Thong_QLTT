@@ -96,23 +96,24 @@ Luồng này cho phép chuyển đổi một giáo án cá nhân (`LOCAL` / `REJ
 ```
 
 
-### 2.3. Luồng Quản trị và Phân quyền Thư mục (Admin & Directory Permission Flow)
-Luồng này cho phép `ADMIN` cấp quyền quản trị các cây thư mục cho các `TEACHER` khác:
+### 2.3. Luồng Quản trị và Phân quyền Thư mục (Admin Users & Directory Permission Flow)
+Luồng này cho phép `ADMIN` có toàn quyền điều hành quản lý tài khoản người dùng khác, cấp quyền quản trị các cây thư mục công khai và khóa/mở khóa tài khoản:
 
 ```text
-[Admin] ──(Chọn người dùng & gán thư mục)──> [Frontend: App.tsx (Admin Modal)]
-                                                     │
-                                            (POST /api/admin/users/<id>/permissions/)
-                                                     ▼
-                                         [Backend: AdminAssignPermissionAPIView]
-                                                     │
-                               ┌─────────────────────┴─────────────────────┐
-                    (Cập nhật user sở hữu thư mục)            (Cập nhật Role của User đích)
-                    - Các thư mục cũ bỏ chọn -> Admin         - Sở hữu >= 1 thư mục -> TEACHER
-                    - Các thư mục mới chọn -> Giáo viên       - Sở hữu 0 thư mục -> USER
-                               └─────────────────────┬─────────────────────┘
-                                                     ▼
-                                            [Database (PostgreSQL)]
+                  [Admin] ──(Click 'Quản lý người dùng')──> [currentView = 'admin'] (Toàn màn hình)
+                                                                 │
+       ┌──────────────────────────────────┬───────────────────────┼──────────────────────────────────┬──────────────────────┐
+       ▼                                  ▼                       ▼                                  ▼                      ▼
+ [Thêm tài khoản]                 [Chọn tài khoản]        [Chỉnh sửa thông tin]              [Xóa tài khoản]         [Khóa / Mở khóa]
+ (POST /api/admin/users/)                 │               (PATCH /api/admin/users/<id>/)     (DELETE /...)          (PATCH is_active)
+                                          ▼
+                         [📁 Quản lý thư mục & Phân quyền]
+                                          │
+                  ┌───────────────────────┴───────────────────────┐
+                  ▼                                               ▼
+     [Tab: Thư mục cá nhân]                           [Tab: Thư mục public] (Ẩn với Thành viên)
+     (Xem cây thư mục riêng tư                        (Tích chọn phân quyền đệ quy
+      do người dùng sở hữu)                            POST /api/admin/users/<id>/permissions/)
 ```
 
 ---

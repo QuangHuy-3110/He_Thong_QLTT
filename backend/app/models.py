@@ -5,6 +5,7 @@ from pgvector.django import VectorField
 class User(AbstractUser):
     role = models.CharField(max_length=50, choices=[('ADMIN', 'Quản trị viên'), ('TEACHER', 'Giáo viên'), ('USER', 'Người dùng bình thường')], default='USER')
     full_name = models.CharField(max_length=255, blank=True)
+    avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
 
 class Directory(models.Model):
     name = models.CharField(max_length=255)

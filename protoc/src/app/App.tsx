@@ -91,6 +91,7 @@ interface Directory {
   is_public: boolean;
   attributes: any;
   parent: number | null;
+  user?: number;
 }
 
 interface LessonPlan {
@@ -262,16 +263,20 @@ const getDirectoriesAsTreeOptions = (
 
 const DirectoryNode = ({
   dir: dirProp, directories, selectedDirs, onToggleDir,
-  allLessons, currentUser, onAddChild, onDelete, onRename, onTogglePublic
+  allLessons, currentUser, onAddChild, onDelete, onRename, onTogglePublic, onFileClick, depth = 0
 }: any) => {
   // Always use the latest version of this dir from the directories array
   const dir = directories.find((d: any) => d.id === dirProp.id) || dirProp;
   const children = directories.filter((d: any) => d.parent === dir.id);
   const isSelected = selectedDirs.includes(dir.id);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(depth < 2);
   const [hovered, setHovered] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(dir.name);
+
+  const dirFiles = useMemo(() => {
+    return (allLessons || []).filter((l: any) => l.directory_ids?.includes(dir.id));
+  }, [dir.id, allLessons]);
 
   const count = useMemo(() => countLessonsInDir(dir.id, directories, allLessons), [dir.id, directories, allLessons]);
 
@@ -294,7 +299,7 @@ const DirectoryNode = ({
         {/* Expand/collapse */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className={`w-4 h-4 flex items-center justify-center text-xs text-gray-400 hover:text-gray-700 flex-shrink-0 ${children.length === 0 ? 'opacity-0 pointer-events-none' : ''}`}
+          className={`w-4 h-4 flex items-center justify-center text-xs text-gray-400 hover:text-gray-700 flex-shrink-0 ${(children.length === 0 && dirFiles.length === 0) ? 'opacity-0 pointer-events-none' : ''}`}
         >
           {expanded ? '▼' : '▶'}
         </button>
@@ -392,7 +397,7 @@ const DirectoryNode = ({
         )}
       </div>
 
-      {expanded && children.length > 0 && (
+      {expanded && (children.length > 0 || dirFiles.length > 0) && (
         <div className="border-l border-gray-200 ml-5 pl-1">
           {children.map((child: any) => (
             <DirectoryNode
@@ -407,7 +412,29 @@ const DirectoryNode = ({
               onDelete={onDelete}
               onRename={onRename}
               onTogglePublic={onTogglePublic}
+              onFileClick={onFileClick}
+              depth={depth + 1}
             />
+          ))}
+          {dirFiles.map((file: any) => (
+            <div
+              key={file.id}
+              onClick={() => onFileClick && onFileClick(file)}
+              className="flex items-center gap-2 py-1.5 px-3 rounded-xl hover:bg-blue-50/70 cursor-pointer transition-colors text-xs text-gray-600 font-medium my-0.5 mr-2"
+              style={{ marginLeft: 20 }}
+            >
+              <span className="flex-shrink-0 text-sm">📄</span>
+              <span className="truncate flex-grow hover:underline hover:text-blue-700 font-semibold text-gray-750">{file.title}</span>
+              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider flex-shrink-0 ${
+                file.status === 'PUBLISHED'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  : file.status === 'PENDING'
+                  ? 'bg-amber-50 text-amber-700 border-amber-100'
+                  : 'bg-sky-50 text-sky-700 border-sky-100'
+              }`}>
+                {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
+              </span>
+            </div>
           ))}
         </div>
       )}
@@ -492,19 +519,28 @@ function getAllDescendantIds(dirId: number, directories: Directory[]): number[] 
 
 // ─── Permission Tree Node for Admin Modal (cascading check) ───
 const PermissionDirTreeNode = ({
-  dir, directories, selectedIds, onToggle, depth
-}: { dir: Directory; directories: Directory[]; selectedIds: number[]; onToggle: (id: number, descendants: number[], checked: boolean) => void; depth: number }) => {
+  dir, directories, selectedIds, onToggle, depth, allLessonPlans = [], onFileClick
+}: {
+  dir: Directory;
+  directories: Directory[];
+  selectedIds: number[];
+  onToggle: (id: number, descendants: number[], checked: boolean) => void;
+  depth: number;
+  allLessonPlans?: LessonPlan[];
+  onFileClick?: (file: LessonPlan) => void;
+}) => {
   const children = directories.filter(d => d.parent === dir.id);
   const isChecked = selectedIds.includes(dir.id);
   const [expanded, setExpanded] = useState(true);
   const descendants = getAllDescendantIds(dir.id, directories).slice(1); // exclude self
+  const dirFiles = allLessonPlans.filter(l => l.directory_ids?.includes(dir.id));
 
   return (
     <div style={{ marginLeft: depth * 16 }}>
       <div className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${ isChecked ? 'bg-purple-50' : 'hover:bg-gray-50' }`}>
         <button
           onClick={() => setExpanded(e => !e)}
-          className={`w-4 h-4 flex items-center justify-center text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0 ${children.length === 0 ? 'invisible' : ''}`}
+          className={`w-4 h-4 flex items-center justify-center text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0 ${(children.length === 0 && dirFiles.length === 0) ? 'invisible' : ''}`}
         >
           {expanded ? '▼' : '▶'}
         </button>
@@ -520,7 +556,7 @@ const PermissionDirTreeNode = ({
           <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">+{descendants.length} con</span>
         )}
       </div>
-      {expanded && children.length > 0 && (
+      {expanded && (children.length > 0 || dirFiles.length > 0) && (
         <div className="border-l-2 border-purple-100 ml-4 pl-1">
           {children.map(child => (
             <PermissionDirTreeNode
@@ -529,6 +565,63 @@ const PermissionDirTreeNode = ({
               directories={directories}
               selectedIds={selectedIds}
               onToggle={onToggle}
+              depth={0}
+              allLessonPlans={allLessonPlans}
+              onFileClick={onFileClick}
+            />
+          ))}
+          {dirFiles.map(file => (
+            <div
+              key={file.id}
+              onClick={() => onFileClick && onFileClick(file)}
+              className="flex items-center gap-2 py-1.5 px-3 rounded-xl hover:bg-purple-50/50 cursor-pointer transition-colors text-xs text-gray-600 font-medium my-0.5"
+              style={{ marginLeft: 20 }}
+            >
+              <span className="flex-shrink-0 text-sm">📄</span>
+              <span className="truncate flex-grow hover:underline hover:text-purple-705 font-semibold text-gray-750">{file.title}</span>
+              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider ${
+                file.status === 'PUBLISHED'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  : file.status === 'PENDING'
+                  ? 'bg-amber-50 text-amber-700 border-amber-100'
+                  : 'bg-sky-50 text-sky-700 border-sky-100'
+              }`}>
+                {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Personal Directory Tree Node for Admin Modal (read-only list) ───
+const PersonalDirTreeNode = ({
+  dir, directories, depth
+}: { dir: Directory; directories: Directory[]; depth: number }) => {
+  const children = directories.filter(d => d.parent === dir.id);
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div style={{ marginLeft: depth * 16 }}>
+      <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-50/50">
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className={`w-4 h-4 flex items-center justify-center text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0 ${children.length === 0 ? 'invisible' : ''}`}
+        >
+          {expanded ? '▼' : '▶'}
+        </button>
+        <span className="text-sm flex-shrink-0">📁</span>
+        <span className="text-sm truncate text-gray-700 font-medium">{dir.name}</span>
+      </div>
+      {expanded && children.length > 0 && (
+        <div className="border-l border-gray-200 ml-4 pl-1">
+          {children.map(child => (
+            <PersonalDirTreeNode
+              key={child.id}
+              dir={child}
+              directories={directories}
               depth={0}
             />
           ))}
@@ -716,7 +809,7 @@ export default function App() {
   const [directories, setDirectories] = useState<Directory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'home' | 'upload'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'upload' | 'admin'>('home');
   const [homeTab, setHomeTab] = useState<'library' | 'history' | 'personal'>('library');
   const [uploadMode, setUploadMode] = useState<'personal' | 'public'>('public');
   
@@ -736,6 +829,43 @@ export default function App() {
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const [selectedUserDirIds, setSelectedUserDirIds] = useState<number[]>([]);
 
+  // Admin CRUD states
+  const [showCreateUserForm, setShowCreateUserForm] = useState<boolean>(false);
+  const [newUsername, setNewUsername] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [newFullName, setNewFullName] = useState<string>('');
+  const [newRole, setNewRole] = useState<'ADMIN' | 'TEACHER' | 'USER'>('TEACHER');
+
+  const [editUsername, setEditUsername] = useState<string>('');
+  const [editPassword, setEditPassword] = useState<string>('');
+  const [editFullName, setEditFullName] = useState<string>('');
+  const [editRole, setEditRole] = useState<'ADMIN' | 'TEACHER' | 'USER'>('TEACHER');
+
+  const [adminSearchQuery, setAdminSearchQuery] = useState<string>('');
+  const [adminRoleFilter, setAdminRoleFilter] = useState<string>('ALL');
+  const [adminActiveTab, setAdminActiveTab] = useState<'profile' | 'permissions'>('profile');
+  const [adminPermissionSubTab, setAdminPermissionSubTab] = useState<'personal' | 'public'>('personal');
+
+  useEffect(() => {
+    if (selectedUserForPerms) {
+      setEditUsername(selectedUserForPerms.username || '');
+      setEditFullName(selectedUserForPerms.full_name || '');
+      setEditRole(selectedUserForPerms.role || 'TEACHER');
+      setEditPassword('');
+      if (selectedUserForPerms.role === 'USER') {
+        setAdminPermissionSubTab('personal');
+      }
+      fetchDirectories();
+      fetchLessonPlans();
+    }
+  }, [selectedUserForPerms]);
+
+  useEffect(() => {
+    if (editRole === 'USER') {
+      setAdminPermissionSubTab('personal');
+    }
+  }, [editRole]);
+
   // Current teacher's own managed directory IDs (fetched on login)
   const [myManagedDirIds, setMyManagedDirIds] = useState<number[]>([]);
 
@@ -754,6 +884,41 @@ export default function App() {
   const [ratingLoading, setRatingLoading] = useState<boolean>(false);
   const [ratingSubmitting, setRatingSubmitting] = useState<boolean>(false);
   const [showRatingSection, setShowRatingSection] = useState<boolean>(false);
+  const [selectedStarFilter, setSelectedStarFilter] = useState<string>('all');
+  const [editingMyReview, setEditingMyReview] = useState<boolean>(false);
+
+  const starStats = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    lessonRatings.forEach((r: any) => {
+      const rating = Number(r.rating);
+      if (rating >= 1 && rating <= 5) {
+        counts[rating as keyof typeof counts] += 1;
+      }
+    });
+    const total = lessonRatings.length;
+    return {
+      counts,
+      total,
+      percentages: {
+        5: total > 0 ? Math.round((counts[5] / total) * 100) : 0,
+        4: total > 0 ? Math.round((counts[4] / total) * 100) : 0,
+        3: total > 0 ? Math.round((counts[3] / total) * 100) : 0,
+        2: total > 0 ? Math.round((counts[2] / total) * 100) : 0,
+        1: total > 0 ? Math.round((counts[1] / total) * 100) : 0,
+      }
+    };
+  }, [lessonRatings]);
+
+  const otherReviews = useMemo(() => {
+    let list = lessonRatings;
+    if (currentUser) {
+      list = list.filter((r: any) => r.user_id !== currentUser.id);
+    }
+    if (selectedStarFilter !== 'all') {
+      list = list.filter((r: any) => String(r.rating) === selectedStarFilter);
+    }
+    return list;
+  }, [lessonRatings, currentUser, selectedStarFilter]);
 
   const fetchAdminUsers = async () => {
     if (!currentUser || currentUser.role !== 'ADMIN') return;
@@ -824,14 +989,105 @@ export default function App() {
         directory_ids: selectedUserDirIds
       });
       alert('Cập nhật quyền quản trị thư mục thành công!');
-      setSelectedUserForPerms(null);
-      fetchAdminUsers();
       // Refetch directories to update locked/unlocked folder ownership in real-time
       const url = currentUser ? `/api/directories/?user_id=${currentUser.id}` : '/api/directories/';
       const freshRes = await axios.get(url);
       setDirectories(freshRes.data);
+      fetchAdminUsers();
     } catch (err) {
       alert('Lỗi cập nhật phân quyền.');
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || currentUser.role !== 'ADMIN') return;
+    if (!newUsername || !newPassword) {
+      alert('Tên tài khoản và mật khẩu là bắt buộc.');
+      return;
+    }
+    try {
+      await axios.post('/api/admin/users/', {
+        admin_id: currentUser.id,
+        username: newUsername,
+        password: newPassword,
+        full_name: newFullName,
+        role: newRole
+      });
+      alert('Tạo tài khoản thành công!');
+      setShowCreateUserForm(false);
+      // Reset fields
+      setNewUsername('');
+      setNewPassword('');
+      setNewFullName('');
+      setNewRole('TEACHER');
+      fetchAdminUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Lỗi khi tạo tài khoản.');
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !selectedUserForPerms) return;
+    try {
+      const response = await axios.patch(`/api/admin/users/${selectedUserForPerms.id}/`, {
+        admin_id: currentUser.id,
+        username: editUsername,
+        password: editPassword || undefined,
+        full_name: editFullName,
+        role: editRole
+      });
+      alert('Cập nhật thông tin tài khoản thành công!');
+      setEditPassword('');
+      // Update local state for selected user
+      setSelectedUserForPerms(response.data.user);
+      fetchAdminUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Lỗi khi cập nhật tài khoản.');
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    if (!currentUser) return;
+    const targetUser = adminUsers.find(u => u.id === userId);
+    if (targetUser && targetUser.role === 'ADMIN') {
+      alert('Không được phép xóa tài khoản Quản trị viên (bao gồm bản thân và quản trị viên khác).');
+      return;
+    }
+    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản này không? Mọi dữ liệu liên quan sẽ bị ảnh hưởng.')) {
+      return;
+    }
+    try {
+      await axios.delete(`/api/admin/users/${userId}/?admin_id=${currentUser.id}`);
+      alert('Đã xóa tài khoản thành công!');
+      setSelectedUserForPerms(null);
+      fetchAdminUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Lỗi khi xóa tài khoản.');
+    }
+  };
+
+  const handleToggleLockUser = async (user: any) => {
+    if (!currentUser) return;
+    if (user.role === 'ADMIN') {
+      alert('Không được phép khóa/mở khóa tài khoản Quản trị viên (bao gồm bản thân và quản trị viên khác).');
+      return;
+    }
+    const actionText = user.is_active ? 'khóa' : 'mở khóa';
+    if (!window.confirm(`Bạn có chắc chắn muốn ${actionText} tài khoản @${user.username} không?`)) {
+      return;
+    }
+    try {
+      const response = await axios.patch(`/api/admin/users/${user.id}/`, {
+        admin_id: currentUser.id,
+        is_active: !user.is_active
+      });
+      alert(`Đã ${actionText} tài khoản thành công!`);
+      setSelectedUserForPerms(response.data.user);
+      fetchAdminUsers();
+    } catch (err: any) {
+      alert(err.response?.data?.error || `Lỗi khi ${actionText} tài khoản.`);
     }
   };
   
@@ -885,6 +1141,8 @@ export default function App() {
   const [profileCurrentPassword, setProfileCurrentPassword] = useState<string>('');
   const [profileNewPassword, setProfileNewPassword] = useState<string>('');
   const [profileConfirmNewPassword, setProfileConfirmNewPassword] = useState<string>('');
+  const [profileAvatar, setProfileAvatar] = useState<File | null>(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState<boolean>(false);
@@ -895,6 +1153,8 @@ export default function App() {
       setProfileCurrentPassword('');
       setProfileNewPassword('');
       setProfileConfirmNewPassword('');
+      setProfileAvatar(null);
+      setProfileAvatarPreview(null);
       setProfileError(null);
       setProfileSuccess(null);
     }
@@ -976,6 +1236,20 @@ export default function App() {
     }
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setProfileAvatar(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setProfileAvatarPreview(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
@@ -990,11 +1264,23 @@ export default function App() {
     setProfileSuccess(null);
 
     try {
-      const response = await axios.post('/api/users/me/profile/', {
-        user_id: currentUser.id,
-        full_name: profileFullName,
-        new_password: profileNewPassword || undefined,
-        current_password: profileCurrentPassword || undefined,
+      const formData = new FormData();
+      formData.append('user_id', currentUser.id.toString());
+      formData.append('full_name', profileFullName);
+      if (profileNewPassword) {
+        formData.append('new_password', profileNewPassword);
+      }
+      if (profileCurrentPassword) {
+        formData.append('current_password', profileCurrentPassword);
+      }
+      if (profileAvatar) {
+        formData.append('avatar', profileAvatar);
+      }
+
+      const response = await axios.post('/api/users/me/profile/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       setProfileSuccess(response.data.message || 'Cập nhật thông tin cá nhân thành công!');
@@ -1008,6 +1294,8 @@ export default function App() {
       setProfileCurrentPassword('');
       setProfileNewPassword('');
       setProfileConfirmNewPassword('');
+      setProfileAvatar(null);
+      setProfileAvatarPreview(null);
     } catch (err: any) {
       console.error(err);
       setProfileError(err.response?.data?.error || 'Có lỗi xảy ra khi cập nhật thông tin.');
@@ -1049,6 +1337,8 @@ export default function App() {
     if (selectedLessonForDetail) {
       setPreviewMode('docx');
       setRatingLoading(true);
+      setSelectedStarFilter('all');
+      setEditingMyReview(false);
       axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
         .then(res => {
           setLessonRatings(res.data.ratings);
@@ -1075,6 +1365,8 @@ export default function App() {
       setLessonRatings([]);
       setMyRating(0);
       setMyComment('');
+      setSelectedStarFilter('all');
+      setEditingMyReview(false);
     }
   }, [selectedLessonForDetail, currentUser]);
 
@@ -1282,7 +1574,16 @@ export default function App() {
         method: 'PATCH',
         body: formData
       });
-      if (!response.ok) throw new Error('Edit failed with status ' + response.status);
+      if (!response.ok) {
+        try {
+          const errData = await response.json();
+          if (errData.error) {
+            alert(errData.error);
+            return;
+          }
+        } catch {}
+        throw new Error('Edit failed with status ' + response.status);
+      }
 
       const msg = currentUser.role === 'USER'
         ? 'Đã gửi bản chỉnh sửa để chờ duyệt lại!'
@@ -1291,9 +1592,9 @@ export default function App() {
       setEditingLesson(null);
       setEditFile(null);
       fetchLessonPlans(searchQuery);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Edit Error:', err);
-      alert('Lỗi cập nhật tài liệu. Vui lòng kiểm tra console.');
+      alert('Lỗi cập nhật tài liệu: ' + err.message);
     }
   };
 
@@ -1370,22 +1671,24 @@ export default function App() {
   // Filter root directories (only public ones for the main Shared Library)
   const rootDirs = directories.filter(d => !d.parent && d.is_public);
 
-  // Derive base lesson pool: filtered by selected directories (client-side)
+  // Derive base lesson pool: filtered by selected directories (client-side) - Only show PUBLISHED plans in the Shared Library
   const dirFilteredLessons = useMemo(() => {
-    if (selectedDirs.length === 0) return allLessonPlans;
+    const basePlans = (allLessonPlans || []).filter(l => l.status === 'PUBLISHED');
+    if (selectedDirs.length === 0) return basePlans;
     const result = new Map<number, LessonPlan>();
     selectedDirs.forEach(dirId => {
-      getLessonsInDir(dirId, directories, allLessonPlans).forEach(l => result.set(l.id, l));
+      getLessonsInDir(dirId, directories, basePlans).forEach(l => result.set(l.id, l));
     });
     return Array.from(result.values());
   }, [selectedDirs, directories, allLessonPlans]);
 
   // Stable directory-only filtered pool for calculating available subjects in the sidebar
   const dirUnfilteredLessons = useMemo(() => {
-    if (selectedDirs.length === 0) return unfilteredLessons;
+    const basePlans = (unfilteredLessons || []).filter(l => l.status === 'PUBLISHED');
+    if (selectedDirs.length === 0) return basePlans;
     const result = new Map<number, LessonPlan>();
     selectedDirs.forEach(dirId => {
-      getLessonsInDir(dirId, directories, unfilteredLessons).forEach(l => result.set(l.id, l));
+      getLessonsInDir(dirId, directories, basePlans).forEach(l => result.set(l.id, l));
     });
     return Array.from(result.values());
   }, [selectedDirs, directories, unfilteredLessons]);
@@ -1491,6 +1794,565 @@ export default function App() {
           }
         }}
       />
+    );
+  }
+
+  if (currentView === 'admin') {
+    if (!currentUser || currentUser.role !== 'ADMIN') {
+      setCurrentView('home');
+      return null;
+    }
+
+    // Filter admin users client-side based on search query and role filter
+    const filteredAdminUsers = adminUsers.filter((u: any) => {
+      const matchSearch = (u.full_name || '').toLowerCase().includes(adminSearchQuery.toLowerCase()) || 
+                          (u.username || '').toLowerCase().includes(adminSearchQuery.toLowerCase());
+      const matchRole = adminRoleFilter === 'ALL' || u.role === adminRoleFilter;
+      return matchSearch && matchRole;
+    });
+
+    return (
+      <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col">
+        {/* Admin Navigation Bar */}
+        <nav className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+          <div className="w-full px-6">
+            <div className="flex justify-between h-16 items-center">
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedUserForPerms(null); }}>
+                <div className="bg-purple-600 rounded-xl text-white p-2 font-bold text-xl leading-none shadow-lg shadow-purple-500/20">🛡️</div>
+                <div>
+                  <span className="font-extrabold text-lg tracking-tight text-gray-900">Bảng Điều Hướng Quản Trị</span>
+                  <p className="text-[10px] text-gray-500 font-semibold tracking-wider uppercase">Hệ thống quản lý tri thức</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { setCurrentView('home'); setSelectedUserForPerms(null); }}
+                  className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <span>←</span> Quay lại trang chủ
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Main Layout Area */}
+        <div className="flex-grow flex flex-col md:flex-row overflow-hidden max-h-[calc(100vh-4rem)]">
+          {/* Sidebar / Left Column: Users List */}
+          <div className="w-full md:w-80 border-r border-gray-200 bg-white p-5 flex flex-col space-y-4 overflow-y-auto">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-black uppercase tracking-wider text-gray-500 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
+                Tài khoản ({filteredAdminUsers.length})
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateUserForm(true);
+                  setSelectedUserForPerms(null);
+                }}
+                className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-md shadow-purple-500/10"
+              >
+                <span>+</span> Thêm mới
+              </button>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={adminSearchQuery}
+                onChange={(e) => setAdminSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm tài khoản..."
+                className="w-full bg-gray-50 border border-gray-200 hover:border-gray-350 rounded-xl px-3 py-2 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium animate-none"
+              />
+              <select
+                value={adminRoleFilter}
+                onChange={(e) => setAdminRoleFilter(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 hover:border-gray-350 rounded-xl px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium"
+              >
+                <option value="ALL">Tất cả vai trò</option>
+                <option value="ADMIN">Quản trị viên (Admin)</option>
+                <option value="TEACHER">Giáo viên (Teacher)</option>
+                <option value="USER">Người dùng (User)</option>
+              </select>
+            </div>
+
+            {/* Scrollable list of accounts */}
+            <div className="flex-grow space-y-2.5 overflow-y-auto pr-1">
+              {filteredAdminUsers.map((u: any) => {
+                const isSelected = selectedUserForPerms && selectedUserForPerms.id === u.id;
+                return (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setSelectedUserForPerms(u);
+                      setSelectedUserDirIds(u.managed_directories || []);
+                      setShowCreateUserForm(false);
+                      setAdminActiveTab('profile');
+                    }}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex justify-between items-center relative group ${
+                      isSelected
+                        ? 'border-purple-650 bg-purple-50/50 shadow-sm'
+                        : 'border-gray-250 bg-white hover:border-purple-300 hover:bg-purple-50/10'
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm text-gray-900 leading-tight group-hover:text-purple-600 transition-colors">
+                        {u.full_name || u.username}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-semibold">@{u.username}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${
+                          u.role === 'ADMIN'
+                            ? 'bg-red-50 text-red-700 border-red-100'
+                            : u.role === 'TEACHER'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : 'bg-gray-50 text-gray-600 border-gray-200'
+                        }`}>
+                          {u.role === 'ADMIN' ? 'Admin' : u.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          • {u.managed_directories?.length || 0} thư mục
+                        </span>
+                        {u.is_active === false && (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-250 bg-amber-50 text-amber-700 uppercase tracking-wide flex items-center gap-0.5">
+                            🔒 Khóa
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-gray-400 group-hover:text-purple-600 transition-colors font-bold text-sm">➔</span>
+                  </div>
+                );
+              })}
+
+              {filteredAdminUsers.length === 0 && (
+                <div className="text-center py-8 text-gray-400 text-xs italic">
+                  Không tìm thấy tài khoản phù hợp.
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Right Column / Content Area: Workspaces */}
+          <div className="flex-grow p-6 overflow-y-auto bg-gray-50/50 flex flex-col min-h-0">
+            {showCreateUserForm ? (
+              /* CREATE NEW USER WORKSPACE */
+              <div className="max-w-2xl mx-auto w-full bg-white border border-gray-200/80 rounded-3xl p-8 shadow-lg space-y-6">
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                    <span className="p-1.5 bg-purple-600/20 text-purple-650 rounded-lg text-sm">👤</span>
+                    Tạo tài khoản người dùng mới
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">Khởi tạo thông tin, thiết lập vai trò và cấp quyền mật khẩu ban đầu cho thành viên.</p>
+                </div>
+
+                <form onSubmit={handleCreateUser} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Tên đăng nhập (Username)</label>
+                      <input
+                        type="text"
+                        required
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder="Tên tài khoản (không dấu, viết liền)..."
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Mật khẩu ban đầu</label>
+                      <input
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Đặt mật khẩu bảo mật..."
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Họ và tên hiển thị</label>
+                    <input
+                      type="text"
+                      required
+                      value={newFullName}
+                      onChange={(e) => setNewFullName(e.target.value)}
+                      placeholder="Nhập họ và tên đầy đủ..."
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Vai trò hệ thống (Role)</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 'USER', label: 'Thành viên', desc: 'Chỉ xem tài liệu công khai' },
+                        { value: 'TEACHER', label: 'Giáo viên', desc: 'Có thư mục riêng, tự đăng bài' },
+                        { value: 'ADMIN', label: 'Quản trị viên', desc: 'Toàn quyền điều hành hệ thống' }
+                      ].map((rOption) => (
+                        <div
+                          key={rOption.value}
+                          onClick={() => setNewRole(rOption.value as any)}
+                          className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${
+                            newRole === rOption.value
+                              ? 'border-purple-650 bg-purple-50 text-purple-700 font-bold'
+                              : 'border-gray-200 bg-white hover:border-gray-300 text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          <span className="font-extrabold text-xs">{rOption.label}</span>
+                          <span className="text-[9px] text-gray-400 mt-1 leading-tight">{rOption.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateUserForm(false)}
+                      className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-purple-250/20"
+                    >
+                      Xác nhận tạo tài khoản
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : selectedUserForPerms ? (
+              /* DETAILED VIEW & OPERATIONS ON CHOSEN USER */
+              <div className="flex-grow flex flex-col space-y-6">
+                {/* User Hero Panel */}
+                <div className="bg-white border border-gray-200/80 rounded-3xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-700 flex items-center justify-center text-white text-xl font-black shadow-md">
+                      {selectedUserForPerms.avatar_url ? (
+                        <img src={selectedUserForPerms.avatar_url} alt="Avatar" className="w-full h-full object-cover rounded-2xl" />
+                      ) : (
+                        (selectedUserForPerms.full_name || selectedUserForPerms.username || 'U').charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg font-black text-gray-900">{selectedUserForPerms.full_name || selectedUserForPerms.username}</h2>
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${
+                          selectedUserForPerms.role === 'ADMIN'
+                            ? 'bg-red-50 text-red-700 border-red-100'
+                            : selectedUserForPerms.role === 'TEACHER'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : 'bg-gray-50 text-gray-600 border-gray-200'
+                        }`}>
+                          {selectedUserForPerms.role === 'ADMIN' ? 'Admin' : selectedUserForPerms.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
+                        </span>
+                        {selectedUserForPerms.is_active === false ? (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-250 bg-amber-50 text-amber-700 uppercase tracking-wide flex items-center gap-0.5">
+                            🔒 Đã khóa tài khoản
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-250 bg-emerald-50 text-emerald-700 uppercase tracking-wide flex items-center gap-0.5">
+                            ✅ Đang hoạt động
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 font-semibold mt-0.5">Tên đăng nhập: @{selectedUserForPerms.username}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {selectedUserForPerms.role === 'ADMIN' ? (
+                      <span className="text-[10px] font-black px-3 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                        🛡️ Tài khoản Admin được bảo vệ
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleToggleLockUser(selectedUserForPerms)}
+                          className={`px-4 py-2 border rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                            selectedUserForPerms.is_active
+                              ? 'border-amber-200 hover:bg-amber-50 text-amber-650 hover:text-amber-700'
+                              : 'border-emerald-200 hover:bg-emerald-50 text-emerald-650 hover:text-emerald-700'
+                          }`}
+                        >
+                          {selectedUserForPerms.is_active ? (
+                            <><span>🔒</span> Khóa tài khoản</>
+                          ) : (
+                            <><span>🔓</span> Mở khóa tài khoản</>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(selectedUserForPerms.id)}
+                          className="px-4 py-2 border border-red-200 hover:bg-red-50 text-red-650 hover:text-red-700 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 animate-none"
+                        >
+                          <span>🗑️</span> Xóa tài khoản
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Workspace Navigation Tabs */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    onClick={() => setAdminActiveTab('profile')}
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+                      adminActiveTab === 'profile'
+                        ? 'border-purple-600 text-purple-650 font-bold'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>👤</span> Hồ sơ & Bảo mật
+                  </button>
+                  <button
+                    onClick={() => setAdminActiveTab('permissions')}
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+                      adminActiveTab === 'permissions'
+                        ? 'border-purple-600 text-purple-650 font-bold'
+                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>📁</span> Phân quyền thư mục
+                  </button>
+                </div>
+
+                {/* Tab Contents */}
+                <div className="flex-grow min-h-0 overflow-y-auto">
+                  {adminActiveTab === 'profile' ? (
+                    <div className="bg-white border border-gray-200 rounded-3xl p-6 md:p-8 space-y-6 max-w-2xl shadow-sm">
+                      <div>
+                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">Hiệu chỉnh tài khoản</h3>
+                        <p className="text-xs text-gray-500 mt-1">Thay đổi họ tên hiển thị, mật khẩu bảo mật hoặc nâng cấp vai trò hệ thống.</p>
+                      </div>
+
+                      <form onSubmit={handleEditUser} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Tên đăng nhập (Username)</label>
+                            <input
+                              type="text"
+                              required
+                              value={editUsername}
+                              onChange={(e) => setEditUsername(e.target.value)}
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-semibold animate-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Mật khẩu mới (Bỏ trống nếu giữ nguyên)</label>
+                            <input
+                              type="password"
+                              value={editPassword}
+                              onChange={(e) => setEditPassword(e.target.value)}
+                              placeholder="Nhập mật khẩu mới tại đây..."
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Họ và tên hiển thị</label>
+                          <input
+                            type="text"
+                            required
+                            value={editFullName}
+                            onChange={(e) => setEditFullName(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all font-semibold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Vai trò hệ thống (Role)</label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {[
+                              { value: 'USER', label: 'Thành viên', desc: 'Chỉ xem tài liệu công khai' },
+                              { value: 'TEACHER', label: 'Giáo viên', desc: 'Có thư mục riêng, tự đăng bài' },
+                              { value: 'ADMIN', label: 'Quản trị viên', desc: 'Toàn quyền điều hành hệ thống' }
+                            ].map((rOption) => (
+                              <div
+                                key={rOption.value}
+                                onClick={() => setEditRole(rOption.value as any)}
+                                className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${
+                                  editRole === rOption.value
+                                    ? 'border-purple-650 bg-purple-50 text-purple-700 font-bold'
+                                    : 'border-gray-200 bg-white hover:border-gray-300 text-gray-500 hover:text-gray-700'
+                                }`}
+                              >
+                                <span className="font-extrabold text-xs">{rOption.label}</span>
+                                <span className="text-[9px] text-gray-400 mt-1 leading-tight">{rOption.desc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+                          <button
+                            type="submit"
+                            className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-purple-200/20"
+                          >
+                            Lưu thông tin hồ sơ
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    /* PERMISSIONS TAB */
+                    <div className="bg-white border border-gray-200 rounded-3xl p-6 md:p-8 space-y-4 max-w-3xl shadow-sm">
+                      <div>
+                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest flex items-center gap-1.5">
+                          📁 Quản lý thư mục & Phân quyền
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Cấu hình và xem chi tiết không gian lưu trữ cá nhân hoặc phân quyền quản trị thư mục công khai (public).
+                        </p>
+                      </div>
+
+                      {/* Sub-tabs inside Permissions Tab */}
+                      <div className="flex border-b border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => setAdminPermissionSubTab('personal')}
+                          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                            adminPermissionSubTab === 'personal'
+                              ? 'border-purple-650 text-purple-700 font-black'
+                              : 'border-transparent text-gray-500 hover:text-gray-850'
+                          }`}
+                        >
+                          <span>📁</span> Thư mục cá nhân
+                        </button>
+                        {editRole !== 'USER' && (
+                          <button
+                            type="button"
+                            onClick={() => setAdminPermissionSubTab('public')}
+                            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
+                              adminPermissionSubTab === 'public'
+                                ? 'border-purple-650 text-purple-700 font-black'
+                                : 'border-transparent text-gray-500 hover:text-gray-850'
+                            }`}
+                          >
+                            <span>🌐</span> Thư mục public
+                          </button>
+                        )}
+                      </div>
+
+                      {adminPermissionSubTab === 'personal' ? (
+                        /* PERSONAL DIRECTORIES VIEW WITH PERMISSION MANAGEMENT */
+                        <div className="space-y-4">
+                          <p className="text-xs text-gray-500">
+                            💡 Các thư mục cá nhân thuộc sở hữu riêng của người dùng này. Quản trị viên có thể thu hồi hoặc cấp thêm quyền quản trị trực tiếp trên các thư mục này.
+                          </p>
+                          <div className="border border-gray-200 bg-gray-50/50 rounded-2xl p-4 overflow-y-auto max-h-[350px]">
+                            {(() => {
+                              const personalDirs = directories.filter(d => !d.is_public && d.user === selectedUserForPerms.id);
+                              const rootPersonalDirs = personalDirs.filter(d => !d.parent || !personalDirs.some(p => p.id === d.parent));
+                              if (rootPersonalDirs.length === 0) {
+                                return <p className="text-sm text-gray-405 italic p-2">Người dùng này chưa khởi tạo thư mục cá nhân nào.</p>;
+                              }
+                              return (
+                                <div className="space-y-0.5 text-gray-700">
+                                  {rootPersonalDirs.map((dir: Directory) => (
+                                    <PermissionDirTreeNode
+                                      key={dir.id}
+                                      dir={dir}
+                                      directories={directories}
+                                      selectedIds={selectedUserDirIds}
+                                      onToggle={(id, descendants, checked) => {
+                                        const allIds = [id, ...descendants];
+                                        if (checked) {
+                                          setSelectedUserDirIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                        } else {
+                                          setSelectedUserDirIds(prev => prev.filter(x => !allIds.includes(x)));
+                                        }
+                                      }}
+                                      depth={0}
+                                      allLessonPlans={unfilteredLessons}
+                                      onFileClick={setSelectedLessonForDetail}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+                            <button
+                              onClick={handleSaveUserPermissions}
+                              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-purple-250/20"
+                            >
+                              Lưu phân quyền thư mục
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* PUBLIC DIRECTORIES PERMISSION VIEW */
+                        <div className="space-y-4">
+                          <p className="text-xs text-gray-500">
+                            💡 Tích chọn các thư mục công khai (public) mà giáo viên này có quyền quản trị cao nhất (thêm, sửa, xóa, duyệt giáo án).
+                          </p>
+                          <div className="border border-gray-200 bg-gray-50/50 rounded-2xl p-4 overflow-y-auto max-h-[350px]">
+                            {(() => {
+                              const publicDirs = directories.filter(d => d.is_public);
+                              const rootPublicDirs = publicDirs.filter(d => !d.parent || !publicDirs.some(p => p.id === d.parent));
+                              if (rootPublicDirs.length === 0) {
+                                return <p className="text-sm text-gray-405 italic p-2">Hệ thống chưa có thư mục public nào.</p>;
+                              }
+                              return (
+                                <div className="space-y-0.5 text-gray-700">
+                                  {rootPublicDirs.map((dir: Directory) => (
+                                    <PermissionDirTreeNode
+                                      key={dir.id}
+                                      dir={dir}
+                                      directories={directories}
+                                      selectedIds={selectedUserDirIds}
+                                      onToggle={(id, descendants, checked) => {
+                                        const allIds = [id, ...descendants];
+                                        if (checked) {
+                                          setSelectedUserDirIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                        } else {
+                                          setSelectedUserDirIds(prev => prev.filter(x => !allIds.includes(x)));
+                                        }
+                                      }}
+                                      depth={0}
+                                      allLessonPlans={unfilteredLessons}
+                                      onFileClick={setSelectedLessonForDetail}
+                                    />
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+                            <button
+                              onClick={handleSaveUserPermissions}
+                              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-purple-250/20"
+                            >
+                              Lưu phân quyền thư mục
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* EMPTY CHOSEN USER WORKSPACE */
+              <div className="flex-grow flex flex-col items-center justify-center text-center p-8 border border-dashed border-gray-300 rounded-3xl bg-white shadow-sm">
+                <div className="text-6xl mb-4 text-purple-300">👥</div>
+                <h4 className="font-black text-gray-800 text-base">Trung tâm Quản trị Tài khoản</h4>
+                <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                  Chọn một người dùng từ danh sách bên trái hoặc nhấn nút "Thêm mới" để bắt đầu thao tác quản trị viên.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1626,8 +2488,10 @@ export default function App() {
                   <div className="flex gap-2 mr-4">
                     {currentUser.role === 'ADMIN' && (
                       <button
-                        onClick={() => setShowAdminModal(true)}
-                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+                        onClick={() => { setCurrentView('admin'); fetchAdminUsers(); }}
+                        className={`px-3 py-1.5 text-white rounded-md text-sm font-semibold transition-all flex items-center gap-1.5 shadow-sm ${
+                          currentView === 'admin' ? 'bg-purple-800 ring-2 ring-purple-300' : 'bg-purple-600 hover:bg-purple-700'
+                        }`}
                       >
                         <span>👥</span> Quản lý người dùng
                       </button>
@@ -1651,23 +2515,32 @@ export default function App() {
                   </div>
                   <div 
                     onClick={() => setShowProfileModal(true)}
-                    className="flex flex-col items-center justify-center hidden md:flex cursor-pointer hover:bg-blue-50/80 border border-transparent hover:border-blue-100 p-1.5 px-4 rounded-2xl transition-all select-none group relative"
+                    className="flex items-center gap-2 cursor-pointer hover:bg-blue-50/80 border border-transparent hover:border-blue-100 p-1.5 px-3 rounded-2xl transition-all select-none group relative"
                     title="Chỉnh sửa thông tin cá nhân"
                   >
-                    <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 flex items-center justify-center gap-1 w-full relative pr-4">
-                      <span>{currentUser.full_name || currentUser.username}</span>
-                      <svg className="w-3.5 h-3.5 hidden group-hover:block text-blue-500 absolute right-0 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                      </svg>
-                    </div>
-                    <div className="text-xs text-gray-500 font-medium w-full text-center pr-4">
-                      {currentUser.role === 'ADMIN' ? (
-                        <span className="text-red-600 font-bold">Admin</span>
-                      ) : currentUser.role === 'TEACHER' ? (
-                        <span className="text-blue-600 font-bold">Giáo viên</span>
+                    <div className="w-8 h-8 rounded-full border border-blue-100 overflow-hidden bg-blue-50 flex items-center justify-center text-xs font-black text-blue-600 group-hover:border-blue-200 transition-colors">
+                      {currentUser.avatar_url ? (
+                        <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-gray-500 font-medium">Người dùng thường</span>
+                        (currentUser.full_name || currentUser.username).charAt(0).toUpperCase()
                       )}
+                    </div>
+                    <div className="flex flex-col items-start justify-center">
+                      <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 flex items-center justify-center gap-1 w-full relative pr-4">
+                        <span>{currentUser.full_name || currentUser.username}</span>
+                        <svg className="w-3.5 h-3.5 hidden group-hover:block text-blue-500 absolute right-0 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-medium w-full text-left">
+                        {currentUser.role === 'ADMIN' ? (
+                          <span className="text-red-600 font-bold">Admin</span>
+                        ) : currentUser.role === 'TEACHER' ? (
+                          <span className="text-blue-600 font-bold">Giáo viên</span>
+                        ) : (
+                          <span className="text-gray-500 font-medium">Người dùng thường</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button onClick={handleLogout} className="ml-2 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-colors">
@@ -1692,7 +2565,7 @@ export default function App() {
             
             <div className="mb-8">
               <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Cây thư mục bài giảng</h3>
-              <div className="text-sm">
+              <div className="text-sm max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
                 <div 
                   className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
                   onClick={() => setSelectedDirs([])}
@@ -1700,7 +2573,7 @@ export default function App() {
                   <span className="w-4"></span>
                   <span className="text-gray-400">🏠</span>
                   <span className="flex-grow">Tất cả tài liệu</span>
-                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{allLessonPlans.length}</span>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{allLessonPlans.filter(l => l.status === 'PUBLISHED').length}</span>
                 </div>
                 {rootDirs.map(dir => (
                   <DirectoryNode
@@ -1709,12 +2582,14 @@ export default function App() {
                     directories={directories}
                     selectedDirs={selectedDirs}
                     onToggleDir={handleToggleDir}
-                    allLessons={allLessonPlans}
+                    allLessons={allLessonPlans.filter(l => l.status === 'PUBLISHED')}
                     currentUser={currentUser}
                     onAddChild={handleAddChildDir}
                     onDelete={handleDeleteDir}
                     onRename={handleRenameDir}
                     onTogglePublic={handleTogglePublicDir}
+                    onFileClick={setSelectedLessonForDetail}
+                    depth={0}
                   />
                 ))}
               </div>
@@ -2292,7 +3167,7 @@ export default function App() {
                   {/* Left: Personal Folder Tree */}
                   <div className="w-full lg:w-[260px] border-r border-gray-100 lg:pr-6 flex-shrink-0">
                     <h3 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider font-bold">Cây thư mục cá nhân</h3>
-                    <div className="text-sm mt-2">
+                    <div className="text-sm mt-2 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
                       <div 
                         className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedPersonalDirs.length === 0 ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
                         onClick={() => setSelectedPersonalDirs([])}
@@ -2318,6 +3193,8 @@ export default function App() {
                           onDelete={handleDeleteDir}
                           onRename={handleRenameDir}
                           onTogglePublic={handleTogglePublicDir}
+                          onFileClick={setSelectedLessonForDetail}
+                          depth={0}
                         />
                       ))}
                     </div>
@@ -3001,32 +3878,214 @@ export default function App() {
                {/* Right Column - Ratings & Comments */}
                {selectedLessonForDetail.status !== 'LOCAL' && (
                  <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
-                 {/* Rating Summary Card */}
-                 <div className="bg-gradient-to-br from-amber-50 to-orange-50/30 border border-amber-100 rounded-2xl p-5 mb-6 flex items-center gap-6 shadow-sm">
-                   <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
-                     <div className="text-4xl font-black text-amber-500">{ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0'}</div>
-                     <div className="flex text-amber-400 text-xs my-1.5 justify-center">
-                       {[1,2,3,4,5].map(star => (
-                         <span key={star} className="text-lg leading-none">{star <= Math.round(ratingAvg) ? '★' : '☆'}</span>
-                       ))}
+                 {/* Rating Summary Card & Stats */}
+                 <div className="bg-gradient-to-br from-amber-50 to-orange-50/20 border border-amber-100/60 rounded-2xl p-5 mb-6 shadow-sm">
+                   <div className="flex items-center gap-6 mb-4">
+                     <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
+                       <div className="text-4xl font-black text-amber-500">{ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0'}</div>
+                       <div className="flex text-amber-400 text-xs my-1.5 justify-center">
+                         {[1,2,3,4,5].map(star => (
+                           <span key={star} className="text-lg leading-none">{star <= Math.round(ratingAvg) ? '★' : '☆'}</span>
+                         ))}
+                       </div>
+                       <div className="text-xs text-gray-500 font-bold">{ratingTotal} đánh giá</div>
                      </div>
-                     <div className="text-xs text-gray-500 font-bold">{ratingTotal} đánh giá</div>
+                     <div>
+                       <h4 className="font-extrabold text-gray-900 text-base mb-1">Đánh giá chất lượng</h4>
+                       <p className="text-sm text-gray-600 leading-normal text-slate-500">
+                         {ratingTotal > 0 
+                           ? 'Thống kê nhận xét chuyên môn từ hội đồng giáo viên và đồng nghiệp.' 
+                           : 'Chưa có lượt đánh giá nào. Hãy chia sẻ nhận xét chuyên môn đầu tiên của bạn ở dưới!'}
+                       </p>
+                     </div>
                    </div>
-                   <div>
-                     <h4 className="font-extrabold text-gray-900 text-base mb-1">Đánh giá chất lượng</h4>
-                     <p className="text-sm text-gray-600 leading-normal text-slate-500">
-                       {ratingTotal > 0 
-                         ? 'Đóng góp ý kiến từ đồng nghiệp giúp nâng cao chuyên môn và cải tiến giáo án.' 
-                         : 'Chưa có lượt đánh giá nào. Hãy chia sẻ nhận xét chuyên môn đầu tiên của bạn ở dưới!'}
-                     </p>
-                   </div>
+
+                   {/* Horizonal Star Progress Bars (Statistics) */}
+                   {ratingTotal > 0 && (
+                     <div className="border-t border-amber-100/50 pt-4 space-y-2">
+                       {[5, 4, 3, 2, 1].map(star => {
+                         const percent = starStats.percentages[star as keyof typeof starStats.percentages] || 0;
+                         const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
+                         return (
+                           <div key={star} className="flex items-center gap-3 text-xs">
+                             <span className="w-10 font-bold text-gray-600 flex items-center gap-0.5">{star} <span className="text-amber-500">★</span></span>
+                             <div className="flex-grow h-2 bg-gray-100 rounded-full overflow-hidden">
+                               <div 
+                                 className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" 
+                                 style={{ width: `${percent}%` }}
+                               ></div>
+                             </div>
+                             <span className="w-12 text-right text-gray-400 font-semibold">{percent}% ({count})</span>
+                           </div>
+                         );
+                       })}
+                     </div>
+                   )}
                  </div>
 
-                 {/* My Rating Form */}
-                 {currentUser && (
+                 {/* Interactive Star Filter */}
+                 {ratingTotal > 0 && (
+                   <div className="mb-6 bg-white border border-gray-150 rounded-2xl p-4 shadow-sm">
+                     <div className="flex items-center justify-between mb-2.5">
+                       <span className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Lọc theo số sao:</span>
+                       {selectedStarFilter !== 'all' && (
+                         <button 
+                           onClick={() => setSelectedStarFilter('all')} 
+                           className="text-xs text-blue-600 font-bold hover:underline"
+                         >
+                           Xóa bộ lọc
+                         </button>
+                       )}
+                     </div>
+                     <div className="flex flex-wrap gap-1.5">
+                       <button
+                         onClick={() => setSelectedStarFilter('all')}
+                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                           selectedStarFilter === 'all'
+                             ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                             : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                         }`}
+                       >
+                         Tất cả ({ratingTotal})
+                       </button>
+                       {[5, 4, 3, 2, 1].map(star => {
+                         const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
+                         return (
+                           <button
+                             key={star}
+                             onClick={() => setSelectedStarFilter(String(star))}
+                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${
+                               selectedStarFilter === String(star)
+                                 ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                                 : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                             }`}
+                           >
+                             {star} <span className={selectedStarFilter === String(star) ? 'text-white' : 'text-amber-500'}>★</span> ({count})
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                 )}
+
+                 {/* My Highlighted Review (Nhận xét của bạn) — with integrated inline edit */}
+                 {currentUser && lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
+                   (() => {
+                     const myReview = lessonRatings.find((r: any) => r.user_id === currentUser.id);
+                     if (!myReview) return null;
+                     return (
+                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50/20 border border-blue-200/80 rounded-2xl p-5 shadow-sm mb-6">
+                         <div className="flex items-center justify-between mb-3">
+                           <h4 className="text-xs font-extrabold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                             <span>👤</span> Nhận xét của bạn
+                           </h4>
+                           <button
+                             onClick={() => setEditingMyReview(!editingMyReview)}
+                             className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border ${
+                               editingMyReview
+                                 ? 'text-gray-600 bg-gray-100 hover:bg-gray-200 border-gray-200'
+                                 : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200/50'
+                             }`}
+                           >
+                             {editingMyReview ? '✕ Đóng chỉnh sửa' : '✏️ Chỉnh sửa lại bình luận'}
+                           </button>
+                         </div>
+
+                         {/* Display mode */}
+                         {!editingMyReview && (
+                           <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
+                             <div className="flex items-center justify-between mb-2">
+                               <span className="text-[10px] text-gray-400">📅 {new Date(myReview.created_at).toLocaleDateString('vi-VN')} {new Date(myReview.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
+                               <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                 {[1,2,3,4,5].map(s => (
+                                   <span key={s} className={`text-sm ${s <= myReview.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                                 ))}
+                               </div>
+                             </div>
+                             {myReview.comment ? (
+                               <p className="text-sm text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">{myReview.comment}</p>
+                             ) : (
+                               <p className="text-sm text-gray-400 italic font-medium">Bạn đã xếp hạng {myReview.rating} sao và không để lại bình luận viết.</p>
+                             )}
+                           </div>
+                         )}
+
+                         {/* Inline edit mode */}
+                         {editingMyReview && (
+                           <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
+                             <div className="flex items-center gap-2 mb-3">
+                               {[1,2,3,4,5].map(star => (
+                                 <button
+                                   key={star}
+                                   onClick={() => setMyRating(star)}
+                                   type="button"
+                                   className={`text-2xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${
+                                     star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
+                                   }`}
+                                 >
+                                   ★
+                                 </button>
+                               ))}
+                               {myRating > 0 && (
+                                 <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
+                                   {['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}
+                                 </span>
+                               )}
+                             </div>
+
+                             <textarea
+                               value={myComment}
+                               onChange={e => setMyComment(e.target.value)}
+                               placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng..."
+                               rows={3}
+                               className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
+                             />
+                             <div className="flex justify-end gap-2">
+                               <button
+                                 onClick={() => setEditingMyReview(false)}
+                                 className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all"
+                               >
+                                 Hủy
+                               </button>
+                               <button
+                                 disabled={myRating === 0 || ratingSubmitting}
+                                 onClick={async () => {
+                                   if (!currentUser || myRating === 0) return;
+                                   setRatingSubmitting(true);
+                                   try {
+                                     const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
+                                       user_id: currentUser.id, rating: myRating, comment: myComment
+                                     });
+                                     setRatingAvg(res.data.average_rating);
+                                     setRatingTotal(res.data.total_ratings);
+                                     const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
+                                     setLessonRatings(res2.data.ratings);
+                                     fetchLessonPlans(searchQuery);
+                                     setEditingMyReview(false);
+                                   } catch { alert('Lỗi khi gửi đánh giá.'); }
+                                     finally { setRatingSubmitting(false); }
+                                 }}
+                                 className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                                   myRating === 0 || ratingSubmitting
+                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20'
+                                 }`}
+                               >
+                                 {ratingSubmitting ? '⟳ Đang gửi...' : '💾 Lưu thay đổi'}
+                               </button>
+                             </div>
+                           </div>
+                         )}
+                       </div>
+                     );
+                   })()
+                 )}
+
+                 {/* New Rating Form — only shown when user has NOT reviewed yet */}
+                 {currentUser && !lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-6">
                      <h4 className="text-sm font-extrabold text-gray-900 mb-3 flex items-center gap-1.5">
-                       ✍️ {myRating > 0 ? 'Cập nhật đánh giá của bạn' : 'Gửi đánh giá & nhận xét'}
+                       ✍️ Gửi đánh giá & nhận xét
                      </h4>
                      
                      <div className="flex items-center gap-2 mb-3.5">
@@ -3068,7 +4127,6 @@ export default function App() {
                              });
                              setRatingAvg(res.data.average_rating);
                              setRatingTotal(res.data.total_ratings);
-                             // Refresh list
                              const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
                              setLessonRatings(res2.data.ratings);
                              fetchLessonPlans(searchQuery);
@@ -3095,23 +4153,28 @@ export default function App() {
                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                        <span>Đang tải nhận xét...</span>
                      </div>
-                   ) : lessonRatings.length === 0 ? (
+                   ) : otherReviews.length === 0 ? (
                      <div className="text-center py-12 text-gray-400 text-sm italic bg-white border border-gray-155 rounded-2xl shadow-sm">
-                       Chưa có nhận xét nào. Hãy đóng góp ý kiến đầu tiên của bạn!
+                       {selectedStarFilter !== 'all' 
+                         ? `Không có nhận xét nào đạt ${selectedStarFilter} sao.` 
+                         : 'Chưa có nhận xét nào khác từ đồng nghiệp.'}
                      </div>
                    ) : (
                      <div className="space-y-4 pr-1 flex-grow">
-                       {lessonRatings.map((r: any) => (
-                         <div key={r.id} className={`bg-white border rounded-2xl p-4 shadow-sm transition-all hover:shadow-md duration-200 ${currentUser?.id === r.user_id ? 'border-blue-200 bg-blue-50/10' : 'border-gray-100'}`}>
+                       {otherReviews.map((r: any) => (
+                         <div key={r.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm transition-all hover:shadow-md duration-200">
                            <div className="flex items-start justify-between mb-2">
                              <div className="flex items-center gap-3">
-                               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-extrabold shadow-sm flex-shrink-0">
-                                 {(r.user_full_name || r.user_username || 'A')[0].toUpperCase()}
+                               <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-extrabold shadow-sm flex-shrink-0">
+                                 {r.user_avatar_url ? (
+                                    <img src={r.user_avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    (r.user_full_name || r.user_username || 'A')[0].toUpperCase()
+                                  )}
                                </div>
                                <div>
                                  <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
                                    {r.user_full_name || r.user_username}
-                                   {currentUser?.id === r.user_id && <span className="text-[10px] text-blue-600 font-bold bg-blue-100 px-1.5 py-0.5 rounded-md uppercase">bạn</span>}
                                  </p>
                                  <p className="text-[10px] text-gray-400">📅 {new Date(r.created_at).toLocaleDateString('vi-VN')} {new Date(r.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</p>
                                </div>
@@ -3123,7 +4186,7 @@ export default function App() {
                              </div>
                            </div>
                            {r.comment ? (
-                             <p className="text-sm text-gray-700 leading-relaxed ml-12">{r.comment}</p>
+                             <p className="text-sm text-gray-700 leading-relaxed ml-12 whitespace-pre-wrap">{r.comment}</p>
                            ) : (
                              <p className="text-sm text-gray-400 italic leading-relaxed ml-12">Đã xếp hạng {r.rating} sao và không để lại nhận xét.</p>
                            )}
@@ -3292,154 +4355,7 @@ export default function App() {
       )}
 
       {/* Admin User Management Modal */}
-      {showAdminModal && currentUser && currentUser.role === 'ADMIN' && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/60 overflow-y-auto backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-gray-100 flex flex-col my-8 max-h-[85vh]">
-            {/* Modal Header */}
-            <div className="bg-purple-800 text-white p-6 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">👥</span>
-                <div>
-                  <h3 className="text-xl font-bold">Quản trị người dùng & Phân quyền hệ thống</h3>
-                  <p className="text-purple-200 text-xs mt-0.5">Admin toàn quyền quản lý tài khoản và giao quyền thư mục</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => { setShowAdminModal(false); setSelectedUserForPerms(null); }}
-                className="text-white hover:text-purple-100 text-2xl transition-colors font-bold animate-none"
-              >
-                &times;
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto flex-grow grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[400px]">
-              {/* User List Panel */}
-              <div className="border-r border-gray-100 pr-0 md:pr-6">
-                <h4 className="font-bold text-gray-800 text-base mb-4 flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
-                  Danh sách tài khoản ({adminUsers.length})
-                </h4>
-                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
-                  {adminUsers.map((u: any) => {
-                    const isSelected = selectedUserForPerms && selectedUserForPerms.id === u.id;
-                    return (
-                      <div 
-                        key={u.id}
-                        onClick={() => {
-                          setSelectedUserForPerms(u);
-                          setSelectedUserDirIds(u.managed_directories || []);
-                        }}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${
-                          isSelected 
-                            ? 'border-purple-600 bg-purple-50/50 shadow-sm' 
-                            : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50/10'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">{u.full_name || u.username}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">Username: {u.username}</p>
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                              u.role === 'ADMIN' 
-                                ? 'bg-red-50 text-red-700 border-red-100' 
-                                : u.role === 'TEACHER' 
-                                ? 'bg-blue-50 text-blue-700 border-blue-100'
-                                : 'bg-gray-50 text-gray-600 border-gray-200'
-                            }`}>
-                              {u.role === 'ADMIN' ? 'Admin' : u.role === 'TEACHER' ? 'Giáo viên' : 'Người dùng'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              • Đang quản lý {u.managed_directories?.length || 0} thư mục
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-purple-600 font-bold text-lg">➔</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Folder Permissions Config Panel */}
-              <div className="flex flex-col h-full justify-between">
-                {selectedUserForPerms ? (
-                  <div className="flex flex-col h-full">
-                    <div className="bg-purple-50 border border-purple-100/50 rounded-xl p-4 mb-4">
-                      <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Đang phân quyền cho</p>
-                      <h5 className="font-bold text-gray-950 text-base mt-1">{selectedUserForPerms.full_name || selectedUserForPerms.username}</h5>
-                      <p className="text-xs text-gray-500 mt-1">
-                        💡 Tích chọn các thư mục người dùng này được phép quản trị cao nhất (thêm, sửa, xóa, đổi tên).
-                      </p>
-                    </div>
-
-                    <h4 className="font-bold text-gray-800 text-sm mb-2">Lựa chọn thư mục quản lý:</h4>
-                    <div className="border border-gray-200 rounded-xl p-3 overflow-y-auto max-h-[320px] flex-grow bg-gray-50/30">
-                      {directories.length === 0 ? (
-                        <p className="text-sm text-gray-400 italic p-2">Hệ thống chưa có thư mục nào.</p>
-                      ) : (
-                        <div className="space-y-0.5">
-                          {directories.filter(d => !d.parent).map((dir: Directory) => (
-                            <PermissionDirTreeNode
-                              key={dir.id}
-                              dir={dir}
-                              directories={directories}
-                              selectedIds={selectedUserDirIds}
-                              onToggle={(id, descendants, checked) => {
-                                // Cascading: select/deselect self + all children recursively
-                                const allIds = [id, ...descendants];
-                                if (checked) {
-                                  setSelectedUserDirIds(prev => Array.from(new Set([...prev, ...allIds])));
-                                } else {
-                                  setSelectedUserDirIds(prev => prev.filter(x => !allIds.includes(x)));
-                                }
-                              }}
-                              depth={0}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2 justify-end">
-                      <button 
-                        onClick={() => setSelectedUserForPerms(null)}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                      >
-                        Hủy
-                      </button>
-                      <button 
-                        onClick={handleSaveUserPermissions}
-                        className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-100 transition-all"
-                      >
-                        Lưu phân quyền
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center p-8 border border-dashed border-gray-200 rounded-2xl bg-gray-50/50 h-full">
-                    <div className="text-5xl mb-3 text-purple-200">🔑</div>
-                    <h5 className="font-bold text-gray-700 text-base">Cấu hình quyền thư mục</h5>
-                    <p className="text-sm text-gray-400 mt-1 max-w-xs">
-                      Chọn một người dùng từ danh sách bên trái để cấu hình quyền quản trị thư mục cho họ.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
-                onClick={() => { setShowAdminModal(false); setSelectedUserForPerms(null); }}
-                className="px-6 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Approval Requests Management Modal */}
       {showApprovalModal && currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') && (
@@ -3677,8 +4593,12 @@ export default function App() {
               </div>
               <div className="flex items-center gap-4">
                 {/* Visual Avatar display */}
-                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center text-2xl font-black text-white shadow-md">
-                  {profileFullName ? profileFullName.charAt(0).toUpperCase() : currentUser.username.charAt(0).toUpperCase()}
+                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white flex items-center justify-center text-2xl font-black text-white shadow-md overflow-hidden flex-shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    profileFullName ? profileFullName.charAt(0).toUpperCase() : currentUser.username.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <h3 className="text-xl font-black tracking-tight">Hồ sơ cá nhân</h3>
@@ -3711,6 +4631,35 @@ export default function App() {
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <span>👤</span> Thông tin cơ bản
                 </h4>
+
+                {/* Avatar Edit Section */}
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-full border-4 border-slate-100 shadow-md overflow-hidden bg-slate-100 flex items-center justify-center text-4xl font-black text-slate-400">
+                      {profileAvatarPreview ? (
+                        <img src={profileAvatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
+                      ) : currentUser.avatar_url ? (
+                        <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        profileFullName ? profileFullName.charAt(0).toUpperCase() : currentUser.username.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <label className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2.5 cursor-pointer shadow-md transition-colors border-2 border-white flex items-center justify-center">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"></path>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"></path>
+                      </svg>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <span className="text-xs text-slate-500 font-semibold">Tải ảnh đại diện mới</span>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5">Họ và tên hiển thị</label>
                   <div className="relative rounded-xl shadow-sm">

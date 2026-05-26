@@ -2,9 +2,23 @@ from rest_framework import serializers
 from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        request = self.context.get('request')
+        try:
+            url = obj.avatar.url
+        except ValueError:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'email', 'username', 'role']
+        fields = ['id', 'full_name', 'email', 'username', 'role', 'avatar', 'avatar_url', 'is_active']
 
 class DirectorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -99,7 +113,20 @@ class LessonPlanRatingSerializer(serializers.ModelSerializer):
     user_full_name = serializers.ReadOnlyField(source='user.full_name')
     user_username = serializers.ReadOnlyField(source='user.username')
     user_id = serializers.ReadOnlyField(source='user.id')
+    user_avatar_url = serializers.SerializerMethodField()
+
+    def get_user_avatar_url(self, obj):
+        if not obj.user or not obj.user.avatar:
+            return None
+        request = self.context.get('request')
+        try:
+            url = obj.user.avatar.url
+        except ValueError:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
 
     class Meta:
         model = LessonPlanRating
-        fields = ['id', 'user_id', 'user_full_name', 'user_username', 'rating', 'comment', 'created_at']
+        fields = ['id', 'user_id', 'user_full_name', 'user_username', 'user_avatar_url', 'rating', 'comment', 'created_at']
