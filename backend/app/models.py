@@ -14,11 +14,6 @@ class Directory(models.Model):
     is_public = models.BooleanField(default=False)
     attributes = models.JSONField(default=dict, blank=True, help_text="Lưu trữ các thuộc tính linh hoạt của thư mục (VD: môn học, cấp học...)")
 
-class DirectoryPermission(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    directory = models.ForeignKey(Directory, on_delete=models.CASCADE)
-    permission_type = models.CharField(max_length=50, choices=[('VIEWER', 'Chỉ xem'), ('EDITOR', 'Chỉnh sửa')])
-
 class LessonPlan(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_lessons')
     title = models.CharField(max_length=255)
