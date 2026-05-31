@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating
+from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating, AIChatSession, AIChatMessage
 
 class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
@@ -130,3 +130,16 @@ class LessonPlanRatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonPlanRating
         fields = ['id', 'user_id', 'user_full_name', 'user_username', 'user_avatar_url', 'rating', 'comment', 'created_at']
+
+class AIChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AIChatMessage
+        fields = ['id', 'session', 'sender_role', 'content', 'created_at']
+
+class AIChatSessionSerializer(serializers.ModelSerializer):
+    messages = AIChatMessageSerializer(many=True, read_only=True)
+    lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title', default=None)
+    
+    class Meta:
+        model = AIChatSession
+        fields = ['id', 'user', 'lesson_plan', 'lesson_plan_title', 'title', 'created_at', 'messages']

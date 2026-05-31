@@ -77,6 +77,67 @@ class LessonPlanListAPIView(generics.ListAPIView):
                     subj_queries |= Q(**{"attributes__Môn học__icontains": s_clean})
             queryset = queryset.filter(subj_queries)
 
+        # 4.5. New Filters: Experiential Curriculum Schema
+        # A. Mạch kiến thức (track)
+        tracks = self.request.query_params.getlist('track')
+        if len(tracks) == 1 and ',' in tracks[0]:
+            tracks = tracks[0].split(',')
+        if tracks:
+            track_queries = Q()
+            for t in tracks:
+                t_clean = t.strip()
+                if t_clean:
+                    track_queries |= Q(**{"attributes__Mạch kiến thức__icontains": t_clean})
+            queryset = queryset.filter(track_queries)
+
+        # B. Chủ đề (topic)
+        topics = self.request.query_params.getlist('topic')
+        if len(topics) == 1 and ',' in topics[0]:
+            topics = topics[0].split(',')
+        if topics:
+            topic_queries = Q()
+            for tp in topics:
+                tp_clean = tp.strip()
+                if tp_clean:
+                    topic_queries |= Q(**{"attributes__Chủ đề__icontains": tp_clean})
+            queryset = queryset.filter(topic_queries)
+
+        # C. Kiến thức sinh học liên quan (biology)
+        biologies = self.request.query_params.getlist('biology')
+        if len(biologies) == 1 and ',' in biologies[0]:
+            biologies = biologies[0].split(',')
+        if biologies:
+            bio_queries = Q()
+            for bio in biologies:
+                bio_clean = bio.strip()
+                if bio_clean:
+                    bio_queries |= Q(**{"attributes__Kiến thức sinh học liên quan__icontains": bio_clean})
+            queryset = queryset.filter(bio_queries)
+
+        # D. Đối tượng giảng dạy (target_student)
+        target_students = self.request.query_params.getlist('target_student')
+        if len(target_students) == 1 and ',' in target_students[0]:
+            target_students = target_students[0].split(',')
+        if target_students:
+            ts_queries = Q()
+            for ts in target_students:
+                ts_clean = ts.strip()
+                if ts_clean:
+                    ts_queries |= Q(target_student__icontains=ts_clean)
+            queryset = queryset.filter(ts_queries)
+
+        # E. Địa điểm / Phòng thiết bị (location)
+        locations = self.request.query_params.getlist('location')
+        if len(locations) == 1 and ',' in locations[0]:
+            locations = locations[0].split(',')
+        if locations:
+            loc_queries = Q()
+            for loc in locations:
+                loc_clean = loc.strip()
+                if loc_clean:
+                    loc_queries |= Q(**{"attributes__Địa điểm__icontains": loc_clean})
+            queryset = queryset.filter(loc_queries)
+
         # 5. Directory Filter
         if dir_id:
             queryset = queryset.filter(directories__id=dir_id)
@@ -142,7 +203,8 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             
         if file_obj:
             save_kwargs['file_path'] = file_obj
-            if file_obj.name.endswith('.docx'):
+            file_name = file_obj.name.lower()
+            if file_name.endswith('.docx'):
                 import tempfile
                 import os
                 from .docx_parser import convert_docx_to_markdown
@@ -157,6 +219,12 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 finally:
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
+            elif file_name.endswith(('.md', '.markdown', '.txt')):
+                try:
+                    content_bytes = b"".join(file_obj.chunks())
+                    save_kwargs['content_preview'] = content_bytes.decode('utf-8', errors='replace')
+                except Exception as e:
+                    print(f"Error reading direct md/txt on update: {e}")
 
         # Xử lý cập nhật thư mục lưu tài liệu
         dir_id = self.request.data.get('directory_id')
@@ -407,21 +475,29 @@ class LessonPlanUploadAPIView(APIView):
             attrs = json.loads(attrs)
             
         content_preview = ""
-        if file_obj and file_obj.name.lower().endswith('.docx'):
-            import tempfile
-            import os
-            from .docx_parser import convert_docx_to_markdown
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
-                for chunk in file_obj.chunks():
-                    temp_file.write(chunk)
-                temp_path = temp_file.name
-            try:
-                content_preview = convert_docx_to_markdown(temp_path)
-            except Exception as e:
-                print(f"Error converting docx to markdown: {e}")
-            finally:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
+        if file_obj:
+            file_name = file_obj.name.lower()
+            if file_name.endswith('.docx'):
+                import tempfile
+                import os
+                from .docx_parser import convert_docx_to_markdown
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                    for chunk in file_obj.chunks():
+                        temp_file.write(chunk)
+                    temp_path = temp_file.name
+                try:
+                    content_preview = convert_docx_to_markdown(temp_path)
+                except Exception as e:
+                    print(f"Error converting docx to markdown: {e}")
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+            elif file_name.endswith(('.md', '.markdown', '.txt')):
+                try:
+                    content_bytes = b"".join(file_obj.chunks())
+                    content_preview = content_bytes.decode('utf-8', errors='replace')
+                except Exception as e:
+                    print(f"Error reading direct md/txt upload: {e}")
 
         # Check duplicate
         dup_error, dup_id = check_duplicate_lesson_plan(title, content_preview, status_val, user)
@@ -1055,5 +1131,413 @@ class LessonPlanParseDocxAPIView(APIView):
             # Clean up temp file
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+
+
+class AIChatSessionListCreateAPIView(APIView):
+    """
+    API View để xem danh sách phiên trò chuyện của một người dùng (GET) 
+    hoặc tạo mới phiên trò chuyện (POST).
+    """
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'Vui lòng cung cấp user_id.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from .models import AIChatSession
+        from .serializers import AIChatSessionSerializer
+        
+        sessions = AIChatSession.objects.filter(user_id=user_id).order_by('-created_at')
+        serializer = AIChatSessionSerializer(sessions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        lesson_plan_id = request.data.get('lesson_plan_id')
+        title = request.data.get('title')
+        
+        if not user_id:
+            return Response({'error': 'Vui lòng cung cấp user_id.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from .models import User, LessonPlan, AIChatSession
+        from .serializers import AIChatSessionSerializer
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Người dùng không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        lesson = None
+        if lesson_plan_id:
+            try:
+                lesson = LessonPlan.objects.get(id=lesson_plan_id)
+                if not title:
+                    title = f"Hỏi đáp: {lesson.title}"
+            except LessonPlan.DoesNotExist:
+                pass
+                
+        if not title:
+            title = "Cuộc trò chuyện mới"
+            
+        session = AIChatSession.objects.create(
+            user=user,
+            lesson_plan=lesson,
+            title=title
+        )
+        
+        # Thêm câu chào mặc định từ AI vào phiên chat
+        from .models import AIChatMessage
+        default_greeting = "Xin chào! Tôi là Trợ lý AI hỗ trợ Quản lý Tri thức (Graph RAG). Tôi sẵn sàng giúp bạn tìm kiếm tài liệu, tóm tắt giáo án, đề xuất tài liệu và giải đáp mọi thắc mắc xoay quanh kho tri thức của hệ thống."
+        if lesson:
+            default_greeting = f"Xin chào! Tôi đã phân tích kế hoạch bài giảng \"{lesson.title}\". Tôi sẵn sàng hỗ trợ bạn tóm tắt hoạt động, đề xuất phương pháp sư phạm tối ưu, hoặc tìm kiếm các tài liệu liên quan trong hệ thống."
+            
+        AIChatMessage.objects.create(
+            session=session,
+            sender_role='AI',
+            content=default_greeting
+        )
+        
+        serializer = AIChatSessionSerializer(session)
+        from .graph_rag_service import retrieve_graph_rag_context
+        rag_data = retrieve_graph_rag_context(
+            query="",
+            user_id=session.user.id,
+            focus_lesson_id=session.lesson_plan.id if session.lesson_plan else None
+        )
+        res_data = dict(serializer.data)
+        res_data['suggested_questions'] = rag_data['suggested_questions']
+        return Response(res_data, status=status.HTTP_201_CREATED)
+
+
+class AIChatSessionDetailAPIView(APIView):
+    """
+    API View để xem thông tin chi tiết một phiên chat (GET) hoặc xóa phiên chat (DELETE).
+    """
+    def get(self, request, pk):
+        from .models import AIChatSession
+        from .serializers import AIChatSessionSerializer
+        try:
+            session = AIChatSession.objects.get(id=pk)
+            serializer = AIChatSessionSerializer(session, context={'request': request})
+            from .graph_rag_service import retrieve_graph_rag_context
+            rag_data = retrieve_graph_rag_context(
+                query="",
+                user_id=session.user.id,
+                focus_lesson_id=session.lesson_plan.id if session.lesson_plan else None
+            )
+            res_data = dict(serializer.data)
+            res_data['suggested_questions'] = rag_data['suggested_questions']
+            return Response(res_data)
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+    def delete(self, request, pk):
+        from .models import AIChatSession
+        try:
+            session = AIChatSession.objects.get(id=pk)
+            session.delete()
+            return Response({'message': 'Xóa phiên hội thoại thành công!'}, status=status.HTTP_200_OK)
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AIChatSendMessageAPIView(APIView):
+    """
+    API View xử lý việc gửi tin nhắn từ người dùng, thực thi Graph RAG truy xuất
+    ngữ cảnh, và gọi LLM (Qwen 2.5 local hoặc API ngoài) để sinh câu trả lời.
+    """
+    def post(self, request, pk):
+        from .models import AIChatSession, AIChatMessage
+        from .serializers import AIChatMessageSerializer
+        
+        try:
+            session = AIChatSession.objects.get(id=pk)
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        user_message_content = request.data.get('message')
+        if not user_message_content or not str(user_message_content).strip():
+            return Response({'error': 'Tin nhắn không được để trống.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        model_choice = request.data.get('model_choice', '3b') # '3b', '7b', hoặc 'api'
+        api_key = request.data.get('api_key')
+        model_name = request.data.get('model_name')
+        focus_lesson_id = request.data.get('focus_lesson_id')
+        
+        # Nếu phiên chat có đính kèm giáo án cụ thể, ưu tiên focus vào giáo án đó
+        if session.lesson_plan and not focus_lesson_id:
+            focus_lesson_id = session.lesson_plan.id
+            
+        # Nếu đang chat ở view chung nhưng người dùng nhắc tên tài liệu cụ thể trong câu hỏi, tự động bind focus_lesson_id!
+        if not focus_lesson_id:
+            from .models import LessonPlan
+            for lp in LessonPlan.objects.all():
+                if len(lp.title) > 5 and lp.title.lower() in user_message_content.lower():
+                    focus_lesson_id = lp.id
+                    break
+                    
+        # 1. Lưu tin nhắn của User vào Database
+        AIChatMessage.objects.create(
+            session=session,
+            sender_role='USER',
+            content=user_message_content
+        )
+        
+        # 2. Gọi dịch vụ Graph RAG truy xuất ngữ cảnh & Nodes đồ thị
+        from .graph_rag_service import retrieve_graph_rag_context
+        
+        rag_data = retrieve_graph_rag_context(
+            query=user_message_content,
+            user_id=session.user.id,
+            focus_lesson_id=focus_lesson_id,
+            api_key=api_key
+        )
+        
+        # --- PHẦN 3: BỘ PHÂN LOẠI Ý ĐỊNH TRUY VẤN NÂNG CAO (QUERY INTENT CLASSIFIER) ---
+        query_lower = user_message_content.lower()
+        intent = "GENERAL_KMS" # Ý định mặc định
+        
+        # Phân loại ý định
+        if focus_lesson_id:
+            intent = "FOCUS_QA"
+        elif any(kw in query_lower for kw in ["bao nhiêu", "tổng số", "thống kê", "danh sách bài", "tất cả tài liệu", "liệt kê"]):
+            intent = "STATISTICAL"
+        elif any(kw in query_lower for kw in ["khác nhau", "so sánh", "tương tự", "giống nhau", "khác gì", "đối chiếu"]):
+            intent = "COMPARATIVE"
+            
+        # Xác định System Prompt chuyên biệt cho từng ý định
+        if intent == "FOCUS_QA":
+            try:
+                from .models import LessonPlan
+                lesson_obj = LessonPlan.objects.get(id=focus_lesson_id)
+                
+                # Trích xuất sơ đồ tư duy (mindmap) chuyên sâu để AI phân tích
+                mindmap_tags = lesson_obj.attributes.get("Từ khóa kiến thức", []) or lesson_obj.attributes.get("knowledge_tags", [])
+                mindmap_str = ", ".join(mindmap_tags) if isinstance(mindmap_tags, list) else str(mindmap_tags)
+                
+                system_prompt = (
+                    f"Bạn là Trợ lý AI chuyên gia phân tích sư phạm trong Hệ thống Quản lý Tri thức Học tập (KMS).\n"
+                    f"Hiện tại người dùng đang xem tài liệu cụ thể: \"{lesson_obj.title}\" (ID bài giảng: {lesson_obj.id}) và bật khung chat hỗ trợ.\n"
+                    f"ĐỒ THỊ SƠ ĐỒ TƯ DUY (MINDMAP) CỦA RIÊNG TÀI LIỆU NÀY GỒM CÁC PHÂN NHÁNH TRỌNG TÂM: [[{lesson_obj.title}]] -> {mindmap_str}.\n\n"
+                    f"Nhiệm vụ của bạn là tập trung THIÊN VỀ tài liệu \"{lesson_obj.title}\" này để giải đáp thắc mắc, tóm tắt hoạt động, phân tích phương pháp sư phạm, hoặc điều chỉnh giáo án theo yêu cầu.\n"
+                    f"Hãy trả lời bằng Tiếng Việt lịch sự, cấu trúc Markdown rõ ràng (sử dụng tiêu đề, bảng biểu, danh sách để cực kỳ trực quan).\n"
+                    f"Bắt buộc phải đính kèm liên kết nhảy nhanh theo cú pháp markdown đặc biệt: `[Tên hiển thị liên kết](lesson://<lesson_id>?text=<từ_khóa_ngắn_tìm_kiếm>)` (hoặc `[Tên hiển thị](lesson://<lesson_id>)` nếu không có từ khóa cụ thể)."
+                )
+            except LessonPlan.DoesNotExist:
+                intent = "GENERAL_KMS"
+
+        if intent == "STATISTICAL":
+            system_prompt = (
+                "Bạn là Trợ lý AI chuyên gia thống kê tri thức hệ thống KMS.\n"
+                "Người dùng đang yêu cầu THỐNG KÊ, LIỆT KÊ hoặc ĐO LƯỜNG toàn bộ tài liệu trong hệ thống.\n"
+                "Nhiệm vụ của bạn là dựa vào Ngữ cảnh RAG (đặc biệt là danh mục và thuộc tính của tất cả các bài giảng công khai) để tổng hợp ra các bảng biểu trực quan, phân tích tỉ lệ môn học, phân loại theo lớp, loại hình, địa điểm, từ khóa một cách khoa học.\n"
+                "Hãy trả lời bằng Tiếng Việt, trình bày dạng BẢNG BIỂU (Table) Markdown để so sánh định lượng trực quan, rõ ràng.\n"
+                "Bắt buộc phải đính kèm liên kết nhảy nhanh cho mỗi tài liệu được liệt kê: `[Tên bài học](lesson://<lesson_id>)`."
+            )
+            
+        elif intent == "COMPARATIVE":
+            system_prompt = (
+                "Bạn là Trợ lý AI chuyên gia phân tích so sánh và liên kết tri thức hệ thống KMS.\n"
+                "Người dùng đang yêu cầu SO SÁNH, ĐỐI CHIẾU hoặc TÌM KIẾM LIÊN QUAN giữa các tài liệu khác nhau.\n"
+                "Nhiệm vụ của bạn là phân tích sâu các điểm tương đồng, khác biệt về mặt cấu trúc hoạt động dạy học, phương pháp sư phạm, đối tượng học sinh, từ khóa kiến thức của các tài liệu tìm thấy trong Ngữ cảnh Graph RAG.\n"
+                "Hãy trình bày câu trả lời rõ ràng dưới dạng So sánh đa chiều (sử dụng bảng biểu đối chiếu và bullet points rõ ràng).\n"
+                "Bắt buộc phải đính kèm liên kết nhảy nhanh khi so sánh: `[Tên bài học](lesson://<lesson_id>)`."
+            )
+            
+        elif intent == "GENERAL_KMS":
+            system_prompt = (
+                "Bạn là Trợ lý AI hữu ích, chuyên gia phân tích sư phạm trong Hệ thống Quản lý Tri thức Học tập (KMS).\n"
+                "Nhiệm vụ của bạn là hỗ trợ người dùng tìm kiếm tài liệu giáo án, tóm tắt hoạt động giảng dạy, đề xuất cải tiến và giải đáp kiến thức sư phạm chung.\n"
+                "Hãy trả lời một cách lịch sự, cấu trúc Markdown rõ ràng (sử dụng tiêu đề, bảng biểu, danh sách thụt lề để cực kỳ trực quan).\n"
+                "Hãy dựa vào Ngữ cảnh Graph RAG được cung cấp bên dưới để trả lời trung thực, chính xác. Nếu ngữ cảnh không có thông tin, hãy trả lời linh hoạt dựa trên kiến thức của bạn nhưng nêu rõ là không tìm thấy trong tài liệu cụ thể của hệ thống.\n"
+                "Để hỗ trợ điều hướng thông minh, khi bạn trích dẫn hoặc nhắc tới bất kỳ tài liệu/bài giảng nào từ Ngữ cảnh RAG, bạn BẮT BUỘC phải đính kèm liên kết nhảy nhanh theo cú pháp markdown đặc biệt: `[Tên hiển thị liên kết](lesson://<lesson_id>?text=<từ_khóa_ngắn_tìm_kiếm>)` (hoặc `[Tên hiển thị](lesson://<lesson_id>)` nếu không có từ khóa cụ thể)."
+            )
+        
+        # Format nội dung gửi đến mô hình LLM bao gồm context trích xuất
+        prompt_with_context = (
+            f"NGỮ CẢNH GRAPH RAG TRUY XUẤT:\n"
+            f"===================================\n"
+            f"{rag_data['context']}\n"
+            f"===================================\n\n"
+            f"CÂU HỎI NGƯỜI DÙNG: {user_message_content}"
+        )
+        
+        # 4. Thực thi nạp và gọi LLM thông qua LLM Runner
+        from .llm_runner import generate_llm_response
+        
+        ai_response_content = generate_llm_response(
+            prompt=prompt_with_context,
+            system_prompt=system_prompt,
+            model_choice=model_choice,
+            api_key=api_key,
+            model_name=model_name
+        )
+        
+        # 5. Lưu tin nhắn trả lời của AI vào Database
+        ai_message = AIChatMessage.objects.create(
+            session=session,
+            sender_role='AI',
+            content=ai_response_content
+        )
+        
+        # 6. Trả về kết quả cho client
+        return Response({
+            'message': AIChatMessageSerializer(ai_message).data,
+            'retrieved_graph': rag_data['retrieved_graph'],
+            'suggested_questions': rag_data['suggested_questions']
+        }, status=status.HTTP_200_OK)
+
+
+class AIChatGraphDataAPIView(APIView):
+    """
+    API View trả về Đồ thị tri thức (Knowledge Graph Nodes & Edges) dạng JSON.
+    Nếu truyền thêm lesson_id, API sẽ trả về đồ thị sơ đồ tư duy (Mindmap) riêng cho tài liệu đó.
+    Nếu không truyền, trả về toàn bộ đồ thị hệ thống.
+    """
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        lesson_id = request.query_params.get('lesson_id')
+        
+        # Xử lý an toàn tham số để tránh chuỗi 'null', 'undefined' bị coi là ID hợp lệ
+        if lesson_id in (None, '', 'null', 'undefined'):
+            lesson_id = None
+        else:
+            try:
+                lesson_id = int(lesson_id)
+            except ValueError:
+                lesson_id = None
+                
+        from .graph_rag_service import build_virtual_knowledge_graph
+        graph_data = build_virtual_knowledge_graph(user_id=user_id, focus_lesson_id=lesson_id)
+        return Response(graph_data)
+
+
+class SystemSettingAPIView(APIView):
+    """
+    API View cho phép GET/POST cấu hình phân mảnh dữ liệu (chunking) dành cho Admin.
+    """
+    def get(self, request):
+        from .models import SystemSetting
+        try:
+            config = SystemSetting.objects.get(key="chunking_config").value
+        except SystemSetting.DoesNotExist:
+            config = {
+                "chunk_strategy": "heading",
+                "chunk_size": 1000,
+                "chunk_overlap": 200
+            }
+        return Response(config, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        from .models import SystemSetting
+        config = request.data
+        setting_obj, created = SystemSetting.objects.update_or_create(
+            key="chunking_config",
+            defaults={"value": config}
+        )
+        return Response(setting_obj.value, status=status.HTTP_200_OK)
+
+
+class BackgroundTasksStatusAPIView(APIView):
+    """
+    API View trả về trạng thái tiến độ thời gian thực của các tác vụ chạy ngầm.
+    """
+    def get(self, request):
+        from .bg_processor import BackgroundProcessManager
+        return Response(BackgroundProcessManager.get_status(), status=status.HTTP_200_OK)
+
+
+class BackgroundTasksReprocessAPIView(APIView):
+    """
+    API View cho phép kích hoạt chạy lại (tái xử lý) AI RAG cho một bài học cụ thể
+    hoặc toàn bộ các bài học trong hệ thống.
+    """
+    def post(self, request):
+        lesson_id = request.data.get('lesson_id')
+        from .models import LessonPlan
+        from .bg_processor import BackgroundProcessManager
+        
+        if lesson_id:
+            try:
+                lp = LessonPlan.objects.get(id=lesson_id)
+                # Đưa trạng thái về PENDING
+                lp.ai_processing_status = 'PENDING'
+                lp.ai_processing_step = 'Đang xếp hàng chạy lại xử lý ngầm...'
+                lp.save(update_fields=['ai_processing_status', 'ai_processing_step'])
+                BackgroundProcessManager.queue_task(lp.id)
+                return Response({"message": f"Đã đưa bài học '{lp.title}' vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
+            except LessonPlan.DoesNotExist:
+                return Response({"error": "Không tìm thấy bài học tương ứng"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Tái xử lý toàn bộ tài liệu trên hệ thống
+            lps = LessonPlan.objects.all()
+            count = lps.count()
+            for lp in lps:
+                lp.ai_processing_status = 'PENDING'
+                lp.ai_processing_step = 'Đang xếp hàng chạy lại xử lý ngầm...'
+                lp.save(update_fields=['ai_processing_status', 'ai_processing_step'])
+                BackgroundProcessManager.queue_task(lp.id)
+            return Response({"message": f"Đã đưa toàn bộ {count} bài học vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
+
+
+class ObsidianStatusAPIView(APIView):
+    """
+    API View trả về đường dẫn Obsidian Vault đồng bộ trên máy chủ.
+    """
+    def get(self, request):
+        import os
+        from .bg_processor import BackgroundProcessManager
+        return Response({
+            "vault_path": BackgroundProcessManager.get_vault_path(),
+            "exists": os.path.exists(BackgroundProcessManager.get_vault_path())
+        }, status=status.HTTP_200_OK)
+
+
+class ObsidianNotesListAPIView(APIView):
+    """
+    API View trả về danh sách các note .md trong Obsidian Vault trên máy chủ.
+    """
+    def get(self, request):
+        import os
+        from .bg_processor import BackgroundProcessManager
+        vault_path = BackgroundProcessManager.get_vault_path()
+        if not os.path.exists(vault_path):
+            return Response({"error": "Không tìm thấy thư mục Vault"}, status=400)
+            
+        notes = []
+        for file in os.listdir(vault_path):
+            if file.lower().endswith('.md'):
+                notes.append({
+                    "filename": file,
+                    "title": file[:-3], # Cắt .md đi
+                    "size": os.path.getsize(os.path.join(vault_path, file))
+                })
+        # Sắp xếp theo tên
+        notes = sorted(notes, key=lambda x: x["title"].lower())
+        return Response(notes, status=200)
+
+
+class ObsidianNoteContentAPIView(APIView):
+    """
+    API View đọc trực tiếp nội dung chi tiết của một note trong Vault.
+    """
+    def get(self, request):
+        import os
+        from .bg_processor import BackgroundProcessManager
+        filename = request.query_params.get('filename')
+        if not filename:
+            return Response({"error": "Vui lòng cung cấp tên file"}, status=400)
+            
+        vault_path = BackgroundProcessManager.get_vault_path()
+        file_path = os.path.join(vault_path, filename)
+        if not os.path.exists(file_path):
+            return Response({"error": "Không tìm thấy file ghi chú"}, status=400)
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            return Response({"filename": filename, "content": content}, status=200)
+        except Exception as e:
+            return Response({"error": f"Lỗi đọc file: {str(e)}"}, status=500)
+
 
 

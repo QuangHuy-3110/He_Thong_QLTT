@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import UploadPage from './UploadPage';
+import UploadPage, { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, BIOLOGY_CONNECTIONS, LOCATIONS } from './UploadPage';
+import ChatbotWorkspace from './components/ChatbotWorkspace';
 import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { saveAs } from 'file-saver';
 import { renderAsync } from 'docx-preview';
@@ -8,22 +9,26 @@ import { renderAsync } from 'docx-preview';
 const getFileUrl = (url: string | undefined | null) => {
   if (!url) return '';
 
-  try {
-    const parsed = new URL(url, window.location.href);
-    if (parsed.pathname.startsWith('/media/')) {
-      return parsed.pathname + parsed.search + parsed.hash;
+  let path = url;
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url);
+      path = parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      path = url;
     }
-
-    if (parsed.href.startsWith('http://') || parsed.href.startsWith('https://')) {
-      return parsed.pathname + parsed.search + parsed.hash;
-    }
-  } catch {
-    // Ignore invalid URL objects and continue falling back to relative handling
   }
 
-  if (url.startsWith('/media/')) return url;
-  if (url.startsWith('media/')) return '/' + url;
-  return '/media/' + url;
+  let mediaPath = path;
+  if (path.startsWith('/media/')) {
+    mediaPath = path;
+  } else if (path.startsWith('media/')) {
+    mediaPath = '/' + path;
+  } else {
+    mediaPath = '/media/' + path;
+  }
+
+  return 'http://127.0.0.1:8000' + mediaPath;
 };
 
 const getLessonFileUrl = (lesson: LessonPlan) => {
@@ -631,10 +636,49 @@ const PersonalDirTreeNode = ({
   );
 };
 
-const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
+const MarkdownViewer: React.FC<{ markdown: string; highlightQuery?: string }> = ({ markdown, highlightQuery }) => {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (highlightQuery && containerRef.current) {
+      setTimeout(() => {
+        const firstMark = containerRef.current?.querySelector('mark');
+        if (firstMark) {
+          firstMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 350);
+    }
+  }, [markdown, highlightQuery]);
+
   if (!markdown) {
     return <div className="text-gray-400 italic p-6 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">Không có nội dung Markdown được trích xuất cho giáo án này.</div>;
   }
+
+  const renderTextWithHighlight = (text: string) => {
+    if (!highlightQuery || !highlightQuery.trim()) {
+      return text;
+    }
+    
+    try {
+      const queryClean = highlightQuery.trim();
+      const regex = new RegExp(`(${escapeRegExp(queryClean)})`, 'gi');
+      const parts = text.split(regex);
+      if (parts.length > 1) {
+        return parts.map((part, i) => 
+          regex.test(part) ? (
+            <mark key={i} className="bg-yellow-200 border border-yellow-300 rounded px-1 text-slate-900 font-extrabold shadow-sm animate-pulse mx-0.5">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        );
+      }
+    } catch (e) {
+      console.error("Lỗi regex highlight:", e);
+    }
+    return text;
+  };
 
   const lines = markdown.split('\n');
   const renderedElements: React.ReactNode[] = [];
@@ -649,7 +693,7 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
       renderedElements.push(
         <ul key={key} className="list-disc pl-6 my-4 space-y-2 text-gray-700 text-sm">
           {listItems.map((item, idx) => (
-            <li key={idx}>{item}</li>
+            <li key={idx}>{renderTextWithHighlight(item)}</li>
           ))}
         </ul>
       );
@@ -666,7 +710,7 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
             <thead className="bg-slate-50 font-semibold text-slate-700 border-b border-gray-200">
               <tr>
                 {tableHeaders.map((h, idx) => (
-                  <th key={idx} className="px-4 py-3 font-semibold whitespace-nowrap">{h}</th>
+                  <th key={idx} className="px-4 py-3 font-semibold whitespace-nowrap">{renderTextWithHighlight(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -674,7 +718,7 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
               {tableRows.map((row, rowIdx) => (
                 <tr key={rowIdx} className="hover:bg-slate-50/50 transition-colors">
                   {row.map((cell, cellIdx) => (
-                    <td key={cellIdx} className="px-4 py-3 max-w-xs break-words" title={cell}>{cell}</td>
+                    <td key={cellIdx} className="px-4 py-3 max-w-xs break-words" title={cell}>{renderTextWithHighlight(cell)}</td>
                   ))}
                 </tr>
               ))}
@@ -724,11 +768,11 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
     }
 
     if (trimmed.startsWith('# ')) {
-      renderedElements.push(<h1 key={key} className="text-xl sm:text-2xl font-bold text-gray-900 mt-6 mb-4 border-b pb-2 border-slate-100">{trimmed.slice(2)}</h1>);
+      renderedElements.push(<h1 key={key} className="text-xl sm:text-2xl font-bold text-gray-900 mt-6 mb-4 border-b pb-2 border-slate-100">{renderTextWithHighlight(trimmed.slice(2))}</h1>);
     } else if (trimmed.startsWith('## ')) {
-      renderedElements.push(<h2 key={key} className="text-lg font-bold text-slate-800 mt-5 mb-3">{trimmed.slice(3)}</h2>);
+      renderedElements.push(<h2 key={key} className="text-lg font-bold text-slate-800 mt-5 mb-3">{renderTextWithHighlight(trimmed.slice(3))}</h2>);
     } else if (trimmed.startsWith('### ')) {
-      renderedElements.push(<h3 key={key} className="text-sm sm:text-base font-bold text-blue-600 mt-4 mb-2.5">{trimmed.slice(4)}</h3>);
+      renderedElements.push(<h3 key={key} className="text-sm sm:text-base font-bold text-blue-600 mt-4 mb-2.5">{renderTextWithHighlight(trimmed.slice(4))}</h3>);
     } else if (trimmed === '---') {
       renderedElements.push(<hr key={key} className="my-6 border-slate-200" />);
     } else if (trimmed) {
@@ -738,14 +782,14 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
         const lineContent: React.ReactNode[] = [];
         parts.forEach((part, pIdx) => {
           if (pIdx % 2 === 1) {
-            lineContent.push(<strong key={pIdx} className="font-semibold text-gray-900">{part}</strong>);
+            lineContent.push(<strong key={pIdx} className="font-bold text-gray-950">{renderTextWithHighlight(part)}</strong>);
           } else {
-            lineContent.push(part);
+            lineContent.push(renderTextWithHighlight(part));
           }
         });
         renderedElements.push(<p key={key} className="text-sm text-gray-650 leading-relaxed my-2.5">{lineContent}</p>);
       } else {
-        renderedElements.push(<p key={key} className="text-sm text-gray-650 leading-relaxed my-2.5">{trimmed}</p>);
+        renderedElements.push(<p key={key} className="text-sm text-gray-650 leading-relaxed my-2.5">{renderTextWithHighlight(trimmed)}</p>);
       }
     }
   });
@@ -754,7 +798,7 @@ const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
   flushTable('final-table');
 
   return (
-    <div className="bg-slate-50/50 rounded-2xl border border-gray-150 p-6 leading-relaxed max-w-none text-slate-800 shadow-inner">
+    <div ref={containerRef} className="bg-slate-50/50 rounded-2xl border border-gray-150 p-6 leading-relaxed max-w-none text-slate-800 shadow-inner">
       <div className="bg-white rounded-xl border border-gray-200/80 p-6 shadow-sm">
         {renderedElements}
       </div>
@@ -811,7 +855,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'home' | 'upload' | 'admin'>('home');
   const [homeTab, setHomeTab] = useState<'library' | 'history' | 'personal'>('library');
+  const [focusLessonIdForChat, setFocusLessonIdForChat] = useState<number | null>(null);
   const [uploadMode, setUploadMode] = useState<'personal' | 'public'>('public');
+  const [lessonHighlightQuery, setLessonHighlightQuery] = useState<string>('');
+
+
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem('currentUser');
@@ -1117,6 +1165,11 @@ export default function App() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [selectedTietDay, setSelectedTietDay] = useState<string[]>([]);
+  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [selectedBiologies, setSelectedBiologies] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [advancedBiologySearch, setAdvancedBiologySearch] = useState<string>('');
   const [showAdvancedFilter, setShowAdvancedFilter] = useState<boolean>(false);
 
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string, checked: boolean) => {
@@ -1132,6 +1185,15 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
+
+  // Tự động đồng bộ sơ đồ tư duy biệt lập của tài liệu khi xem chi tiết và reset khi đóng
+  useEffect(() => {
+    if (selectedLessonForDetail) {
+      setFocusLessonIdForChat(selectedLessonForDetail.id);
+    } else {
+      setFocusLessonIdForChat(null);
+    }
+  }, [selectedLessonForDetail]);
   const [previewMode, setPreviewMode] = useState<'docx' | 'markdown'>('docx');
   const [selectedCreatorForProfile, setSelectedCreatorForProfile] = useState<User | null>(null);
 
@@ -1176,6 +1238,7 @@ export default function App() {
   const [editDirId, setEditDirId] = useState('');
   const [editAttrs, setEditAttrs] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
+  const [editLocation, setEditLocation] = useState<string>('');
 
 
   // Dir Form
@@ -1203,7 +1266,18 @@ export default function App() {
       
       selectedClasses.forEach(c => params.append('lop', c));
       selectedTypes.forEach(t => params.append('type', t));
-      selectedSubjects.forEach(s => params.append('subject', s));
+      selectedSubjects.forEach(s => {
+        if (s === 'Hoạt động trải nghiệm Sinh học' || s === 'Sinh học') {
+          params.append('subject', s);
+        } else {
+          params.append('biology', s);
+        }
+      });
+      selectedTargetStudents.forEach(ts => params.append('target_student', ts));
+      selectedTracks.forEach(tr => params.append('track', tr));
+      selectedTopics.forEach(tp => params.append('topic', tp));
+      selectedBiologies.forEach(b => params.append('biology', b));
+      selectedLocations.forEach(loc => params.append('location', loc));
       
       const paramStr = params.toString();
       if (paramStr) url += `?${paramStr}`;
@@ -1315,7 +1389,19 @@ export default function App() {
 
   useEffect(() => {
     fetchLessonPlans(debouncedSearchQuery);
-  }, [currentUser, debouncedSearchQuery, selectedClasses, selectedTypes, selectedSubjects, selectedTietDay]);
+  }, [
+    currentUser,
+    debouncedSearchQuery,
+    selectedClasses,
+    selectedTypes,
+    selectedSubjects,
+    selectedTietDay,
+    selectedTargetStudents,
+    selectedTracks,
+    selectedTopics,
+    selectedBiologies,
+    selectedLocations
+  ]);
 
   useEffect(() => {
     setPersonalSearchQuery(debouncedSearchQuery);
@@ -1551,6 +1637,8 @@ export default function App() {
     setEditDirId(lesson.directory_ids && lesson.directory_ids.length > 0 ? lesson.directory_ids[0].toString() : '');
     setEditAttrs(JSON.stringify(lesson.attributes));
     setEditFile(null);
+    const loc = lesson.attributes && lesson.attributes['Địa điểm'] ? lesson.attributes['Địa điểm'] : '';
+    setEditLocation(loc);
   };
 
   const submitEdit = async (e: React.FormEvent) => {
@@ -1565,7 +1653,10 @@ export default function App() {
       formData.append('description', editDesc);
       formData.append('target_student', editGrade);
       formData.append('directory_id', editDirId);
-      formData.append('attributes', editAttrs);
+      
+      const attrsObj = JSON.parse(editAttrs || '{}');
+      attrsObj['Địa điểm'] = editLocation;
+      formData.append('attributes', JSON.stringify(attrsObj));
       if (editFile) {
         formData.append('file_path', editFile);
       }
@@ -1696,12 +1787,46 @@ export default function App() {
   // Dynamic subject list from current dir-filtered pool (stable when checking boxes)
   const availableSubjects = useMemo(() => {
     const subjects = new Set<string>();
-    dirUnfilteredLessons.forEach(l => {
-      const s = l.attributes?.['Môn học'];
-      if (s) subjects.add(s);
+    
+    // Inspect selected directories (or all directories if none selected) for dynamic knowledge tags
+    const targetDirs = selectedDirs.length > 0 
+      ? selectedDirs.map(dirId => directories.find(d => d.id === dirId)).filter(Boolean) as Directory[]
+      : directories;
+
+    targetDirs.forEach(dirObj => {
+      if (dirObj && dirObj.attributes) {
+        const kt = dirObj.attributes['knowledge_tags'] || dirObj.attributes['Kiến thức'] || dirObj.attributes['subject'] || dirObj.attributes['subjects'] || dirObj.attributes['Môn học'];
+        if (kt) {
+          if (Array.isArray(kt)) {
+            kt.forEach(k => subjects.add(k));
+          } else if (typeof kt === 'string') {
+            subjects.add(kt);
+          }
+        }
+      }
     });
+
+    // Also collect from current unfiltered lessons in the chosen directories to be fully comprehensive
+    dirUnfilteredLessons.forEach(l => {
+      const kt = l.attributes?.['knowledge_tags'] || l.attributes?.['Kiến thức sinh học liên quan'] || l.attributes?.['Môn học'];
+      if (kt) {
+        if (Array.isArray(kt)) {
+          kt.forEach(k => subjects.add(k));
+        } else if (typeof kt === 'string') {
+          subjects.add(kt);
+        }
+      }
+    });
+
     return Array.from(subjects).sort();
-  }, [dirUnfilteredLessons]);
+  }, [dirUnfilteredLessons, selectedDirs, directories]);
+
+  const availableTopics = useMemo(() => {
+    if (selectedTracks.length === 0) {
+      return Object.values(TRACK_TO_TOPICS).flat();
+    }
+    return selectedTracks.flatMap(track => TRACK_TO_TOPICS[track] || []);
+  }, [selectedTracks]);
 
   // Search & dynamic filters are fully executed on PostgreSQL Server-side.
   // We only apply the directory folder scope client-side here.
@@ -1757,10 +1882,20 @@ export default function App() {
     return sortedLessonPlans.slice(startIndex, startIndex + pageSize);
   }, [sortedLessonPlans, currentPage, pageSize]);
 
-  // Reset page to 1 when filters or page size change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDirs, selectedTargetStudents, selectedTypes, selectedSubjects, pageSize]);
+  }, [
+    searchQuery,
+    selectedDirs,
+    selectedTargetStudents,
+    selectedTypes,
+    selectedSubjects,
+    selectedTietDay,
+    selectedTracks,
+    selectedTopics,
+    selectedBiologies,
+    pageSize
+  ]);
 
 
   // Resolve managed directory IDs for the current teacher
@@ -1796,6 +1931,8 @@ export default function App() {
       />
     );
   }
+
+
 
   if (currentView === 'admin') {
     if (!currentUser || currentUser.role !== 'ADMIN') {
@@ -2412,80 +2549,184 @@ export default function App() {
                
                {/* Popover Dropdown Panel */}
                {showAdvancedFilter && (
-                 <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-xl p-5 z-40 animate-in fade-in slide-in-from-top-3 duration-250">
-                     <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-                       <h4 className="font-extrabold text-sm text-gray-900">🎛️ Bộ lọc nâng cao</h4>
-                       <button 
-                         onClick={() => { setSelectedTietDay([]); setSelectedSubjects([]); }} 
-                         className="text-xs text-blue-600 hover:text-blue-800 font-bold"
-                       >
-                         Xóa bộ lọc
-                       </button>
-                     </div>
-                     
-                     {/* Filter by Duration / Tiết dạy */}
-                     <div className="mb-4">
-                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Số tiết học (Tiết dạy)</label>
-                       <div className="grid grid-cols-3 gap-2">
-                         {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
-                           const isSelected = selectedTietDay.includes(tiet);
-                           return (
-                             <button
-                               key={tiet}
-                               type="button"
-                               onClick={() => {
-                                 setSelectedTietDay(prev => 
-                                   prev.includes(tiet) ? prev.filter(p => p !== tiet) : [...prev, tiet]
-                                 );
-                               }}
-                               className={`py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${
-                                 isSelected 
-                                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                                   : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                               }`}
-                             >
-                               {tiet}
-                             </button>
-                           );
-                         })}
-                       </div>
-                     </div>
-                     
-                     {/* Filter by Subject / Môn học */}
-                     <div>
-                       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Môn học / Kiến thức</label>
-                       <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
-                         {['Sinh học', 'Toán học', 'Vật lý', 'Hóa học', 'Tin học', 'Công nghệ', 'Địa lý'].map(subj => {
-                           const isSelected = selectedSubjects.includes(subj);
-                           return (
-                             <button
-                               key={subj}
-                               type="button"
-                               onClick={() => {
-                                 setSelectedSubjects(prev => 
-                                   prev.includes(subj) ? prev.filter(p => p !== subj) : [...prev, subj]
-                                 );
-                               }}
-                               className={`py-1 px-2.5 rounded-full text-[11px] font-semibold border transition-all ${
-                                 isSelected
-                                   ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
-                                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                               }`}
-                             >
-                               {subj}
-                             </button>
-                           );
-                         })}
-                       </div>
-                     </div>
-                   </div>
-                 )}
+                  <div className="absolute right-0 top-full mt-2 w-[420px] bg-white rounded-2xl border border-gray-200 shadow-xl p-5 z-40 animate-in fade-in slide-in-from-top-3 duration-250 max-h-[80vh] overflow-y-auto pr-3">
+                      <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                        <h4 className="font-extrabold text-sm text-gray-900">🎛️ Bộ lọc nâng cao</h4>
+                        <button 
+                          onClick={() => { 
+                             setSelectedTietDay([]); 
+                             setSelectedSubjects([]); 
+                             setSelectedTracks([]);
+                             setSelectedTopics([]);
+                             setSelectedBiologies([]);
+                             setSelectedLocations([]);
+                             setSelectedTargetStudents([]);
+                             setAdvancedBiologySearch('');
+                          }} 
+                          className="text-xs text-blue-600 hover:text-blue-800 font-bold"
+                        >
+                          Xóa bộ lọc
+                        </button>
+                      </div>
+                      
+                      {/* Filter by Duration / Tiết dạy */}
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Số tiết học (Tiết dạy)</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
+                            const isSelected = selectedTietDay.includes(tiet);
+                            return (
+                              <button
+                                key={tiet}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTietDay(prev => 
+                                    prev.includes(tiet) ? prev.filter(p => p !== tiet) : [...prev, tiet]
+                                  );
+                                }}
+                                className={`py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${
+                                  isSelected 
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                                }`}
+                              >
+                                {tiet}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      
+                      {/* Filter by Location inside Popover */}
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📍 Địa điểm (Nơi học / Thực hành)</label>
+                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                          {LOCATIONS.map(loc => {
+                            const isSelected = selectedLocations.includes(loc);
+                            return (
+                              <button
+                                key={loc}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedLocations(prev => 
+                                    prev.includes(loc) ? prev.filter(p => p !== loc) : [...prev, loc]
+                                  );
+                                }}
+                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                                title={loc}
+                              >
+                                📍 {loc}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Filter by Track */}
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🗺️ Mạch kiến thức</label>
+                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                          {KNOWLEDGE_TRACKS.map(track => {
+                            const isSelected = selectedTracks.includes(track);
+                            return (
+                              <button
+                                key={track}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTracks(prev => 
+                                    prev.includes(track) ? prev.filter(p => p !== track) : [...prev, track]
+                                  );
+                                }}
+                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                                title={track}
+                              >
+                                🗺️ {track}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Filter by Topic */}
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📌 Chủ đề con gợi ý</label>
+                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                          {availableTopics.map(topic => {
+                            const isSelected = selectedTopics.includes(topic);
+                            return (
+                              <button
+                                key={topic}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTopics(prev => 
+                                    prev.includes(topic) ? prev.filter(p => p !== topic) : [...prev, topic]
+                                  );
+                                }}
+                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                                title={topic}
+                              >
+                                📌 {topic}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Filter by Biology Connection */}
+                      <div className="mb-2">
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🧬 Kiến thức sinh học liên quan</label>
+                        <input 
+                          type="text"
+                          value={advancedBiologySearch}
+                          onChange={e => setAdvancedBiologySearch(e.target.value)}
+                          placeholder="Tìm kiến thức sinh học..."
+                          className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                        />
+                        <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin animate-in fade-in duration-200">
+                          {BIOLOGY_CONNECTIONS.filter(b => b.toLowerCase().includes(advancedBiologySearch.toLowerCase())).map(bio => {
+                            const isSelected = selectedBiologies.includes(bio);
+                            return (
+                              <button
+                                key={bio}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBiologies(prev =>
+                                    prev.includes(bio) ? prev.filter(x => x !== bio) : [...prev, bio]
+                                  );
+                                }}
+                                className={`py-1.5 px-2.5 rounded-lg text-left text-xs transition-all border break-words flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold shadow-sm'
+                                    : 'bg-white border-gray-150 text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                🧬 {bio}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
             </div>
 
             <div className="flex items-center">
               {currentUser ? (
                 <div className="flex items-center gap-4">
                   <div className="flex gap-2 mr-4">
+
                     {currentUser.role === 'ADMIN' && (
                       <button
                         onClick={() => { setCurrentView('admin'); fetchAdminUsers(); }}
@@ -2634,6 +2875,23 @@ export default function App() {
               <div className="flex flex-col gap-2">
                 <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Thực hành')} onChange={e => handleFilterChange(setSelectedTypes, 'Thực hành', e.target.checked)} /> Thực hành</label>
                 <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" className="rounded border-gray-300" checked={selectedTypes.includes('Lý thuyết')} onChange={e => handleFilterChange(setSelectedTypes, 'Lý thuyết', e.target.checked)} /> Lý thuyết</label>
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Địa điểm</h3>
+              <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-2 scrollbar-thin">
+                {LOCATIONS.map(loc => (
+                  <label key={loc} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                      checked={selectedLocations.includes(loc)} 
+                      onChange={e => handleFilterChange(setSelectedLocations, loc, e.target.checked)} 
+                    /> 
+                    {loc}
+                  </label>
+                ))}
               </div>
             </div>
             
@@ -2845,20 +3103,33 @@ export default function App() {
                             <span>•</span>
                             <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
                           </div>
-                          {lesson.file_path || lesson.file_url ? (
-                            <a 
-                              href={getLessonFileUrl(lesson)} 
-                              download={getFileName(lesson.file_url || lesson.file_path)} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFocusLessonIdForChat(lesson.id);
+                              }}
+                              className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
+                              title="Hỏi Trợ lý AI về bài học này"
                             >
-                              ↓ Tải tài liệu
-                            </a>
-                          ) : (
-                            <span className="text-gray-300">Không có file</span>
-                          )}
+                              ✨ Hỏi AI
+                            </button>
+                            {lesson.file_path || lesson.file_url ? (
+                              <a 
+                                href={getLessonFileUrl(lesson)} 
+                                download={getFileName(lesson.file_url || lesson.file_path)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                              >
+                                ↓ Tải tài liệu
+                              </a>
+                            ) : (
+                              <span className="text-gray-300">Không có file</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -3054,6 +3325,13 @@ export default function App() {
                               className="px-4 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors"
                             >
                               ↗ Xem chi tiết
+                            </button>
+                            <button
+                              onClick={() => setFocusLessonIdForChat(lesson.id)}
+                              className="px-4 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors flex items-center gap-1 hover:scale-105 active:scale-95 duration-100"
+                              title="Hỏi Trợ lý AI về bài học này"
+                            >
+                              ✨ Hỏi AI
                             </button>
                             {/* Resubmit button for rejected lessons */}
                             {lesson.status === 'REJECTED' && (
@@ -3363,20 +3641,33 @@ export default function App() {
                               <div className="flex items-center gap-2">
                                 <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
                               </div>
-                              {lesson.file_path || lesson.file_url ? (
-                                <a
-                                  href={getLessonFileUrl(lesson)}
-                                  download={getFileName(lesson.file_url || lesson.file_path)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFocusLessonIdForChat(lesson.id);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
+                                  title="Hỏi Trợ lý AI về bài học này"
                                 >
-                                  ↓ Tải tài liệu
-                                </a>
-                              ) : (
-                                <span className="text-gray-300">Không có file</span>
-                              )}
+                                  ✨ Hỏi AI
+                                </button>
+                                {lesson.file_path || lesson.file_url ? (
+                                  <a
+                                    href={getLessonFileUrl(lesson)}
+                                    download={getFileName(lesson.file_url || lesson.file_path)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                                  >
+                                    ↓ Tải tài liệu
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-300">Không có file</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -3647,6 +3938,20 @@ export default function App() {
                 }
                 return null;
               })()}
+              <div className="mb-4">
+                <label className="block text-sm mb-1 font-semibold text-gray-700">Địa điểm / Phòng thiết bị</label>
+                <select
+                  value={editLocation}
+                  onChange={e => setEditLocation(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Chọn Địa điểm / Phòng thiết bị --</option>
+                  {LOCATIONS.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
                 <label className="block text-sm mb-1 font-medium text-yellow-800">Thay thế tài liệu đính kèm</label>
                 <p className="text-xs text-yellow-600 mb-2">Bỏ trống nếu muốn giữ nguyên file cũ</p>
@@ -3732,9 +4037,8 @@ export default function App() {
                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
                    <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
                      {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
-                   </div>
-                 </div>
-
+                    </div>
+                  </div>
                  {/* Key Metadata Cards */}
                  <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
@@ -3782,10 +4086,10 @@ export default function App() {
                   <LessonActivitiesTimeline activities={selectedLessonForDetail.attributes?.tien_trinh_day_hoc} />
 
                  {/* Document Preview & Attachment */}
-                 {(selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) && (() => {
+                 {((selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) || selectedLessonForDetail.content_preview) && (() => {
                    const fileUrl = getLessonFileUrl(selectedLessonForDetail);
                    const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
-                   const isPdfFile = fileUrl.toLowerCase().endsWith('.pdf');
+                    const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
                    
                    if (isPdfFile) {
                      return (
@@ -3801,10 +4105,19 @@ export default function App() {
                        </div>
                      );
                    } else {
-                     const isDocx = fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc');                      if (isDocx) {
+                     const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!selectedLessonForDetail.content_preview;
+                      const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
+                      if (isMd) {
                         return (
                           <div className="mt-2 border-t border-gray-100 pt-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Nội dung tài liệu Markdown</h4>
+                            <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                          </div>
+                        );
+                      } else if (isDocx) {
+                        return (
+                          <div className="mt-2 border-t border-gray-100 pt-6">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 sm:gap-6 mb-4">
                               <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Xem chi tiết tài liệu</h4>
                               <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
                                 <button
@@ -3837,7 +4150,7 @@ export default function App() {
                                 <DocxPreview fileUrl={fileUrl} />
                               </div>
                             ) : (
-                              <MarkdownViewer markdown={selectedLessonForDetail.content_preview} />
+                              <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
                             )}
                           </div>
                         );
@@ -4772,6 +5085,24 @@ export default function App() {
             </form>
           </div>
         </div>
+      )}
+
+      {currentUser && (
+        <ChatbotWorkspace
+          directories={directories}
+          currentUser={currentUser}
+          onBack={() => {}}
+          onSuccess={() => { fetchLessonPlans(searchQuery); }}
+          onRefreshDirs={fetchDirectories}
+          lessonPlans={lessonPlans}
+          focusLessonId={focusLessonIdForChat}
+          setFocusLessonId={setFocusLessonIdForChat}
+          onViewLessonDetail={(lesson, highlightQuery) => {
+            setSelectedLessonForDetail(lesson);
+            setLessonHighlightQuery(highlightQuery || '');
+            setCurrentView('home');
+          }}
+        />
       )}
 
     </div>

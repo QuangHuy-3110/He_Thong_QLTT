@@ -12,7 +12,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+import dj_database_url
+from dotenv import load_dotenv
 
+# Tải các cấu hình từ file .env vào hệ thống
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -87,27 +91,15 @@ WSGI_APPLICATION = 'kms_core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-import urllib.parse
-
 db_url = os.environ.get('DATABASE_URL')
 if db_url:
-    parsed = urllib.parse.urlparse(db_url)
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': parsed.path.lstrip('/'),
-            'USER': parsed.username,
-            'PASSWORD': parsed.password,
-            'HOST': parsed.hostname,
-            'PORT': parsed.port or 5432,
-        }
+        'default': dj_database_url.parse(
+            db_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-    # Parse query options like sslmode
-    query = urllib.parse.parse_qs(parsed.query)
-    if 'sslmode' in query:
-        DATABASES['default']['OPTIONS'] = {
-            'sslmode': query['sslmode'][0]
-        }
 else:
     DATABASES = {
         'default': {
@@ -119,7 +111,6 @@ else:
             'PORT': os.environ.get('DB_PORT', '5433'),
         }
     }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

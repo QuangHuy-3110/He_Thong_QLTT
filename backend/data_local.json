@@ -1,0 +1,1001 @@
+[
+{
+  "model": "app.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$aWP0tm2mReTFCr4gKheoBK$3s8dilbNLkI38ABMm2bVk1zfTq6/U0KQ8zkcwdX0ELU=",
+    "last_login": "2026-05-19T14:57:44.455Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "tranchihieu3600@gmail.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:29:49.070Z",
+    "role": "ADMIN",
+    "full_name": "Admin",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 2,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$uVzilN7vokPQa7vXSnYr0P$gviWUOhS9RrXkSjsVZjEbfPKvl9gDbUavx7BEz/DbZE=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "admin_hethong",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin_hethong@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:55.578Z",
+    "role": "ADMIN",
+    "full_name": "Quản trị viên Hệ thống",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 3,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$AJ1bQYzeUzo0dXSiFzZg80$MCy21li76iVuAzjy1QX9RMAZnexBvutMTTN7/jXAE1U=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "admin_truong",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin_truong@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:56.196Z",
+    "role": "ADMIN",
+    "full_name": "BGH Nhà trường",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 4,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$pQVsprByDjFOaHHtV7qgxW$GAFKeO8E46FNjbIBkZtLRxRWSz6i6basng5WZPoEKss=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "chihieu",
+    "first_name": "",
+    "last_name": "",
+    "email": "chihieu@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:56.794Z",
+    "role": "TEACHER",
+    "full_name": "Trần Chí Hiếu",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 5,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$hvQU2q2WSloDl0XjC8Cd3f$sJlnDs+uO20ps9uyzOzWbpA6q8WqQW4g9VHOwwmOq7g=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "quanghuy",
+    "first_name": "",
+    "last_name": "",
+    "email": "quanghuy@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:57.392Z",
+    "role": "TEACHER",
+    "full_name": "Thạch Quang Huy",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 6,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$A31EifbTn9r9SQdsajh5iK$ZebnDjWKWkJNjmc9ebJDJkFLnoEU+L/ujAdYxGADZlM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_lan",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_lan@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:57.984Z",
+    "role": "TEACHER",
+    "full_name": "Nguyễn Thị Lan",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 7,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$jIcxNrTE8XRQik7p5YsxuK$VAivImKkeYJDA68a9RrqqQdJxmXIbvmfdcDelRDFjFg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_tuan",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_tuan@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:58.582Z",
+    "role": "TEACHER",
+    "full_name": "Lê Minh Tuấn",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 8,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$GMU1KW2MQdoCUgs7zPOnha$h2lfkMtZ1ZbzBfhvCPR9HMz3A90IW1H0wCCIrY7I8W8=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_mai",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_mai@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:59.171Z",
+    "role": "TEACHER",
+    "full_name": "Phạm Ngọc Mai",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 9,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$Q6l7LU2lrtgymaqoMnFZl4$H5zKgQfsE9oR9Nj7Ncl8WVwC4HtXotltb6vt5u11vLc=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_ha",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_ha@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:30:59.762Z",
+    "role": "TEACHER",
+    "full_name": "Hoàng Thu Hà",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 10,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$XP6o1eWWDVddq2A1GwBIWz$JYTx2AojrCzimEkgpiKLvx1ZF+R6eJrVYMXrhfOFw8w=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_long",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_long@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:31:00.350Z",
+    "role": "TEACHER",
+    "full_name": "Vũ Thành Long",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 11,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$w2GZCnAHQhaWpTm7gwCoSH$o5LhloRICSOVOLqEBKz4O96uVyxnFsRtQc+ZXdeVPuU=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "gv_phuong",
+    "first_name": "",
+    "last_name": "",
+    "email": "gv_phuong@truong.edu.vn",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T04:31:00.943Z",
+    "role": "TEACHER",
+    "full_name": "Đặng Bích Phương",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 12,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$sZYmF8WjIBV2C18PnhjsIg$my8HaSc5JrsavQguwOKrbR/V3y48d6QoftJ/3LCR6ss=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "hieuhoccode",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T05:13:00.669Z",
+    "role": "TEACHER",
+    "full_name": "Trần Chí Hiếu",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 13,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$jeYLSLHGnLVugFXzMRIVAa$JcSccnhuqNg0kDCO+IWVf8E4MU8mxI5lj6/1678F22Y=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "huy",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T08:23:50.236Z",
+    "role": "TEACHER",
+    "full_name": "huy",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 14,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$kmXr3mwQELeT53NVQs1cnV$0XJIk7QHd2NHRh7g/ya0SIaEPoSiScwEGywEoYU2GVA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "huy1",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-19T09:10:47.048Z",
+    "role": "TEACHER",
+    "full_name": "huyh",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 15,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$0CNR5MYvkfRR1mfAjFlukF$Lyp4f5IMKfmVH4wGzInf8MAmzSy118iVs4gDA0bUhbk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "huy2",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-20T02:30:44.750Z",
+    "role": "TEACHER",
+    "full_name": "huy2",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.user",
+  "pk": 16,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$HydYWVWpfJHuiEVSZSiUKB$u22I6Wvh++gSNfFM4F/LrcTduzRNcELhjYQvs/ET2y0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "minh",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-05-20T03:48:58.850Z",
+    "role": "USER",
+    "full_name": "minh",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 63,
+  "fields": {
+    "name": "Sinh học",
+    "parent": null,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 64,
+  "fields": {
+    "name": "Thực vật",
+    "parent": 63,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 65,
+  "fields": {
+    "name": "Vi sinh vật",
+    "parent": 63,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 66,
+  "fields": {
+    "name": "Sinh thái",
+    "parent": 63,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 67,
+  "fields": {
+    "name": "Con người",
+    "parent": 63,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 68,
+  "fields": {
+    "name": "Công nghệ sinh học",
+    "parent": 63,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 69,
+  "fields": {
+    "name": "Toán học",
+    "parent": null,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 70,
+  "fields": {
+    "name": "Lượng giác",
+    "parent": 69,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 71,
+  "fields": {
+    "name": "Vật lý",
+    "parent": null,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 72,
+  "fields": {
+    "name": "Sóng dừng",
+    "parent": 71,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.directory",
+  "pk": 73,
+  "fields": {
+    "name": "Chuyển động đều",
+    "parent": 71,
+    "user": 1,
+    "is_public": true,
+    "attributes": {}
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 64,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 2: Quang hợp và hô hấp ở thực vật",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\quang_hop_thuc_vat.docx",
+    "content_preview": "\nKẾ HOẠCH DẠY HỌC: QUANG HỢP Ở THỰC VẬT\nMôn học: Sinh học - Lớp 11\nThời lượng: 3 tiết (135 phút)\n\nI. MỤC TIÊU BÀI DẠY:\n- Nắm vững phương trình tổng quát của quá trình quang hợp ở lá cây.\n- Giải thích vai trò của hệ sắc tố diệp lục, lạp thể lục lạp hấp thụ ánh sáng.\n- Phân tích mối liên hệ mật thiết giữa cường độ quang hợp và nồng độ khí cacbonic (CO2).\n\nII. TIẾN TRÌNH HOẠT ĐỘNG:\n1. Hoạt động 01: Nhận diện bào quan lục lạp dưới kính hiển vi quang học.\n2. Hoạt động 02: Thực hành chiết rút diệp lục tố từ lá cây tươi bằng cồn 90 độ.\n3. Hoạt động 03: Thí nghiệm chứng minh sự giải phóng khí oxy khi có ánh sáng chiếu vào.\n",
+    "target_student": "Học sinh nông thôn",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Sinh học",
+      "Cấp học": "THPT",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "3 tiết",
+      "tien_trinh_day_hoc": [
+        {
+          "tom_tat": "Học sinh tiến hành tiêu bản tế bào thực vật và nhận diện bào quan lục lạp dưới kính hiển vi quang học.",
+          "thoi_gian": "30 phút",
+          "ten_hoat_dong": "Hoạt động 1: Nhận diện lục lạp"
+        },
+        {
+          "tom_tat": "Thực hành chiết rút sắc tố diệp lục từ lá cây tươi bằng cồn 90 độ, quan sát sự đổi màu của dung dịch.",
+          "thoi_gian": "45 phút",
+          "ten_hoat_dong": "Hoạt động 2: Chiết rút sắc tố diệp lục"
+        },
+        {
+          "tom_tat": "Lắp đặt mô hình thí nghiệm cây rong đuôi chó trong cốc nước dưới ánh sáng, ghi nhận bọt khí oxy giải phóng ra.",
+          "thoi_gian": "60 phút",
+          "ten_hoat_dong": "Hoạt động 3: Thí nghiệm chứng minh giải phóng oxy"
+        }
+      ]
+    },
+    "created_at": "2026-05-26T05:17:04.617Z",
+    "updated_at": "2026-05-26T05:17:04.617Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 65,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 3: Phương trình lượng giác và ứng dụng thực tiễn",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\phuong_trinh_luong_giac.docx",
+    "content_preview": "\nGIÁO ÁN PHƯƠNG TRÌNH LƯỢNG GIÁC CƠ BẢN\nMôn học: Toán học - Lớp 11\nThời lượng: 1 tiết (45 phút)\n\nI. YÊU CẦU CẦN ĐẠT:\n- Học sinh giải thành thạo phương trình lượng giác cơ bản chứa hàm sin, cos, tan và cotan.\n- Vẽ đồ thị hàm số và xác định chu kỳ biến thiên tuần hoàn.\n- Áp dụng các góc lượng giác đặc biệt trong vòng tròn lượng giác toán học.\n\nII. HOẠT ĐỘNG LÊN LỚP:\n- Hoạt động 1: Ôn tập vòng tròn lượng giác và định nghĩa các giá trị lượng giác.\n- Hoạt động 2: Xây dựng công thức nghiệm tổng quát cho phương trình lượng giác.\n- Hoạt động 3: Luyện tập giải đề thi trắc nghiệm phương trình bậc hai đối với một hàm số lượng giác.\n",
+    "target_student": "Học sinh thành thị",
+    "status": "PUBLISHED",
+    "average_rating": 5.0,
+    "total_ratings": 1,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 11",
+        "Lớp 12"
+      ],
+      "Môn học": "Toán học",
+      "Cấp học": "THPT",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "1 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.678Z",
+    "updated_at": "2026-05-26T05:17:04.678Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 66,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 4: Lực hấp dẫn và định luật vạn vật hấp dẫn Newton",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\luc_hap_dan_newton.docx",
+    "content_preview": "\nKẾ HOẠCH BÀI DẠY: ĐỊNH LUẬT VẠN VẬT HẤP DẪN\nMôn học: Vật lý - Lớp 10\nThời lượng: 2 tiết (90 phút)\n\nI. MỤC TIÊU:\n- Phát biểu và viết công thức tính lực hấp dẫn giữa hai chất điểm bất kỳ trong vũ trụ.\n- Hiểu rõ hằng số hấp dẫn G được đo bằng thí nghiệm cân xoắn Cavendish.\n- Giải thích chuyển động của Trái Đất quanh Mặt Trời và vệ tinh nhân tạo xung quanh hành tinh.\n\nII. NỘI DUNG CHÍNH:\n1. Định nghĩa trường hấp dẫn và trọng lực.\n2. Công thức tính lực hấp dẫn tỉ lệ nghịch với bình phương khoảng cách.\n3. Ví dụ minh họa tính toán lực hút giữa Trái Đất và Mặt Trăng.\n",
+    "target_student": "Học sinh thành thị",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Vật lý",
+      "Cấp học": "THPT",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "2 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.744Z",
+    "updated_at": "2026-05-26T05:17:04.744Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 67,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 5: Thí nghiệm thực hành đo gia tốc rơi tự do",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\do_gia_toc_roi_tu_do.docx",
+    "content_preview": "\nGIÁO ÁN THỰC HÀNH: ĐO GIA TỐC RƠI TỰ DO\nMôn học: Vật lý - Lớp 10\nThời lượng: 2 tiết (90 phút)\n\nI. YÊU CẦU CẦN ĐẠT:\n- Học sinh lắp đặt đúng bộ thí nghiệm đo rơi tự do bằng máng đứng và máng chéo.\n- Tiến hành ghi lại thời gian rơi giữa hai cổng quang điện tương ứng với độ cao h khác nhau.\n- Tính toán chính xác gia tốc g trung bình và viết kết quả kèm sai số đo lường.\n\nII. TIẾN TRÌNH THỰC HÀNH:\n- Hoạt động 1: Kiểm tra lý thuyết về chuyển động rơi tự do không vận tốc đầu.\n- Hoạt động 2: Nhóm học sinh thực hiện đo đạc và lập bảng số liệu.\n- Hoạt động 3: Vẽ đồ thị s theo t bình phương và viết báo cáo thực hành hoàn chỉnh.\n",
+    "target_student": "Học sinh nông thôn",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 10",
+        "Lớp 12"
+      ],
+      "Môn học": "Vật lý",
+      "Cấp học": "THPT",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "2 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.797Z",
+    "updated_at": "2026-05-26T05:17:04.797Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 68,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 6: Cấu trúc của các loại Virus và vi khuẩn",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\cau_truc_vi_sinh_vat.docx",
+    "content_preview": "\nKẾ HOẠCH BÀI DẠY: CẤU TRÚC VIRUS VÀ VI KHUẨN\nMôn học: Sinh học - Lớp 10\nThời lượng: 2 tiết (90 phút)\n\nI. YÊU CẦU CẦN ĐẠT:\n- Phân biệt cấu tạo tế bào vi khuẩn (nhân sơ) và hạt virus (chưa có cấu tạo tế bào).\n- Vẽ và chú thích được các bộ phận chính của virus: vỏ protein capsid, lõi axit nucleic.\n- Trình bày vòng đời nhân lên của vi sinh vật trong tế bào chủ.\n",
+    "target_student": "Học sinh thành thị",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Sinh học",
+      "Cấp học": "THPT",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "2 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.859Z",
+    "updated_at": "2026-05-26T05:17:04.859Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 69,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 7: Hệ sinh thái và chu trình tuần hoàn vật chất",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\he_sinh_thai_moi_truong.docx",
+    "content_preview": "\nGIÁO ÁN: HỆ SINH THÁI VÀ MÔI TRƯỜNG\nMôn học: Sinh học - Lớp 12\nThời lượng: 2 tiết (90 phút)\n\nI. MỤC TIÊU BÀI HỌC:\n- Định nghĩa hệ sinh thái, quần xã sinh vật và quần thể sinh vật.\n- Vẽ sơ đồ lưới thức ăn phức tạp trong một khu rừng nhiệt đới.\n- Hiểu được tầm quan trọng của đa dạng sinh học trong việc bảo vệ môi trường toàn cầu.\n",
+    "target_student": "Học sinh nông thôn",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 12"
+      ],
+      "Môn học": "Sinh học",
+      "Cấp học": "THPT",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "2 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.917Z",
+    "updated_at": "2026-05-26T05:17:04.917Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 70,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 8: Ứng dụng công nghệ gen trong nông nghiệp hiện đại",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\cong_nghe_sinh_hoc.docx",
+    "content_preview": "\nKẾ HOẠCH GIÁO DỤC: CÔNG NGHỆ GEN NÔNG NGHIỆP\nMôn học: Sinh học - Lớp 12\nThời lượng: 1 tiết (45 phút)\n\nI. YÊU CẦU CẦN ĐẠT:\n- Nêu định nghĩa về công nghệ sinh học và kỹ thuật chuyển gen nhân tạo.\n- Kể tên các thành tựu biến đổi gen vượt trội ở cây ngô, lúa nước kháng mặn.\n- Thảo luận về vấn đề an toàn sinh học của thực phẩm biến đổi gen GMO.\n",
+    "target_student": "Học sinh thành thị",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 12"
+      ],
+      "Môn học": "Sinh học",
+      "Cấp học": "THPT",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "1 tiết"
+    },
+    "created_at": "2026-05-26T05:17:04.977Z",
+    "updated_at": "2026-05-26T05:17:04.977Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 71,
+  "fields": {
+    "creator": 1,
+    "title": "Chủ đề 9: Khảo sát hiện tượng sóng dừng trên sợi dây đàn hồi",
+    "description": "Bài giảng dạy học giáo án được tải lên hệ thống.",
+    "file_path": "lesson_plans\\hien_tuong_song_dung.docx",
+    "content_preview": "\nGIÁO ÁN THỰC HÀNH: HIỆN TƯỢNG SÓNG DỰNG\nMôn học: Vật lý - Lớp 11\nThời lượng: 3 tiết (135 phút)\n\nI. MỤC TIÊU BÀI DẠY:\n- Học sinh tạo được sóng dừng ổn định trên sợi dây đàn hồi bằng máy phát tần số.\n- Chỉ ra các nút sóng (vị trí đứng yên) và bụng sóng (vị trí dao động cực đại).\n- Tính toán chính xác bước sóng và tốc độ truyền sóng cơ học dựa vào tần số dao động.\n",
+    "target_student": "Học sinh thành thị",
+    "status": "PUBLISHED",
+    "average_rating": 5.0,
+    "total_ratings": 2,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "lop": [
+        "Lớp 11",
+        "Lớp 12"
+      ],
+      "Môn học": "Vật lý",
+      "Cấp học": "THPT",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "3 tiết"
+    },
+    "created_at": "2026-05-26T05:17:05.049Z",
+    "updated_at": "2026-05-26T05:17:05.049Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 76,
+  "fields": {
+    "creator": 1,
+    "title": "ĐẠI HỌC CẦN THƠ",
+    "description": "TRƯỜNG CÔNG NGHỆ THÔNG TIN & TRUYỀN THÔNG LUẬN VĂN TỐT NGHIỆP ĐẠI HỌC NGÀNH KHOA HỌC MÁY TÍNH...",
+    "file_path": "lesson_plans/tranchihieu_B2207520_word_aXrjjOk.docx",
+    "content_preview": "ĐẠI HỌC CẦN THƠ\n\nTRƯỜNG CÔNG NGHỆ THÔNG TIN & TRUYỀN THÔNG\n\nLUẬN VĂN TỐT NGHIỆP ĐẠI HỌC\n\nNGÀNH KHOA HỌC MÁY TÍNH\n\nĐề tài\n\nXây dựng hệ thống bản đồ cửa hàng thông minh\n\ndựa trên trích xuất thông tin từ ảnh chụp biển hiệu\n\nPhân hệ trích xuất thông tin từ biển hiệu\n\nDevelopment of an Intelligent Store Mapping\n\nSystem Based on Information Extraction\n\nfrom Signboard Images\n\nSignboard Information Extraction Subsystem\n\nSinh viên: Trần Chí Hiếu\n\nMã số: B2207520\n\nKhóa: K48\n\nGiảng viên hướng dẫn: ThS. Phạm Nguyên Hoàng\n\nCần Thơ, 04/2026\n\nĐẠI HỌC CẦN THƠ\n\nTRƯỜNG CÔNG NGHỆ THÔNG TIN & TRUYỀN THÔNG\n\nLUẬN VĂN TỐT NGHIỆP ĐẠI HỌC\n\nNGÀNH KHOA HỌC MÁY TÍNH\n\nĐỀ TÀI\n\nXây dựng hệ thống bản đồ cửa hàng thông minh dựa trên trích xuất thông tin từ ảnh chụp biển hiệu Phân hệ trích xuất thông tin từ biển hiệu\n\nDevelopment of an Intelligent Store Mapping System Based on Information Extraction from Signboard Images\n\nSignboard Information Extraction Subsystem\n\nGiảng viên hướng dẫn                                      Sinh viên thực hiện\n\nThS. Phạm Nguyên Hoàng                                   Trần Chí Hiếu\n\nMã số: B2207520\n\nKhóa: K48\n\nCần Thơ, 04/2026\n\n\n| ĐẠI HỌC CẦN THƠ TRƯỜNG CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG | CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM Độc lập – Tự do – Hạnh phúc |\n| --- | --- |\n\nXÁC NHẬN CHỈNH SỬA LUẬN VĂN\n\nTHEO YÊU CẦU CỦA HỘI ĐỒNG\n\nTên luận văn:\n\nXây dựng hệ thống bản đồ cửa hàng thông minh dựa trên trích xuất thông tin từ ảnh chụp biển hiệu - Phân hệ trích xuất thông tin từ biển hiệu.\n\nDevelopment of an Intelligent Store Mapping System Based on Information Extraction from Signboard Images - Signboard Information Extraction Subsystem\n\nHọ tên sinh viên: Trần Chí Hiếu                       MSSV: B2207520\n\nMã lớp: DI22Z6A1.\n\nĐã báo cáo tại hội đồng ngành: Khoa học máy tính\n\nNgày báo cáo: 23/4/2026.\n\nHội đồng báo cáo gồm:\n\nTS. Mã Trường Thành – Chủ tịch hội đồng.\n\nThS. Huỳnh Ngọc Thái Anh – Thành viên.\n\nThS. Phạm Nguyên Hoàng – Thư ký.\n\nLuận văn này đã được chỉnh sửa theo góp ý của hội đồng.\n\nCần Thơ, ngày.....tháng.....năm 2026\n\nGiảng viên hướng dẫn\n\n(Ký và ghi rõ họ tên)\n\nLỜI CẢM ƠN\n\nĐể hoàn thành đề tài và đạt được những kết quả trong luận văn này, em xin bày tỏ lòng biết ơn sâu sắc đến thầy Phạm Nguyên Hoàng. Em chân thành cảm ơn thầy đã luôn theo sát, đặt ra những câu hỏi gợi mở và định hướng rõ ràng giúp em nhìn nhận bao quát quy trình thực hiện đề tài. Những kiến thức và góp ý quý báu mà thầy chia sẻ trong từng buổi báo cáo tiến độ đã giúp em giải quyết những bế tắc về mặt kỹ thuật và hoàn thiện bài báo cáo một cách tốt nhất. Em thật sự trân trọng và biết ơn sự tận tâm hướng dẫn của thầy.\n\nEm cũng xin gửi lời cám ơn chân thành đến các thầy cô giảng viên Đại Học Cần Thơ, đặc biệt là các thầy cô tại Trường Công Nghệ Thông Tin & Truyền Thông, những người đã truyền đạt cho em những nền tảng kiến thức vô giá trong suốt những năm học vừa qua.\n\nCuối cùng, em xin chân thành cảm ơn gia đình và bạn bè đã luôn động viên, khích lệ và tạo mọi điều kiện tốt nhất để em có thể yên tâm nghiên cứu và hoàn thành đồ án này.\n\nTuy đã có nhiều cố gắng trong quá trình thực hiện, nhưng do giới hạn về mặt thời gian và kinh nghiệm thực tiễn, hệ thống và bài báo cáo chắc chắn không thể tránh khỏi những thiếu sót. Em rất mong nhận được sự đóng góp ý kiến quý báu của Thầy Cô và các bạn để đề tài được hoàn thiện hơn trong tương lai.\n\nCần Thơ, ngày 1 tháng 04 năm 2026\n\nNgười viết\n\nTrần Chí Hiếu\n\nLỜI CAM ĐOAN\n\nLuận văn này trình bày kết quả quá trình nghiên cứu độc lập của tôi, dựa trên việc tìm hiểu cơ sở lý thuyết và khảo sát các vấn đề thực tiễn liên quan. Quá trình này được thực hiện dưới sự hướng dẫn khoa học tận tình của ThS.Phạm Nguyên Hoàng. Tôi xin cam đoan rằng các dữ liệu, số liệu, phân tích và giải pháp được trình bày trong luận văn là trung thực, là thành quả lao động của riêng tôi và chưa từng được công bố dưới bất kỳ hình thức nào. Mọi nguồn tài liệu tham khảo sử dụng trong luận văn đều đã được trích dẫn đầy đủ, rõ ràng và đáng tin cậy.\n\nTôi xin bày tỏ lòng biết ơn chân thành đối với những sự giúp đỡ quý báu của thầy cô đã góp phần tạo điều kiện cho tôi hoàn thành nghiên cứu này.\n\nCần Thơ, ngày 23 tháng 04 năm 2025\n\nSinh viên thực hiện\n\nTrần Chí Hiếu\n\nNHẬN XÉT CỦA GIẢNG VIÊN\n\nMỤC LỤC\n\nDANH MỤC HÌNH ẢNH\n\nHình 1: Sơ đồ kiến trúc của hệ thống.\t10\n\nHình 2: Bản đồ minh họa các con đường đã thu thập hình chụp biển hiệu\t15\n\nHình 3: Ảnh minh họa quá trình gán nhãn cho dữ liệu (Yolo)\t16\n\nHình 4: Dữ liệu thực tế được trích xuất từ biển hiệu dùng để fine_tune VietOCR\t17\n\nHình 5: Dữ liệu được sinh tổng hợp phục vụ cho fine_tune VietOCR\t18\n\nHình 6: Quá trình tạo dữ liệu cho LLM (Qwen)\t18\n\nHình 7: Hình ảnh minh họa Yolo cắt biển hiệu từ ảnh gốc\t27\n\nHình 8: Hình ảnh minh họa ảnh được hệ thống xử lý 3 chiều (nắn phẳng).\t28\n\nHình 9: Hình ảnh minh họa các dòng chữ được cắt và nhận dạng\t28\n\nHình 10: Hình ảnh kết quả xử lý của mô hình ngôn ngữ lớn và mô hình phân loại\t29\n\nHình 11: Ma trận nhầm lẫn mô hình Yolo_medium_640px\t32\n\nHình 12: Kết quả nhận dạng biển hiệu trên hình ảnh thực tế trên tập kiểm thử\t33\n\nHình 13: Hình ảnh minh họa so sánh 2 mô hình trước và sau khi finetune\t35\n\nHình 14: Biểu đồ so sánh độ chính xác của các mô hình phân loại danh mục\t37\n\nHình 15: Ma trận nhầm lẫn cây quyết định\t38\n\nHình 16: Ma trận nhầm lẫn K-Láng Giềng gần nhất\t39\n\nHình 17: Ma trận nhầm lẫn Random Forest\t40\n\nHình 18: Ma trận nhầm lẫn Logistic Regression\t41\n\nHình 19: Ma trận nhầm lẫn Naives Bayes\t42\n\nHình 20: Ma trận nhầm lẫn Linear SVC\t43\n\nDANH MỤC BẢNG BIỂU\n\nBảng 1: Mô phỏng 18 lớp danh mục và số mẫu tương ứng cho mô hình phân loại\t21\n\nBảng 2: Dữ liệu minh họa cho việc huấn luyện mô hình phân loại danh mục\t22\n\nBảng 3: Tổng hợp các chỉ số đánh giá hiệu năng chi tiết các kịch bản YOLO.\t30\n\nBảng 4: So sánh khả năng nhận dạng giữa VietOCR và phiên bản đã tinh chỉnh\t34\n\nBảng 5: So sánh khả năng bóc tách chi tiết từng trường thông tin (Base vs LoRA)\t36\n\nBảng 6: Thống kê thời gian xử lý trung bình của từng giai đoạn\t44\n\nBảng 7: Bảng đánh giá độ chính xác tổng thể các luồng xử lý của hệ thống.\t45\n\nDANH MỤC TỪ VIẾT TẮT\n\n\n| STT | Từ viết tắt (Abbreviation) | Từ viết đầy đủ (Origin word) |\n| --- | --- | --- |\n| 1 | DBNet | Differentiable Binarization Network |\n| 2 | EXIF | Exchangeable Image File Format |\n| 3 | GPS | Global Positioning System |\n| 4 | KNN | K-Nearest Neighbors |\n| 5 | LLM | Large Language Model |\n| 6 | NLP | Natural Language Processing |\n| 7 | OCR | Optical Character Recognition |\n| 8 | CRNN | Convolutional Recurrent Neural Network |\n| 9 | TF-IDF | Term Frequency – Inverse Document Frequency |\n| 10 | YOLO | You Only Look Once |\n| 11 | YOLOv8 | You Only Look Once version 8 |\n| 12 | JSON | JavaScript Object Notation |\n| 13 | LoRA | Low-Rank Adaptation |\n| 14 | CER | Character Error Rate |\n| 15 | mAP | Mean Average Precision |\n| 16 | CLAHE | Contrast Limited Adaptive Histogram Equalization |\n| 17 | VRAM / RAM | Video Random Access Memory / Random Access Memory |\n| 18 | CPU | Center Process Unit |\n| 19 | GPU | Graphics Processing Unit |\n\nABSTRACT\n\nCurrently, store signboards remain a core source of business information for the public. However, this information mostly exists in unstructured signboard images, posing significant challenges for storage, retrieval, and digitization to serve smart map systems.\n\nThis thesis proposes an end-to-end pipeline integrating Computer Vision and Natural Language Processing (NLP) for signboard information extraction. The system utilizes YOLOv8 to locate and crop signboard frames, combined with PaddleOCR and VietOCR for highly accurate Vietnamese text recognition. The breakthrough of this research lies in the application of Spatial-Aware Regular Expressions (Regex) alongside a lightweight large language model (LLM Qwen 0.5B) to semantically extract OCR text into structured data fields (Brand, Service, Address, Phone number) and accurately classify store categories.\n\nThe system's output provides a complete, structured data profile for each store. This serves as the foundational data source directly supporting the development of a smart store map system in Ninh Kieu District, Can Tho City.\n\nKeywords: Signboard, Signboard Information Extraction, OCR, Computer Vision, YOLOv8, VietOCR, Spatial-Aware Regex, LLM.\n\nTÓM TẮT\n\nHiện nay, biển hiệu cửa hàng vẫn là nguồn cung cấp thông tin kinh doanh cốt lõi đến công chúng. Tuy nhiên, lượng thông tin này chủ yếu tồn tại dưới dạng ảnh chụp biển hiệu phi cấu trúc, gây ra thách thức lớn cho quá trình lưu trữ, tìm kiếm và số hóa phục vụ các hệ thống bản đồ thông minh.\n\nKhóa luận này đề xuất một đường ống xử lý toàn trình (end-to-end pipeline) tích hợp thị giác máy tính và xử lý ngôn ngữ tự nhiên (NLP) nhằm trích xuất thông tin biển hiệu. Hệ thống dùng YOLOv8 để định vị, cắt khung biển hiệu, kết hợp PaddleOCR và VietOCR để nhận dạng chữ tiếng Việt với độ chính xác cao. Điểm đột phá của nghiên cứu là việc ứng dụng biểu thức chính quy nhận thức không gian (Spatial-Aware Regex) cùng mô hình ngôn ngữ lớn tinh gọn (LLM Qwen 0.5B) để bóc tách ngữ nghĩa văn bản OCR thành các trường dữ liệu có cấu trúc (Thương hiệu, Dịch vụ, Địa chỉ, Số điện thoại) và phân loại chính xác danh mục cửa hàng.\n\nĐầu ra của hệ thống là bộ hồ sơ dữ liệu có cấu trúc hoàn chỉnh cho từng cửa hàng. Đây là nguồn dữ liệu nền tảng phục vụ trực tiếp cho việc xây dựng hệ thống bản đồ cửa hàng thông minh tại Quận Ninh Kiều, TP. Cần Thơ.\n\nTừ khóa: Biển hiệu, Trích xuất thông tin biển hiệu, OCR, Thị giác máy tính, YOLOv8, VietOCR, Spatial-Aware Regex, LLM.\n\n\n## I. PHẦN GIỚI THIỆU\n\n\n### 1. Đặt vấn đề\n\nTrong bối cảnh chuyển đổi số và xây dựng thành phố thông minh đang diễn ra mạnh mẽ, nhu cầu số hóa dữ liệu từ thế giới nói chung và Việt Nam nói riêng để phục vụ các hệ thống tra cứu, điều hướng và phân tích thị trường ngày càng trở nên cần thiết. Hiện nay, bên cạnh các hình thức tiếp thị trực tuyến, các biển hiệu cửa hàng truyền thống trên đường phố vẫn giữ vai trò cốt lõi trong việc truyền tải thông tin kinh doanh đến khách hàng. Các biển hiệu này chứa đựng một lượng lớn thông tin có giá trị cao như: tên thương hiệu, loại hình dịch vụ, địa chỉ và số điện thoại liên lạc.\n\nTuy nhiên, phần lớn các thông tin này hiện chỉ tồn tại dưới dạng hình ảnh phi cấu trúc. Việc thu thập và nhập liệu thủ công lượng dữ liệu khổng lồ này để xây dựng các hệ thống bản đồ hoặc cơ sở dữ liệu tra cứu không những tiêu tốn quá nhiều thời gian, nhân lực mà còn dễ phát sinh sai sót.\n\nĐể giải quyết bài toán số hóa hình ảnh, các công nghệ nền tảng thuộc lĩnh vực thị giác máy tính như nhận dạng vật thể  và nhận dạng ký tự quang học (OCR) đã được nghiên cứu và áp dụng. Tuy nhiên, việc áp dụng các công cụ OCR truyền thống vào thực tiễn tại Việt Nam gặp phải rào cản rất lớn. Biển hiệu ngoài trời (in-the-wild) tại Việt Nam có đặc thù rất phức tạp: phông chữ đa dạng (từ chữ in chuẩn đến chữ thư pháp uốn lượn), bố cục tự do, môi trường chụp thường bị ngược sáng hoặc che khuất, và đặc biệt là hệ thống dấu tiếng Việt rất dễ bị nhận diện sai lệch. Thêm vào đó, kết quả đầu ra của OCR chỉ là các chuỗi văn bản thô, máy tính không thể tự phân biệt được đâu là tên cửa hàng, đâu là dịch vụ hay số điện thoại nếu thiếu đi bộ phân tích ngữ nghĩa.\n\nNhận thấy những hạn chế đó, nghiên cứu này được thực hiện nhằm đề xuất một giải pháp trọn vẹn, kết hợp sức mạnh của các mô hình học sâu hiện đại nhất (YOLOv8, PaddleOCR, VietOCR) để giải quyết bài toán đọc chữ trong điều kiện khắc nghiệt, đồng thời tiên phong ứng dụng mô hình ngôn ngữ lớn (LLM) và thuật toán học máy cơ bản để tự động bóc tách ngữ nghĩa thành dữ liệu có cấu trúc.\n\nVì những lý do trên, đề tài luận văn “Xây dựng hệ thống bản đồ thông minh từ việc trích xuất thông tin ảnh chụp biển hiệu” được lựa chọn thực hiện. Trong đó, nội dung báo cáo này sẽ tập trung giải quyết phân hệ 1: Nhận dạng và trích xuất thông tin từ biển hiệu.\n\nKết quả của nghiên cứu không chỉ mang lại một luồng xử lý (pipeline) tự động hóa với độ chính xác cao, mà còn đóng góp nguồn cơ sở dữ liệu nền tảng, tạo tiền đề trực tiếp để xây dựng các ứng dụng bản đồ cửa hàng thông minh, giúp người dùng tra cứu địa điểm và dịch vụ một cách dễ dàng, tiện lợi.\n\n\n### 2. Những nghiên cứu liên quan\n\nCông nghệ nhận dạng ký tự quang học (OCR) đã có lịch sử phát triển từ khá lâu. Ban đầu, các hệ thống OCR chủ yếu giải quyết bài toán đọc chữ trên tài liệu giấy trong điều kiện môi trường lý tưởng. Một trong những công cụ lâu đời và tiêu biểu nhất là Tesseract do Google bảo trợ [1]. Công nghệ này giúp việc số hóa sách báo hay trích xuất thông tin từ giấy tờ tùy thân (như căn cước công dân, hộ chiếu) trở nên dễ dàng và chính xác [2]. Lý do là vì chữ in trên giấy thường rất rõ nét, có độ tương phản cao và phông chữ chuẩn mực.\n\nTuy nhiên, khi đem OCR áp dụng vào môi trường thực tế ngoài trời, các công cụ truyền thống gặp rất nhiều khó khăn do ánh sáng thay đổi và góc chụp bị méo mó. Sự ra đời của các mạng học sâu (deep learning) như CRNN [3] đã giúp giải quyết rào cản này. Nhờ đó, OCR đã được ứng dụng thành công vào nhiều bài toán thực tế có độ khó cao. Điển hình là hệ thống nhận diện biển số xe tự động [4]. Công nghệ này giúp camera định vị và đọc chính xác biển số ngay cả khi xe chạy ở tốc độ cao hoặc trong điều kiện thiếu sáng, tạo nền tảng vững chắc cho hệ thống phạt nguội và thu phí không dừng hiện nay. Một thành tựu thực tiễn khác là việc dùng camera điện thoại để tự động đọc chỉ số đồng hồ điện, nước [5]. Thuật toán đã khắc phục được lỗi lóa sáng mặt kính và góc chụp nghiêng, qua đó giúp tiết kiệm rất nhiều nhân lực ghi chép thủ công. Tuy nhiên, nhìn chung biển số xe và đồng hồ nước vẫn là những bài toán mà chữ viết tuân theo một định dạng nghiêm ngặt, phông chữ cố định và ít ký tự nên tương đối dễ nhận diện.\n\nNgược lại, việc nhận dạng và bóc tách thông tin từ biển hiệu của các cửa hàng lại khó khăn hơn rất nhiều. Biển hiệu đường phố mang một lượng dữ liệu khổng lồ với vô số phông chữ cách điệu, màu sắc sặc sỡ tiệp với màu nền và thường xuyên bị che khuất. Đã có một số nghiên cứu thử giải quyết bài toán này. Nhóm tác giả [6] đã dùng Cloud Vision API để phát hiện vùng chữ và dùng Tesseract để đọc chữ trên biển quảng cáo. Kết quả nghiên cứu của họ đã giúp tìm kiếm trang web của sản phẩm với tỷ lệ lọt top 5 kết quả đầu tiên lên tới 98%. Tiếp cận ở khía cạnh quản lý đô thị, một nghiên cứu khác [7] đã kết hợp mô hình CLIP và PP-OCRv4 để phát hiện các biển quảng cáo sai quy định. Thử nghiệm trên tập dữ liệu hơn 4.500 ảnh, hệ thống của họ đạt độ chính xác tổng thể là 93.5%. Về mặt công nghệ định vị vùng chữ, mô hình DBNet [8] đang cho thấy khả năng khoanh vùng các dòng chữ nghiêng hoặc uốn lượn rất tốt, trong khi cấu trúc Vision Transformer [9] đang dần thay thế các mô hình mạng hồi quy cũ để đọc các chuỗi ký tự dài một cách chính xác hơn.\n\nMặc dù đã đạt được những kết quả nhất định, các nghiên cứu trên vẫn còn một số vấn đề tồn đọng khi áp dụng vào môi trường thực tế tại Việt Nam. Về khâu nhận diện, công cụ Tesseract thường dự đoán sai rất nhiều khi ảnh chụp đường phố bị nhiễu nền [6], còn PP-OCRv4 thì lại hay bị lỗi khi xử lý các dấu câu phức tạp của tiếng Việt (hỏi, ngã, nặng,...). Về khâu bóc tách thông tin, các nghiên cứu trước đây thường chỉ dùng thuật toán so khớp chính xác hoặc các biểu thức chính quy (regex) để lọc dữ liệu [7]. Biểu thức chính quy hoạt động rất cứng nhắc và không hiểu được ngữ cảnh. Ví dụ, nó rất khó phân biệt được chữ “Hà Nội” đang là tên thương hiệu (như quán Phở Hà Nội) hay đang là địa chỉ cửa hàng, dẫn đến việc trích xuất thông tin bị thiếu hụt hoặc sai lệch nếu người thiết kế biển hiệu thay đổi cấu trúc trình bày.\n\nĐể khắc phục toàn bộ những hạn chế tồn đọng này, đề tài đề xuất một luồng xử lý toàn diện và thông minh hơn. Hệ thống sẽ sử dụng mô hình YOLOv8 [10] để phát hiện nhanh và cắt chính xác vị trí biển hiệu, loại bỏ cảnh nền nhiễu. Sau đó, dữ liệu ảnh được đưa qua mô hình VietOCR (dựa trên kiến trúc Transformer) [11] để giải quyết triệt để lỗi đọc sai dấu tiếng Việt. Cuối cùng, thay vì dùng bộ lọc regex cứng nhắc, hệ thống sẽ đưa dữ liệu văn bản vào cả regex và mô hình ngôn ngữ lớn Qwen 0.5B kết hợp với mô hình học máy Support Vector Classifier để tự động hiểu ngữ nghĩa. Nhờ đó, hệ thống có khả năng tự động bóc tách các thông tin có cấu trúc (như tên thương hiệu, dịch vụ, địa chỉ, số điện thoại) và phân loại danh mục cửa hàng với độ chính xác cao nhất.\n\n\n### 3. Mục tiêu đề tài\n\n3.1.  Mục tiêu tổng quát\n\nMục tiêu chính của phân hệ này là nghiên cứu và xây dựng thành công một luồng xử lý (pipeline) tự động hóa ứng dụng trí tuệ nhân tạo. Hệ thống có khả năng tiếp nhận hình ảnh thô chụp các biển hiệu, từ đó tự động khoanh vùng, đọc hiểu văn bản tiếng Việt và bóc tách thành các thông tin có cấu trúc chuẩn JSON (Thương hiệu, Dịch vụ, Số điện thoại, Địa chỉ) từ ảnh chụp biển hiệu để làm nguồn cơ sở dữ liệu đầu vào cho hệ thống bản đồ thông minh.\n\n3.2.  Mục tiêu cụ thể\n\nĐể đạt được mục tiêu tổng quát, đề tài đặt ra các mục tiêu cụ thể có thể kiểm chứng như sau:\n\nXây dựng tập dữ liệu: Thu thập, tiền xử lý và gán nhãn một tập dữ liệu hình ảnh các biển hiệu đa dạng về loại hình, màu sắc và điều kiện ánh sáng tại địa bàn quận Ninh Kiều, Thành phố Cần Thơ để phục vụ huấn luyện mô hình.\n\nỨng dụng và tinh chỉnh mô hình thị giác máy tính: Cài đặt mô hình phát hiện đối tượng YOLOv8 để định vị và cắt vùng biển hiệu. Tích hợp bộ công cụ PaddleOCR để phát hiện khung chữ. Đặc biệt, tiến hành tinh chỉnh (fine-tuning) mô hình VietOCR trên tập dữ liệu chữ thực tế được cắt từ biển hiệu với đa dạng phông chữ (chữ in, chữ cách điệu, chữ thư pháp), kết hợp với kỹ thuật đa bộ lọc ảnh để nâng cao tối đa độ chính xác khi nhận dạng tiếng Việt trong các điều kiện nhiễu sáng.\n\nTích hợp xử lý ngôn ngữ tự nhiên và học máy cơ bản: Nghiên cứu và áp dụng bộ lọc biểu thức chính quy nhận thức không gian (Spatial-Aware Regex) để tiền xử lý và trích xuất các thông tin có tính quy luật (như Số điện thoại, Địa chỉ). Kế tiếp, kết hợp với mô hình ngôn ngữ lớn tinh gọn (LLM Qwen 0.5B) để tự động đọc hiểu, loại bỏ nhiễu và bóc tách ngữ nghĩa các chuỗi văn bản còn lại, xuất ra định dạng JSON chuẩn hóa. Đồng thời, tiến hành huấn luyện, thử nghiệm và so sánh hiệu năng của nhiều thuật toán học máy khác nhau (bao gồm K-Nearest Neighbors, Naive Bayes và Decision Tree,...) để tìm ra mô hình tối ưu nhất cho việc tự động phân loại danh mục cửa hàng dựa trên các từ khóa trích xuất được.\n\nXây dựng ứng dụng thử nghiệm: Phát triển một ứng dụng giao diện đồ họa (sử dụng thư viện Tkinter) cho phép người dùng tải ảnh lên và quan sát trực quan toàn bộ quá trình xử lý từ cắt ảnh, đọc chữ, đến phân loại cửa hàng dựa trên thông tin có nhận dạng được.\n\n\n### 4. Đối tượng và phạm vi nghiên cứu\n\n4.1. Đối tượng nghiên cứu\n\nĐối tượng nghiên cứu của phân hệ này xoay quanh các dữ liệu thực tế và các kiến trúc trí tuệ nhân tạo phục vụ cho bài toán thị giác máy tính và xử lý ngôn ngữ.\n\nDữ liệu hình ảnh: Đặc trưng hình học, màu sắc, phông chữ và bố cục của các biển hiệu ngoài trời (in-the-wild signboards) từ các cửa hàng, quán ăn, và cơ sở dịch vụ kinh doanh.\n\nCác mô hình thị giác máy tính (Computer Vision): Mô hình mạng nơ-ron học sâu phát hiện đối tượng một giai đoạn (YOLOv8) và bộ công cụ nhận dạng ký tự quang học (PaddleOCR, VietOCR).\n\nCác mô hình xử lý ngôn ngữ tự nhiên và học máy (NLP & Machine Learning): Bao gồm tập luật biểu thức chính quy (Regex) và mô hình ngôn ngữ lớn (LLM Qwen 2.5 0.5B) phục vụ bóc tách dữ liệu có cấu trúc, cùng với các thuật toán học máy truyền thống (tiêu biểu như Linear SVC, Logistic Regression, Naive Bayes...) đóng vai trò định danh và phân loại danh mục cửa hàng.\n\n4.2. Phạm vi nghiên cứu\n\nĐể đảm bảo tính khả thi và tập trung chuyên sâu vào đúng phân hệ được giao, đề tài được giới hạn trong các phạm vi sau:\n\nPhạm vi không gian (Khu vực khảo sát): Việc thu thập dữ liệu hình ảnh biển hiệu để huấn luyện và thử nghiệm hệ thống chỉ được thực hiện trên địa bàn quận Ninh Kiều, Thành phố Cần Thơ.\n\nPhạm vi dữ liệu đầu vào: Hệ thống yêu cầu đầu vào là hình ảnh biển quảng cáo được chụp từ các thiết bị di động (smartphone) có bật tính năng lưu trữ vị trí, đảm bảo ảnh luôn đi kèm thẻ EXIF chứa thông tin kinh độ và vĩ độ hợp lệ. Ngôn ngữ nhận dạng và xử lý chính là tiếng Việt (có dấu).\n\nPhạm vi chức năng (Phân hệ 1): Nghiên cứu chỉ bao gồm quy trình đường ống (pipeline) từ lúc nhận ảnh thô, tiền xử lý, định vị, đọc chữ, cho đến khi bóc tách các văn bản thành định dạng dữ liệu có cấu trúc (JSON) và lấy tọa độ GPS. Phân hệ này đóng vai trò là “nguồn cung cấp dữ liệu” cho phân hệ tiếp theo để xây dựng bản đồ thông minh.Việc xây dựng giao diện bản đồ số 2D, hiển thị các tọa độ, bản đồ và tìm đường đi sẽ nằm ngoài phạm vi của nghiên cứu này (thuộc về Phân hệ 2).\n\n\n### 5. Phương pháp nghiên cứu\n\nĐể thực hiện và hoàn thành các mục tiêu đã đề ra, nghiên cứu này áp dụng các phương pháp sau:\n\nPhương pháp tổng hợp và phân tích tài liệu (nghiên cứu lý thuyết):\n\nTìm kiếm, tổng hợp và phân tích các công trình nghiên cứu, bài báo khoa học liên quan đến lĩnh vực thị giác máy tính (Computer Vision), đặc biệt là các bài toán phát hiện đối tượng và nhận dạng ký tự quang học (OCR).\n\nNghiên cứu cơ sở lý thuyết của các mô hình học sâu như YOLOv8, mạng DBNet (PaddleOCR), kiến trúc Transformer (VietOCR), và phương pháp trích xuất siêu dữ liệu (EXIF) từ hình ảnh hay các mô hình ngôn ngữ lớn (LLM) và các mô hình máy học truyền thống.\n\nPhương pháp thực nghiệm (xây dựng, huấn luyện và đánh giá hệ thống):\n\nTiến hành thu thập tập dữ liệu hình ảnh các biển hiệu thực tế tại quận Ninh Kiều, Cần Thơ.\n\nThực hiện huấn luyện tinh chỉnh (fine-tuning) mô hình VietOCR bằng cách bổ sung tập dữ liệu hình ảnh chứa các phông chữ phức tạp, chữ cách điệu và các vùng chữ thực tế được cắt trực tiếp từ biển hiệu. Điều này giúp mô hình thích nghi hoàn toàn với đặc thù biển hiệu đường phố.\n\nXây dựng luồng xử lý lai (Hybrid Pipeline): Lập trình tích hợp các mô hình vào một quy trình khép kín. Áp dụng bộ lọc biểu thức chính quy nhận thức không gian (Spatial-Aware Regex) để dọn dẹp dữ liệu, kết hợp cùng mô hình ngôn ngữ lớn tinh gọn (LLM Qwen 2.5 0.5B) đã được huấn luyện bằng kỹ thuật LoRA để bóc tách thông tin ngữ nghĩa sang định dạng JSON.\n\nThực nghiệm đa mô hình phân loại danh mục: Tiến hành huấn luyện và đối chiếu hiệu năng của sáu thuật toán học máy: Linear SVC, Logistic Regression, Random Forest, KNN, Naive Bayes và Decision Tree trên tập dữ liệu văn bản đã qua xử lý tách từ bằng thư viện underthesea. Qua đó, lựa chọn mô hình có độ chính xác cao nhất (Linear SVC) để tích hợp vào hệ thống thực tế.\n\nPhát triển giao diện và kiểm chứng: Xây dựng giao diện người dùng dựa trên thư viện Tkinter để vận hành thử nghiệm toàn bộ luồng hoạt động từ khâu nhập ảnh, xử lý đa mô hình cho việc trích xuất và tổng hợp thông tin cửa hàng.\n\nPhương pháp kiểm thử và thống kê:\n\nThực hiện chạy thử nghiệm hệ thống trên các mẫu ảnh để đo lường độ chính xác của khâu cắt biển hiệu ra khỏi ảnh (YOLO), khâu đọc chữ (đánh giá hiệu quả của phiên bản VietOCR đã fine-tune so với bản gốc), khâu phân tích ngữ nghĩa và khâu phân loại. Từ đó đánh giá tính khả thi và ưu điểm hay nhược điểm của giải pháp đề xuất.\n\n\n### 6. Bố cục quyển báo cáo\n\nNội dung của quyển báo cáo được trình bày thành 3 phần chính bao gồm: phần giới thiệu, phần nội dung và phần kết luận. Trong đó, phần nội dung là trọng tâm của đề tài và được chia làm 3 chương với bố cục chi tiết như sau:\n\nChương 1. Mô tả bài toán: Ở chương này em sẽ trình bày về yêu cầu cụ thể của bài toán từ bước triển khai thu thập dữ liệu đến xác định chức năng cần đạt được của hệ thống,  sau đó phân tích những khó khăn, thách thức của bài toán nhận diện biển hiệu ở môi trường thực tế. Đồng thời, chương này cũng đề xuất hướng giải quyết thông qua kiến trúc lai kết hợp đa phương thức.\n\nChương 2. Thiết kế và cài đặt giải pháp: Mô tả chi tiết kiến trúc tổng thể và lưu đồ hoạt động của hệ thống. Chương này trình bày về các công nghệ cốt lõi được sử dụng (bao gồm YOLOv8, PaddleOCR, VietOCR, LLM Qwen 0.5B + Regex và mô hình phân loại), đồng thời mô tả chi tiết các bước cài đặt thực nghiệm từ khâu chuẩn bị dữ liệu.\n\nChương 3. Kiểm thử và đánh giá: Chương này chủ yếu giới thiệu về giao diện phần mềm thử nghiệm, thiết lập các kịch bản kiểm thử trên dữ liệu hình ảnh thực tế. Đánh giá hiệu năng và từng chức năng của hệ thống dựa trên các tiêu chí cụ thể (độ chính xác nhận dạng, thời gian xử lý) và nhận xét về các kết quả đạt được cũng như những vấn đề còn tồn động.\n\n\n## II. PHẦN NỘI DUNG\n\nCHƯƠNG 1. MÔ TẢ BÀI TOÁN\n\nMô tả chi tiết bài toán\n\nBài toán cốt lõi đặt ra cho phân hệ này là tự động hóa toàn bộ quá trình trích xuất và số hóa thông tin từ hình ảnh biển hiệu đường phố thành một cơ sở dữ liệu có cấu trúc, phục vụ trực tiếp cho hệ thống bản đồ cửa hàng thông minh. Để giải quyết bài toán này, hệ thống được thiết kế vận hành theo một chu trình xử lý khép kín. Khởi nguồn của chu trình là dữ liệu đầu vào dạng hình ảnh thông thường được chụp từ các thiết bị di động. Điểm đặc biệt và bắt buộc của hình ảnh đầu vào là phải chứa siêu dữ liệu tích hợp sẵn thông tin tọa độ địa lý, làm cơ sở không gian để ghim vị trí cửa hàng lên bản đồ.\n\nNgay khi tiếp nhận hình ảnh đầu vào, hệ thống sẽ bước vào chuỗi tiền xử lý thị giác máy tính. Khâu đầu tiên là tự động trích xuất tọa độ địa lý ẩn trong tệp ảnh và lưu trữ vào bộ nhớ tạm. Sau đó, bức ảnh thô sẽ được đưa qua mô hình trí tuệ nhân tạo để phát hiện, khoanh vùng và cắt lấy chính xác khu vực chứa biển hiệu. Kết quả của khâu này là một bức ảnh đã được loại bỏ hoàn toàn các chi tiết nền thừa gây nhiễu như cây cối, người đi đường hay bầu trời. Bức ảnh biển hiệu vừa cắt ra sẽ tiếp tục đi qua khối xử lý ảnh để cải thiện độ tương phản ánh sáng và áp dụng các phép nắn chỉnh hình học nhằm làm thẳng lại các dòng chữ bị nghiêng do góc chụp. Đầu ra của giai đoạn này là một bức ảnh biển hiệu vuông vức, rõ nét, sẵn sàng cho khâu đọc chữ.\n\nTừ vùng ảnh biển hiệu đã được tối ưu, hệ thống kích hoạt quy trình nhận dạng ký tự quang học chuyên sâu. Tại đây, các thuật toán sẽ rà quét toàn bộ bề mặt biển hiệu để định vị chính xác từng khung chứa chữ và chuyển đổi chúng thành các chuỗi văn bản thô. Tuy nhiên, do đặc thù bố cục tự do của biển hiệu, các đoạn văn bản này thường tồn tại dưới dạng rời rạc và phi cấu trúc. Để giải quyết triệt để, dòng dữ liệu được chuyển tiếp sang phân hệ xử lý ngôn ngữ tự nhiên (NLP).\n\nTại khâu này, hệ thống sử dụng mô hình ngôn ngữ lớn (Qwen LLM) phối hợp cùng bộ lọc biểu thức chính quy nhận thức không gian để phân tích ngữ cảnh và tọa độ vật lý của từng dòng chữ. Quá trình suy luận này giúp bóc tách dữ liệu một cách thông minh thành các trường thông tin có cấu trúc như Tên thương hiệu, Dịch vụ kinh doanh, Số điện thoại và Địa chỉ. Cuối cùng, dựa trên những từ khóa ngữ nghĩa đã trích xuất, mô hình học máy (Linear SVC) sẽ thực hiện phân loại và gán nhãn biển hiệu vào đúng danh mục ngành nghề tương ứng (như Ẩm thực, Y tế, Đồ Uống...) một cách chuẩn xác, hoàn thiện chu trình số hóa thông tin cửa hàng.\n\nTrải qua toàn bộ các mắt xích trong chu trình, từ một bức ảnh chụp lộn xộn ban đầu, hệ thống sẽ trả về kết quả cuối cùng là một gói dữ liệu hoàn chỉnh, có cấu trúc chặt chẽ. gói dữ liệu đầu ra này bao gồm đầy đủ thông tin về tọa độ địa lý, danh mục cửa hàng, tên thương hiệu và các thông tin liên hệ chi tiết. Đây chính là mảnh ghép cuối cùng, cung cấp nguồn dữ liệu đầu vào sạch và chuẩn hóa để hệ thống bản đồ thông minh có thể đồng bộ và hiển thị trực quan cho người sử dụng.\n\n1.2. Vấn đề giải pháp liên quan đến bài toán\n\n1.2.1. Các thách thức về kỹ thuật\n\nViệc trích xuất thông tin từ biển hiệu trong môi trường thực tế đặt ra những thách thức kỹ thuật lớn đối với các thuật toán thị giác máy tính và xử lý ngôn ngữ tự nhiên ở hiện tại.\n\nVề mặt phân tích hình ảnh, các mô hình phát hiện và định vị vùng chữ thường xuyên gặp khó khăn trong việc trích xuất đặc trưng khi ma trận điểm ảnh bị biến đổi phối cảnh hình học nghiêm trọng do góc chụp xiên, hoặc xảy ra hiện tượng mất mát thông tin do bị che khuất một phần bởi vật cản như dây điện, tán cây. Bên cạnh đó, yếu tố môi trường như nắng gắt gây lóa sáng (glare) hay bóng râm che khuất cục bộ cũng làm thay đổi cường độ điểm ảnh, khiến các thuật toán phân ngưỡng (thresholding) dễ bị nhiễu. Ở khâu nhận dạng ký tự quang học, sự đa dạng của các phông chữ cách điệu, chữ nét nổi 3D hay chữ thư pháp uốn lượn tạo ra độ phân tán dữ liệu rất cao. Đặc biệt, cấu trúc không gian phức tạp của các dấu thanh trong tiếng Việt rất dễ làm nhiễu màng lọc đặc trưng của các mạng nơ-ron tích chập truyền thống, dẫn đến tỷ lệ nhận diện sai lệch ký tự hoặc rớt dấu thanh vẫn còn ở mức khá cao. Ngoài ra, nền biển hiệu thường chứa nhiều hình ảnh minh họa rực rỡ, khiến mô hình nhầm lẫn giữa họa tiết trang trí và chữ trên biển hiệu thực tế.\n\nVượt ra ngoài rào cản về mặt thị giác máy tính, quá trình số hóa biển hiệu còn vấp phải một rào cản kỹ thuật cốt lõi khác là sự thiếu hụt ngữ nghĩa ở khâu hậu xử lý. Các mô hình nhận dạng thuần túy chỉ có khả năng nội suy và trả về các chuỗi ký tự thô mà không mang bất kỳ thông tin cấu trúc nào. Để giải quyết vấn đề này, các luồng xử lý truyền thống thường sử dụng các thuật toán phân tích cú pháp tất định hoặc biểu thức chính quy (Regex) để bóc tách dữ liệu. Tuy nhiên, các phương pháp tiếp cận theo hướng quy tắc cứng này hoàn toàn thiếu đi cơ chế mô hình hóa mối quan hệ không gian và sự phụ thuộc ngữ cảnh giữa các chuỗi từ vựng. Chưa kể, biển hiệu đường phố thường lạm dụng từ viết tắt (VD: ĐC, Đ/C, SĐT, CS1...) và cách đặt tên phá cách không tuân theo quy tắc ngữ pháp thông thường. Hệ quả là thuật toán không thể tự động nhận diện thực thể để phân định chính xác đâu là tên cửa hàng, dịch vụ hay địa chỉ khi phải đối mặt với cấu trúc trình bày tự do của biển hiệu.\n\nCuối cùng là bài toán về sai số tích lũy (Error Propagation). Trong một luồng xử lý liên tục từ YOLO đến OCR và LLM, chỉ cần một khâu phía trước làm sai (như cắt thiếu chữ hoặc đọc nhầm dấu), sẽ tạo ra hiệu ứng dây chuyền làm sai lệch hoàn toàn kết quả bóc tách và phân loại ở khâu cuối cùng. Điều này đòi hỏi hệ thống phải có một cơ chế xử lý thông minh để tự bù đắp và sửa lỗi giữa các công đoạn.\n\n1.2.2. Các giải pháp công nghệ và mô hình được sử dụng\n\nĐể giải quyết các rào cản kỹ thuật đã nêu, đề tài đề xuất một kiến trúc lai, kết hợp sức mạnh của nhiều mô hình học sâu và học máy tiên tiến tạo thành một luồng xử lý xuyên suốt.\n\nỞ khâu đầu tiên, hệ thống sử dụng mạng YOLO (phiên bản Medium) để phát hiện và cắt vùng biển hiệu ra khỏi bối cảnh nhiễu. Sau khi khoanh vùng được biển hiệu, thay vì xử lý trực tiếp trên ảnh gốc, hệ thống áp dụng thuật toán phân tích hình học nội suy bằng thư viện OpenCV. Dựa trên độ dốc của các khung chữ bên trong, thuật toán tự động thiết lập ma trận biến đổi phối cảnh (Perspective Transform) để nắn phẳng tấm biển 3D về dạng 2D chuẩn mực, đồng thời áp dụng thuật toán CLAHE để cân bằng độ tương phản cục bộ, làm rõ các vùng bị tối.\n\nKhi đã có một bức ảnh biển hiệu vuông vức, hệ thống tiến hành định vị vùng chữ bằng mô hình PaddleOCR. Điểm đột phá ở phiên bản này là cơ chế can thiệp trực tiếp vào tọa độ hộp giới hạn (bounding box). Để giải quyết triệt để bài toán rớt dấu tiếng Việt, thuật toán sẽ tự động kéo dãn viền trên của khung chữ lên thêm 15% để bắt các dấu thanh phía trên, và đẩy viền dưới thụt xuống 10% để thu thập trọn vẹn các nét móc bên dưới. Các khung chữ sau đó được gom cụm lại thành từng dòng chuẩn xác theo quy luật toán học (từ trên xuống dưới, từ trái sang phải). Tiếp đến, khâu nhận dạng ký tự quang học được đảm nhiệm bởi mô hình VietOCR (sử dụng kiến trúc VGG-Transformer). Trước khi đưa vào mạng nơ-ron, mỗi dòng chữ được chạy qua bốn bộ lọc xử lý ảnh song song (giữ nguyên, làm sắc nét, cân bằng xám, phân ngưỡng nhị phân). Hệ thống sẽ tự động đối chiếu và chỉ chọn ra kết quả nhận diện có độ tin cậy (Confidence) cao nhất để đưa vào bước tiếp theo.\n\nỞ giai đoạn bóc tách ngữ nghĩa, luồng xử lý được thiết kế theo cơ chế phân tầng linh hoạt để tối ưu độ chính xác và tốc độ. Đầu tiên, hệ thống sử dụng tập luật Biểu thức chính quy (Regex) để chủ động quét và bóc tách các thông tin có cấu trúc cố định như số điện thoại và địa chỉ. Việc xử lý Regex trước đóng vai trò giảm bớt gánh nặng cho mô hình LLM và giảm mạnh thời gian xử lý của cả hệ thống.\n\nNhững phần văn bản thô còn lại sẽ được chuyển giao cho mô hình ngôn ngữ lớn Qwen 2.5 0.5B Instruct. Điểm đột phá ở đây là hệ thống không chỉ gửi văn bản đơn thuần cho LLM mà còn đính kèm tọa độ hộp giới hạn [xmin, ymin, xmax, ymax] của từng dòng chữ. Điều này tạo ra một cơ chế nhận thức bố cục (Layout-aware): mô hình sẽ tự hiểu rằng những dòng chữ nằm ở vị trí trung tâm, có kích thước lớn thường là tên thương hiệu (Brand), còn những dòng chữ nằm rải rác xung quanh hoặc ở nửa dưới biển hiệu thường là mô tả dịch vụ (Service).\n\nBằng việc kết hợp kỹ thuật tinh chỉnh LoRA, mô hình Qwen dù có kích thước nhỏ vẫn có khả năng phân tích sự tương quan giữa nội dung chữ và vị trí không gian để bóc tách thông tin cực kỳ chính xác. Toàn bộ quy trình này hoạt động hoàn toàn ngoại tuyến với tốc độ cao, cuối cùng kết xuất dữ liệu sang định dạng JSON gọn gàng, sẵn sàng cho các bước lưu trữ và hiển thị.\n\nDựa trên các dữ liệu về thương hiệu (Brand) và dịch vụ (Service) đã bóc tách được, nhiệm vụ cuối cùng là đưa cửa hàng vào đúng danh mục kinh doanh tương ứng. Sau khi tiến hành huấn luyện và so sánh thực nghiệm giữa 6 thuật toán học máy phổ biến, hệ thống đã chính thức lựa chọn Linear SVC (Support Vector Classification) kết hợp cùng kỹ thuật véc-tơ hóa TF-IDF làm giải pháp tối ưu nhất.\n\nTrong khi Naive Bayes nổi bật với ưu điểm đơn giản và hiệu quả nhờ giả định độc lập giữa các đặc trưng, thì Linear SVC lại thể hiện sức mạnh vượt trội trong việc xây dựng một siêu phẳng phân tách tối ưu (optimal hyperplane) trong không gian văn bản đa chiều. Khả năng phân loại tuyến tính mạnh mẽ này giúp mô hình khai thác hiệu quả các đặc trưng ngữ nghĩa của văn bản biển hiệu, từ đó đạt được độ chính xác cao nhất trong số các mô hình thử nghiệm. Chính vì vậy, Linear SVC trở thành mảnh ghép hoàn hảo, khép lại trọn vẹn chuỗi xử lý số hóa biển hiệu với hiệu năng tối ưu và độ tin cậy cao.\n\nCHƯƠNG 2. THIẾT KẾ VÀ CÀI ĐẶT GIẢI PHÁP\n\n2.1. Thiết kế hệ thống\n\n2.1.1. Sơ đồ kiến trúc tổng thể của hệ thống\n\nHệ thống được thiết kế theo kiến trúc đường ống xử lý đa phương thức (Multimodal Pipeline), bao gồm 3 giai đoạn lớn được phân rã thành 9 bước xử lý vi mô. Toàn bộ quá trình diễn ra tuần tự, trong đó cấu trúc dữ liệu (tensor, ma trận ảnh, chuỗi văn bản) được biến đổi liên tục qua từng trạm xử lý:\n\nGiai đoạn 1: Khoanh vùng đối tượng và xử lý không gian (Object Detection & Spatial Preprocessing)\n\nGiai đoạn 2: Trích xuất đặc trưng và nhận dạng văn bản (Feature Extraction & OCR Engine)\n\nGiai đoạn 3: Bóc tách ngữ nghĩa và phân loại danh mục (NLP Structuring, Regex & Classification)\n\nHình 1: Sơ đồ kiến trúc của hệ thống.\n\n2.1.2 Phân tích chi tiết các giai đoạn xử lý của hệ thống\n\nKhoanh vùng đối tượng và xử lý không gian (Object Detection & Spatial Preprocessing)\n\nĐầu tiên, hình ảnh được đưa vào mạng xương sống của mô hình YOLOv8 để khoanh vùng biển hiệu. Ảnh gốc được tự động thay đổi kích thước về chuẩn tensor   trước khi đẩy vào các lớp tích chập để trích xuất đặc trưng. Để chọn ra vùng biển hiệu tin cậy, thuật toán triệt tiêu cực đại được áp dụng với ngưỡng tin cậy thiết lập ở mức . Nếu như có nhiều hơn một biển hiệu được dự đoán có độ tin cậy cao hơn 70% thì hệ thống cho phép người dùng chọn biển hiệu tương ứng để xử lý bước tiếp theo. Kết quả tọa độ thu được trên không gian  sẽ được nội suy ngược về kích thước ảnh gốc theo định dạng (xmin, ymin, xmax, ymax) để tiến hành cắt vùng ảnh biển hiệu với độ phân giải cao nhất, đảm bảo độ sắc nét cho các khâu xử lý sau.\n\nMặc dù đã cắt được vùng biển hiệu, nhưng do góc chụp thực tế thường bị nghiêng, hệ thống cần thực hiện khôi phục mặt phẳng trực diện dựa trên chính cấu trúc văn bản bên trong. Mô hình DBNet sẽ quét qua vùng ảnh để trích xuất tập hợp N đa giác  ôm sát từng cụm chữ. Hệ thống sử dụng tọa độ các đỉnh này để tính toán góc nghiêng  thông qua hàm lượng giác nghịch đảo . Để loại bỏ các góc nhiễu do logo hay chữ nghệ thuật, góc nghiêng đại diện chính xác nhất cho toàn bộ tấm biển được xác định bằng bộ lọc trung vị . Từ góc này, hệ thống thiết lập ma trận biến đổi phối cảnh để chuyển đổi tập điểm nguồn  sang tập điểm đích trực diện . Kết quả là ma trận biến đổi   được dùng để nắn phẳng tấm biển, kết hợp với cơ chế nội suy khối bậc ba để nét chữ sau khi nắn không bị răng cưa.\n\nTrích xuất đặc trưng và nhận dạng văn bản (Feature Extraction & OCR Engine):\n\nTừ tấm biển hiệu trực diện thu được sau quá trình nắn phẳng, hệ thống tiến hành đưa hình ảnh trở lại mạng DBNet để thực hiện việc quét và định vị các dòng chữ ngang. Lúc này, mô hình sẽ trích xuất ra một bản đồ nhị phân xấp xỉ . Một thuật toán tìm đường viền được chạy trực tiếp trên ma trận  này để vẽ ra các hộp bao chữ nhật đứng ôm sát từng dòng chữ.\n\nĐể tối ưu hóa hiệu năng, giảm tải cho các mô hình phía sau và loại bỏ các nhiễu rác không mong muốn, hệ thống áp dụng một hàm đánh giá tỷ lệ khung hình với ngưỡng lọc thiết lập ở mức 1.5% chiều cao tổng thể của biển hiệu (kết hợp với giới hạn sàn tối thiểu là 15 điểm ảnh). Bất kỳ hộp bao nào có chiều cao nhỏ hơn ngưỡng này sẽ bị đánh dấu là nhiễu (như vết bẩn, ốc vít) và bị loại bỏ ngay lập tức. Đây là một siêu tham số thực nghiệm được đúc kết từ quá trình tinh chỉnh trên tập dữ liệu thực tế, nhằm đạt được sự cân bằng tối ưu: ngưỡng này vừa đủ lớn để triệt tiêu các đốm nhiễu gây sai lệch cho khâu đọc chữ, vừa đủ nhỏ để không vô tình xóa đi các thông tin in cỡ chữ bé như số nhà, tên đường hay số điện thoại. Hơn nữa, việc loại bỏ các văn bản quá nhỏ, không cần thiết ngay từ đầu giúp giảm bớt gánh nặng xử lý ngữ nghĩa cho mô hình ngôn ngữ lớn.\n\nCác hộp chữ hợp lệ sau đó sẽ được đưa qua thuật toán gom nhóm lai (Hybrid Line Grouping) để tái tạo cấu trúc dòng một cách chính xác. Thuật toán tiến hành sắp xếp các hộp chữ theo trục Y để tạo thành các dải băng ngang, sau đó tiếp tục rà soát theo trục X để chẻ cột hoặc ngắt cụm. Cụ thể, thuật toán sẽ tự động ngắt dòng nếu phát hiện khoảng trống ngang lớn hơn 1.2 lần chiều cao chữ trung bình, hoặc phát hiện sự chênh lệch kích thước (Size Ratio) giữa hai hộp chữ lân cận vượt quá 2 lần (ngăn chặn hiện tượng chữ lớn nuốt chữ nhỏ). Các vùng ảnh con độc lập sau khi gom nhóm được lưu trữ tọa độ cẩn thận để phục vụ việc trích xuất theo đúng bố cục vật lý ở các bước xử lý tiếp theo.\n\nNhằm giải quyết bài toán môi trường khi biển hiệu ngoài trời thường xuyên chịu tác động của bóng râm cục bộ, lóa sáng hay rung tay lúc chụp, mỗi vùng ảnh chữ sẽ đi qua một luồng tiền xử lý đa bộ lọc song song với 4 bản sao trong bộ nhớ.\n\nLuồng thứ nhất: giữ nguyên ma trận màu RGB gốc để dự phòng cho các dòng chữ vốn đã rõ nét.\n\nLuồng thứ hai: áp dụng thuật toán làm nét nét chữ thông qua việc nhân chập với một ma trận bộ lọc kích thước :  , giúp tăng cường độ biên và tách nét chữ mờ ra khỏi nền nhiễu.\n\nLuồng thứ ba: thực hiện cân bằng độ tương phản cục bộ (CLAHE) bằng cách chuyển ảnh sang kênh màu xám và chia thành một lưới ma trận  tương đương  khối ảnh nhỏ. Biểu đồ tần suất điểm ảnh của từng khối được phân phối lại độc lập kết hợp với cơ chế giới hạn độ tương phản để cắt xén các đỉnh cực đại, ngăn chặn hiện tượng khuếch đại nhiễu. Sau đó, thuật toán nội suy song tuyến tính được dùng để ghép nối các khối lại mượt mà, giúp khôi phục các nét chữ ẩn trong vùng bóng râm.\n\nLuồng thứ tư: áp dụng nhị phân hóa thích ứng, tính toán ngưỡng sáng cục bộ cho từng ma trận điểm ảnh nhỏ liền kề để triệt tiêu hiện tượng bóng râm vắt chéo chia cắt chữ. Toàn bộ các ảnh chữ đã qua xử lý được đưa vào mô hình VietOCR để nhận dạng, giải mã hình ảnh thành chuỗi ký tự tiếng Việt với độ chính xác cao.\n\nBóc tách ngữ nghĩa và phân loại danh mục (NLP Structuring & Classification)\n\nBóc tách ngữ nghĩa và phân loại danh mục (NLP Structuring & Classification)Mục tiêu của giai đoạn này là nhận biết ngữ nghĩa từ những chuỗi văn bản thô mà mô hình nhận dạng chữ (OCR) trả về ở bước trước, từ đó chuyển hóa thành định dạng JSON có cấu trúc. Khác với các luồng xử lý truyền thống dồn toàn bộ gánh nặng cho trí tuệ nhân tạo, hệ thống đề xuất một chiến lược lai (Hybrid Pipeline) kết hợp giữa độ chính xác tuyệt đối của Biểu thức chính quy (Regex) và khả năng thấu hiểu ngữ cảnh của mô hình ngôn ngữ lớn (Qwen 0.5B). Từ những thông tin then chốt thu được như tên thương hiệu và dịch vụ, hệ thống sẽ tiếp tục thực hiện việc định danh và phân loại danh mục kinh doanh cho cửa hàng.\n\nTrình tự xử lý được thiết kế chặt chẽ nhằm triệt tiêu tối đa độ nhiễu. Đầu tiên, một bộ lọc Regex được thiết lập để quét qua toàn bộ văn bản thô. Vì “Số điện thoại” và “Địa chỉ” là những trường thông tin mang tính đặc trưng riêng, thuật toán sẽ chủ động nhận diện và bóc tách chúng ngay từ khâu tiền xử lý. Đối với các chuỗi số điện thoại, thuật toán không chỉ trích xuất chính xác các định dạng (di động, máy bàn, đầu số 1800/1900) mà còn tự động chặt bỏ các tiền tố/hậu tố rác (như “SĐT::, “Hotline:”, tên người liên hệ). Đối với địa chỉ, hệ thống áp dụng cơ chế nối chuỗi thông minh: nếu phát hiện một địa chỉ bị ngắt làm hai dòng vật lý trên biển hiệu, thuật toán sẽ tự động dán chúng lại liền mạch bằng dấu phẩy. Ngay sau khi trích xuất thành công, toàn bộ các chuỗi địa chỉ và số điện thoại này sẽ bị xóa bỏ hoàn toàn khỏi tập văn bản đầu vào, giúp dọn sạch rác và giảm tải khối lượng xử lý cho các khâu phía sau.\n\nĐối với các chuỗi ký tự còn sót lại mang tính nhập nhằng cao về mặt ngữ nghĩa (Tên thương hiệu, Dịch vụ, Câu slogan), hệ thống đưa vào mô hình Qwen 0.5B để phân định. Do các biển hiệu tại Việt Nam có bố cục trình bày rất tự do, vị trí không gian của từng dòng chữ mang ý nghĩa phân loại vô cùng quan trọng. Để vượt qua rào cản này, hệ thống áp dụng cơ chế trích xuất nhận thức bố cục. Mỗi dòng chữ sẽ được ánh xạ đồng bộ với tọa độ hộp bao của nó theo định dạng:\n\nKhối dữ liệu đa phương thức này được nhúng vào một mẫu câu lệnh (Static Prompt) với chỉ thị cực kỳ nghiêm ngặt: yêu cầu LLM bỏ qua việc tìm kiếm địa chỉ/số điện thoại (do đã được xử lý trước), và chỉ dồn toàn bộ sự chú ý để bóc tách 3 trường: thương hiệu (BRAND), dịch vụ (SERVICE), và thông tin nhiễu (O). Nhờ được tinh chỉnh bằng kỹ thuật LoRA, mô hình không chỉ đọc hiểu từ vựng mà còn tự động phân tích vị trí tương đối của chúng trên mặt phẳng vật lý. Dựa trên cơ sở toán học của cơ chế sinh tự hồi quy, mô hình tính toán xác suất từ vựng tiếp theo dựa trên toàn bộ ngữ cảnh phía trước thông qua công thức:\n\n.\n\nKết hợp với thuật toán tìm kiếm tham lam (Greedy Search) để triệt tiêu tính ngẫu nhiên, hệ thống đã ép mô hình xuất ra kết quả dưới định dạng cấu trúc JSON một cách mượt mà và chính xác tuyệt đối, giải quyết hoàn toàn bài toán ảo giác (hallucination) thường gặp ở các LLM cỡ nhỏ.\n\nSau khi dữ liệu được bóc tách an toàn, hệ thống tiến tới bước định danh loại hình cửa hàng. Thuật toán sẽ trích xuất hai giá trị gốc là tên thương hiệu (Brand) và dịch vụ (Service) từ chuỗi JSON. Tại đây, hệ thống được thiết kế tích hợp thêm một cơ chế dự phòng (Fallback Mechanism) nhằm chống lại hiện tượng đứt gãy luồng dữ liệu. Nếu mô hình ngôn ngữ LLM bóc tách thành công, hai trường này sẽ được sử dụng làm thông tin định danh chính. Ngược lại, trong trường hợp cả hai trường này đều rỗng do biển hiệu thiếu ngữ cảnh rõ ràng, thuật toán sẽ tự động kích hoạt chiến lược thu gom: gộp toàn bộ các chuỗi văn bản thô còn sót lại trên biển hiệu thành một khối văn bản duy nhất. Khối văn bản dự phòng này đã được gọt sạch tọa độ không gian, số điện thoại và địa chỉ thông qua tập luật biểu thức chính quy (Regex) ở bước trước, do đó chứa mật độ từ khóa mô tả ngành nghề vô cùng đậm đặc.\n\nDù thu thập thành công từ mô hình Qwen hay sử dụng khối văn bản dự phòng, một khâu tiền xử lý khắt khe sẽ được áp dụng: tất cả các chuỗi văn bản bắt buộc phải được chuyển về dạng chữ thường (lowercase) nhằm đảm bảo khớp tuyệt đối với phân phối của tập dữ liệu huấn luyện. Đối với trường hợp kích hoạt cơ chế dự phòng, toàn bộ khối văn bản thu gom được sẽ được hệ thống ngầm định gán vào trường dịch vụ (Service), trong khi trường thương hiệu (Brand) được để trống. Lựa chọn thiết kế này xuất phát từ bản chất phân phối của tập dữ liệu: các đặc trưng mang tính quyết định phân loại ngành nghề chủ yếu nằm ở không gian từ vựng của dịch vụ. Dữ liệu sau đó được gộp chung thành một chuỗi duy nhất và truyền vào bộ phân loại.\n\nBên trong luồng xử lý, văn bản đầu tiên được tiến hành tách từ (Word Segmentation) thông qua thư viện Underthesea để bảo toàn các từ ghép tiếng Việt. Tiếp đó, dữ liệu được biến đổi thành không gian véc-tơ đặc trưng bằng thuật toán đếm tần suất TF-IDF (với dải N-gram mở rộng từ 1 đến 3). Toàn bộ ma trận đặc trưng lúc này được đưa qua thuật toán Linear SVC (Support Vector Classification). Bản chất của Linear SVC là tìm ra một siêu phẳng (hyperplane) tối ưu trong không gian nhiều chiều nhằm phân tách rạch ròi ranh giới giữa các danh mục cửa hàng. Để xử lý linh hoạt các điểm dữ liệu nhiễu hoặc các từ khóa dịch vụ mới ngoài đường phố mà chưa từng xuất hiện trong tập huấn luyện, thuật toán sử dụng các biến bù (slack variables) kết hợp với siêu tham số (Hyperparameter) C để điều chỉnh mức độ phạt đối với các mẫu phân loại sai. Cơ chế này giúp nới lỏng ranh giới quyết định một cách có kiểm soát, đảm bảo mô hình không bị học vẹt (quá khớp) trên tập dữ liệu cũ mà vẫn duy trì được khả năng tổng quát hóa cao khi gặp dữ liệu thực tế.\n\nTóm lại, thông qua các mắt xích được thiết kế chặt chẽ, hệ thống đã thiết lập một luồng kiến trúc: dùng mạng nơ-ron thị giác (YOLO, PaddleOCR, VietOCR) để trích xuất nội dung trên biển hiệu, dùng Rule-based (Regex) để lọc dữ liệu có quy luật như số điện thoại và địa chỉ, sau đó dùng mô hình LLM (Qwen) để bóc tách ngữ nghĩa, và dùng Machine Learning (Linear SVC) để phân loại danh mục cửa hàng. Đường ống này đã tự động chuyển hóa thành công một bức ảnh đường phố phi cấu trúc thành dữ liệu có cấu trúc, kết xuất ra định dạng JSON ngữ nghĩa và nhãn danh mục cửa hàng, đáp ứng trọn vẹn mục tiêu cung cấp nguồn dữ liệu cơ bản cho hệ thống bản đồ thông minh ở phân hệ thứ 2.\n\n2.2. Cài đặt giải pháp\n\n2.2.1. Thu thập và xây dựng tập dữ liệu\n\nĐể kiến trúc đa phương thức hoạt động hiệu quả và bám sát đặc thù môi trường đường phố Việt Nam, hệ thống cần được tinh chỉnh trên các tập dữ liệu thực tế. Quá trình này đòi hỏi việc xây dựng 4 tập dữ liệu chuyên biệt tương ứng với từng nhiệm vụ trong đường ống xử lý:\n\nTập dữ liệu phát hiện đối tượng (YOLO Signboard Dataset)\n\nThiết bị và nguồn gốc thu thập: Dữ liệu hình ảnh được khảo sát và chụp thực tế tại địa bàn quận Ninh Kiều, Thành phố Cần Thơ bằng thiết bị di động thông minh (Oppo Find x9 và Samsung Galaxy M34). Việc sử dụng smartphone đảm bảo dữ liệu đầu vào phản ánh đúng chất lượng camera của người dùng thực tế, đồng thời bảo toàn được siêu dữ liệu EXIF chứa tọa độ định vị toàn cầu (GPS). Quá trình lấy mẫu được thực hiện dọc và ngang theo các tuyến đường trọng điểm: Nguyễn Văn Cừ, 3 Tháng 2, 30/4, Cách Mạng Tháng 8, Mậu Thân và Nguyễn Văn Linh như hình ảnh minh họa bên dưới.\n\nHình 2: Bản đồ minh họa các con đường đã thu thập hình chụp biển hiệu\n\nQuy mô và đặc tả: Tập dữ liệu bao gồm khoảng 1300 bức ảnh chụp mặt tiền cửa hàng. Các bức ảnh mang tính đa dạng cao về góc chụp (trực diện, chụp xiên góc) và điều kiện ánh sáng ngoài trời.\n\nCông cụ gán nhãn và phân chia tập dữ liệu: Quá trình dán nhãn (Annotation) được thực hiện thông qua công cụ: LabelImg và toàn bộ ảnh được gán nhãn hộp bao (Bounding Box) thủ công với một nhãn duy nhất là Bien_hieu và xuất ra định dạng văn bản chuẩn của YOLO (.txt). Tập dữ liệu được phân chia ngẫu nhiên theo tỷ lệ chuẩn: 80% cho tập huấn luyện (Train), 10% cho tập xác thực (Validation) và 10% cho tập kiểm thử (Test).\n\nHình 3: Ảnh minh họa quá trình gán nhãn cho dữ liệu (Yolo)\n\nTập dữ liệu tinh chỉnh nhận dạng chữ (VietOCR Dataset)\n\nĐể mô hình VietOCR có thể đọc chuẩn xác hệ thống dấu tiếng Việt phức tạp và các phông chữ biển hiệu cách điệu, một tập dữ liệu quy mô lớn đã được xây dựng bằng phương pháp kết hợp giữa dữ liệu thực tế (Real Data) và dữ liệu tổng hợp nhân tạo (Synthetic Data).\n\nPhương pháp khởi tạo và nguồn gốc:\n\nDữ liệu thực tế: Thay vì cắt và gõ nhãn thủ công tốn kém thời gian, quá trình thu thập dữ liệu thực tế được tối ưu hóa bằng một đường ống tự động. Hệ thống sử dụng mô hình DBNet để quét qua khoảng 1000 bức ảnh gốc (từ tập train YOLO), tự động phát hiện và cắt (crop) ra các vùng chứa chữ. Các ảnh dòng chữ này tiếp tục được chạy qua mạng VietOCR (vgg_tranfomer) để nhận dạng từng dòng chữ,  sau đó em thực hiện chỉnh sửa chính tả hay những lỗi mà mô hình nhận dạng và lưu vào tập dữ liệu cho quy trình Fine_Tune VietOCR. Quy trình này thu được khoảng 4.000 hình ảnh dòng chữ chính xác tuyệt đối.\n\nHình 4: Dữ liệu thực tế được trích xuất từ biển hiệu dùng để fine_tune VietOCR\n\nDữ liệu tổng hợp: Dữ liệu tổng hợp: Một thuật toán sinh dữ liệu tự động được lập trình bằng Python (kết hợp thư viện thư viện Pillow và OpenCV) để tạo ra 100.000 ảnh dòng chữ nhân tạo. Điểm đột phá của thuật toán này nằm ở 4 kỹ thuật mô phỏng thực tế:\n\nBộ sưu tập phông chữ đa dạng: Thuật toán nạp tự động một thư mục chứa hàng trăm tệp phông chữ (.ttf, .otf) mang đậm đặc trưng thiết kế biển hiệu của Việt Nam. Bộ sưu tập này bao gồm các phông chữ in ấn tiêu chuẩn, bộ phông chữ Việt hóa chuyên dụng cho biển hiệu (như UTM, SVN, VNI), phông chữ viết tay, chữ nét nổi siêu dày, và có một số là phông chữ thư pháp. Việc fine_tune mô hình học qua bộ phông chữ này giúp VietOCR không bị sai khi gặp các biển hiệu có các phông chữ phá cách.\n\nKhớp ngữ cảnh địa phương: Thuật toán sử dụng một bộ từ điển động chứa tên các tuyến đường, phường/xã đặc thù tại Cần Thơ, kết hợp với hơn 100 loại hình dịch vụ kinh doanh phổ biến trên đường phố.\n\nTrộn dữ liệu đa tầng (Mixed-data Strategy): Thuật toán thiết lập tỷ lệ nội suy 60% sử dụng lại các chuỗi văn bản từ tập dữ liệu thực tế (thu được từ bước trên), kết hợp quy tắc động: văn bản dài hoặc chứa số tự động ép kích thước phông chữ nhỏ (small font size), văn bản ngắn ép kích thước lớn (large font size) để mô phỏng đúng bố cục biển hiệu.\n\nTăng cường quang học và hình học (Optical & Geometric Augmentations): Để tránh việc ảnh sinh ra quá sạch, thuật toán chủ động áp dụng các hiệu ứng làm mờ mô phỏng camera lăng kính (Gaussian Blur), thêm nhiễu hạt (Gaussian Noise), tạo nền phức tạp (Gradient, Stripes), thêm viền/bóng đổ chữ (Stroke/Shadow) và thực hiện các phép biến đổi affine (xô nghiêng/Shear, xoay/Rotation) để giả lập các góc chụp méo mó.\n\nHình 5: Dữ liệu được sinh tổng hợp phục vụ cho fine_tune VietOCR\n\nTập dữ liệu bóc tách ngữ nghĩa (LLM Qwen 0.5B Instruction Dataset)\n\nĐể mô hình ngôn ngữ lớn Qwen 2.5 0.5B có thể hiểu được các chuỗi văn bản thô từ VietOCR và tự động bóc tách chúng một cách có logic, một tập dữ liệu tinh chỉnh chuyên biệt mang tính cấu trúc cao đã được xây dựng. Về công cụ gán nhãn và nguồn dữ liệu thô: Dữ liệu khởi nguồn từ các hình ảnh biển hiệu thực tế. Một ứng dụng giao diện đồ họa tự phát triển được sử dụng để chạy OCR, trích xuất tọa độ hộp giới hạn (Bounding box) và nội dung chữ. Trong giai đoạn thử nghiệm đầu tiên, người huấn luyện tiến hành gán nhãn định danh thủ công từng dòng chữ vào 5 trường: BRAND, SERVICE, ADDRESS, PHONE, và O (Other) như minh họa dưới đây.\n\nHình 6: Quá trình tạo dữ liệu cho LLM (Qwen)\n\nTuy nhiên, để tối ưu hóa thời gian xử lý tổng thể của hệ thống (do tốc độ sinh văn bản của LLM phụ thuộc rất lớn vào độ dài đầu ra), kiến trúc đã được tinh chỉnh lại. Nhận thấy các thông tin có tính quy luật cứng như số điện thoại và địa chỉ có thể bóc tách triệt để và nhanh chóng hơn bằng tập luật biểu thức chính quy (Regex) ở khâu tiền xử lý, trọng trách của mô hình LLM đã được giảm tải. Do đó, tập dữ liệu huấn luyện chính thức được rút gọn lại, chỉ tập trung dạy mô hình bóc tách 3 trường ngữ nghĩa tự do: BRAND, SERVICE và O.\n\nTự động hóa sinh nhãn chuẩn là bước kỹ thuật then chốt để dạy cho mô hình ngôn ngữ lớn cách tư duy về không gian. Tương tự như môi trường thực tế, hệ thống huấn luyện cố tình giữ nguyên sự phân mảnh của các cụm chữ kèm theo tọa độ không gian dưới dạng [xmin, ymin, xmax, ymax] text, ép mô hình phải làm quen với đầu vào lộn xộn. Ngược lại, ở phần đáp án, hệ thống áp dụng các quy tắc logic để tự động nội suy ra một kết quả hoàn hảo tập trung vào 3 trường mục tiêu. Ví dụ, đối với việc trích xuất thương hiệu (BRAND), hệ thống dạy mô hình cách đối chiếu tọa độ để gom chữ, đồng thời yêu cầu gộp chung toàn bộ tên công ty chủ quản và tên chi nhánh trực thuộc thành một giá trị duy nhất. Đối với mảng dịch vụ (SERVICE), mô hình được học cách phân tích khoảng cách theo chiều dọc; nếu các dòng chữ nằm sát nhau, chúng được nối liền mạch, ngược lại nếu khoảng cách lớn, chúng sẽ được ngắt quãng hợp lý. Bằng cách đối chiếu hàng ngàn ví dụ, mô hình tự động ngầm học được các quy tắc về khoảng không gian này mà không cần lập trình thuật toán cứng.\n\nSong song với việc chuẩn bị dữ liệu, cấu trúc câu lệnh dẫn dắt (System Prompt) cũng được thiết kế cực kỳ khắt khe nhằm định hình đúng hành vi của trí tuệ nhân tạo. Đầu tiên là sự ràng buộc về mặt định dạng: hệ thống đưa ra mệnh lệnh tuyệt đối yêu cầu LLM chỉ được phép trả về kết quả dưới định dạng JSON với các giá trị là mảng (Array) cho 3 trường (BRAND, SERVICE, O), đồng thời nghiêm cấm việc tự ý giải thích hay sinh ra các đoạn văn bản giao tiếp rác.\n\nTiếp theo, để mô hình hình dung rõ hơn về nhiệm vụ cốt lõi, kỹ thuật học qua ví dụ mẫu (Few-shot learning) đã được nhúng trực tiếp vào câu lệnh. Thay vì chỉ ra lệnh chung chung, hệ thống cung cấp sẵn một tình huống OCR thực tế để LLM bắt chước. Chẳng hạn, ví dụ mẫu hướng dẫn LLM cách nhận biết và gộp từ khóa chỉ loại hình kinh doanh (như \"NHÀ THUỐC\") đi liền với tên riêng (\"HUỲNH LỘC\") và cả tên pháp nhân (\"CÔNG TY TNHH DƯỢC PHẨM TÂY ĐÔ\") để tạo thành một chuỗi thương hiệu hoàn chỉnh. Quan trọng hơn, thông qua ví dụ này, hệ thống chỉ đích danh cho AI biết cách nhận diện và gạt bỏ những thông tin nhiễu không mang giá trị lưu trữ vào trường dữ liệu ngoại lai (O), cụ thể như: nhãn hiệu quảng cáo tài trợ in trên biển (Salonpas), tên người đứng tên bằng cấp (DSĐH: Tiêu Huỳnh Lộc), hoặc các đoạn địa chỉ, số điện thoại thừa bị rớt lại sau màng lọc Regex. Cách hướng dẫn trực quan này giúp mô hình Qwen hình thành một bộ lọc nhận thức, xuất ra dữ liệu nhẹ, tốc độ được cải thiện và sạch sẽ khi đối mặt với vô số hình ảnh biển hiệu lộn xộn ngoài đời thực.\n\nTập dữ liệu phân loại danh mục cửa hàng (Machine Learning Classification Dataset)\n\nSau khi hoàn thiện bước trích xuất thông tin, công việc tiếp theo là xây dựng tập dữ liệu để huấn luyện cho mô hình khả năng phân loại danh mục cửa hàng. Thay vì phải tốn thời gian thu thập từ đầu và phân loại thủ công cho từng ảnh, nghiên cứu đã tận dụng lại chính tệp dữ liệu đã được chuẩn hóa ở bước trước. Cụ thể, một tập lệnh được phát triển để đọc tệp dữ liệu chuẩn, sau đó rà quét và chỉ bóc tách hai trường thông tin có giá trị nhất phục vụ nhận diện ngành nghề là tên thương hiệu (Brand) và dịch vụ (Service). Mọi thông tin nhiễu như địa chỉ hay số điện thoại đều bị lược bỏ. Các cụm từ này được chuyển về dạng chữ thường (lowercase), xóa khoảng trắng thừa và ghép nối lại thành một chuỗi văn bản ngắn gọn chứa đặc trưng cốt lõi của cửa hàng.\n\nĐể phân loại tự động hàng ngàn chuỗi văn bản này, một bộ quy tắc lọc dựa trên từ khóa (Keyword-based) đã được xây dựng. Khi chuỗi văn bản chứa các từ khóa đặc trưng (ví dụ: “gym”, “nha khoa”, “quán ăn”...), thuật toán sẽ tự động đối chiếu và xếp biển hiệu đó vào đúng danh mục. Nhằm bao quát tối đa các loại hình kinh doanh và dịch vụ trên đường phố, không gian phân loại được quy hoạch chi tiết thành 18 nhóm ngành nghề, bao gồm: Ẩm thực, Đồ uống, Mua sắm, Siêu thị & Tạp hóa, Làm đẹp & Spa, Thể thao & Thể hình, Y tế & Sức khỏe, Giáo dục, Tài chính & Doanh nghiệp, Hành chính & Công cộng, Nông nghiệp & Thú y, Giải trí, Lưu trú, Công nghệ & Điện máy, Xe cộ & Phương tiện, Vận tải & Kho bãi, Xây dựng & Nội thất, và Tôn giáo.\n\nMặc dù thuật toán gán nhãn tự động giúp tiết kiệm tối đa thời gian, nhưng ngôn ngữ biển hiệu thực tế đôi khi có những cách đặt tên phá cách hoặc chứa các từ ngữ đa nghĩa mà các quy tắc lập trình cứng không thể lường trước hết. Do đó, sau khi thuật toán xuất kết quả ra tệp định dạng CSV, một bước rà soát và tinh chỉnh thủ công đã được thực hiện nghiêm ngặt. Từng dòng dữ liệu chứa tên thương hiệu và dịch vụ được kiểm tra trực quan để đối chiếu với nhãn danh mục mà máy tính tự động gán. Quá trình nghiệm thu này giúp phát hiện và khắc phục những trường hợp ngoại lệ bị phân loại sai do trùng lặp từ khóa hoặc cấu trúc câu đặc thù của tiếng Việt. Chẳng hạn, các biển hiệu có từ khóa dễ gây nhầm lẫn giữa loại hình Mua sắm và Làm đẹp & Spa, hoặc giữa Ẩm thực và Giải trí đều được phát hiện và điều chỉnh lại nhãn dữ liệu cho khớp tuyệt đối với bản chất kinh doanh thực tế.\n\nTuy nhiên, trong quá trình thống kê dữ liệu thực tế, một vấn đề phát sinh là sự mất cân bằng dữ liệu (Class Imbalance) nghiêm trọng. Các biển hiệu thuộc nhóm Ẩm thực hay Đồ uống chiếm tỷ lệ áp đảo, trong khi các nhóm như Tôn giáo hay Nông nghiệp & Thú y lại có số lượng mẫu thu thập được rất ít. Nếu sử dụng trực tiếp tập dữ liệu chênh lệch này để đưa vào huấn luyện, mô hình sẽ rơi vào tình trạng thiên vị (bias) các lớp đa số và phân loại rất kém ở những lớp thiểu số.\n\nĐể giải quyết triệt để vấn đề này, một thuật toán tăng cường dữ liệu giả lập (Data Augmentation) đã được phát triển. Thuật toán hoạt động dựa trên một bộ từ điển tự biên soạn, chứa danh sách các tên thương hiệu và dịch vụ tiêu biểu của từng ngành nghề. Tập lệnh sẽ lựa chọn ngẫu nhiên một tên thương hiệu ghép với một dịch vụ để tạo ra hàng ngàn mẫu dữ liệu mới. Đặc biệt, để mô phỏng đúng đặc tính của các biển hiệu ngoài đời thực (thường xuyên bị khuyết thiếu thông tin), thuật toán còn được tích hợp cơ chế loại bỏ ngẫu nhiên phần tên thương hiệu hoặc phần dịch vụ, ép mô hình học máy phải học cách nhận diện đặc trưng dù chỉ có một dữ kiện đầu vào. Cuối cùng, toàn bộ dữ liệu thực tế và dữ liệu giả lập được trộn chung, xáo trộn ngẫu nhiên (shuffle) và xuất ra tệp CSV. Quá trình này giúp thiết lập một bộ dữ liệu đầu vào sạch sẽ, bám sát thực tiễn và đạt mức độ cân bằng tuyệt đối giữa cả 18 nhóm ngành nghề, tạo điều kiện lý tưởng nhất để huấn luyện mô hình. Dưới đây là các bảng mẫu dữ liệu mô phỏng minh họa cho kết quả của quá trình này:\n\n\n| STT | Nhóm ngành nghề | Số lượng |\n| --- | --- | --- |\n| 1 | Tài Chính & Doanh Nghiệp | 1.063 |\n| 2 | Ẩm Thực | 1.057 |\n| 3 | Y Tế & Sức Khỏe | 1.055 |\n| 4 | Hành Chính & Công Cộng | 1.054 |\n| 5 | Công Nghệ & Điện Máy | 1.029 |\n| 6 | Xây Dựng & Nội Thất | 1.027 |\n| 7 | Mua Sắm | 1.026 |\n| 8 | Đồ Uống | 1.026 |\n| 9 | Làm Đẹp & Spa | 1.023 |\n| 10 | Giáo Dục | 1.020 |\n| 11 | Siêu Thị & Tạp Hóa | 1.019 |\n| 12 | Tôn Giáo | 1.016 |\n| 13 | Xe Cộ & Phương Tiện | 1.010 |\n| 14 | Thể Thao & Thể Hình | 1.002 |\n| 15 | Vận Tải & Kho Bãi | 1.001 |\n| 16 | Giải Trí | 999 |\n| 17 | Nông Nghiệp & Thú Y | 991 |\n| 18 | Lưu Trú | 990 |\n\nBảng 1: Mô phỏng 18 lớp danh mục và số mẫu tương ứng cho mô hình phân loại\n\n\n| STT | Text | Label |\n| --- | --- | --- |\n| 0 | quán ăn đặc sản ốc hương rang muối, chả giò rế, bò nhúng dấm | Ẩm Thực |\n| 1 | rau má mix trà dâu | Đồ Uống |\n| 2 | home credit | Tài Chính & Doanh Nghiệp |\n| 3 | cofee game offline chanh dây - mocktail | Đồ Uống |\n| 4 | gỗ sàn công nghiệp lát gạch vỉa hè | Xây Dựng & Nội Thất |\n| 5 | trường thpt chuyên nguyễn thị định | Giáo Dục |\n| 6 | sàn gỗ công nghiệp ép cọc bê tông - đóng trần thạch cao - bán xi ... | Xây Dựng & Nội Thất |\n| 7 | đại lý bia nước ngọt Chuyên: bia tiger, heniken,... | Siêu Thị & Tạp Hóa |\n| 8 | vận tải sài gòn chuyển phát nhanh 24/7 | Vận Tải & Kho Bãi |\n| 9 | tocotoco trà đào cam sả soda chanh dây | Đồ Uống |\n\nBảng 2: Dữ liệu minh họa cho việc huấn luyện mô hình phân loại danh mục\n\n2.2.2. Quá trình huấn luyện YOLO\n\nQuá trình huấn luyện YOLO các phiên bản từ 8 đến 12, các phiên bản lần lược là nano, small và medium cho YOLOv8 và nano và small cho các version 9 đến 12, được thực hiện nhằm tìm ra bộ trọng số tối ưu nhất cho nhiệm vụ phát hiện biển hiệu đường phố. Nghiên cứu tiến hành huấn luyện đối chiếu sáu kịch bản khác nhau, bao gồm sự kết hợp giữa ba phiên bản kiến trúc mô hình từ nhỏ đến lớn và hai mức độ phân giải đầu vào. Toàn bộ quá trình được triển khai trên cùng một tập dữ liệu chuẩn với thiết lập 100 chu kỳ học và cơ chế dừng sớm sau 10 chu kỳ không cải thiện để tránh hiện tượng học vẹt (Overfitting).\n\nMục đích cốt lõi của mô hình này không chỉ là khoanh vùng biển hiệu đơn thuần, mà còn đóng vai trò tiền xử lý để cung cấp vùng ảnh chất lượng cho hệ thống đọc chữ phía sau. Vì vậy, chiến lược gán nhãn đã chủ động loại trừ các biển hiệu bị che khuất nghiêm trọng bởi dây điện, bị biến dạng hoặc mờ chữ.\n\nTrong giai đoạn suy luận thực tế, hệ thống áp dụng một ngưỡng tin cậy trên 50% ở khâu hậu xử lý để tự động đánh giá và lọc bỏ các khung nhận diện ském chất lượng, đảm bảo chỉ giữ lại những vùng ảnh rõ nét nhất để chuyển tiếp sang module nhận dạng ký tự.\n\n2.2.3. Thiết lập và tinh chỉnh mô hình nhận dạng chữ VietOCR\n\nMục tiêu của giai đoạn này là giúp mô hình VietOCR có khả năng đọc tốt các phông chữ biển hiệu cách điệu thường gặp trên biển hiệu và khắc phục lỗi đọc sai dấu tiếng Việt khi ảnh chụp bị nhiễu hoặc lóa sáng. Để tiết kiệm thời gian và tài nguyên máy tính thay vì phải đào tạo lại từ con số không, đồ án đã quyết định áp dụng kỹ thuật học chuyển giao (Transfer Learning).\n\nVề mặt kiến trúc, hệ thống sử dụng một bộ khung kết hợp (hybrid). Trong đó, phần mạng phân tích hình ảnh (VGG) đóng vai trò như đôi mắt để bóc tách các đường nét và đặc trưng không gian của chữ. Phần mạng biến áp (Transformer) ở phía sau hoạt động như một bộ não để giải mã ngữ cảnh chéo giữa các ký tự, từ đó xuất ra chuỗi chữ cái chính xác. Quá trình huấn luyện được khởi động dựa trên một bộ trọng số (pre-trained weights) tốt nhất hiện có của cộng đồng mạng VietOCR, giúp mô hình có điểm tựa vững chắc để bắt nhịp nhanh hơn với dữ liệu mới.\n\nVề mặt dữ liệu, đồ án đã gom toàn bộ hình ảnh thực tế cắt từ biển hiệu đa vùng miền cùng với lượng lớn dữ liệu nhân tạo (fake data) lại với nhau. Toàn bộ tập dữ liệu khổng lồ này được xáo trộn ngẫu nhiên (shuffle) để tránh hiện tượng mô hình học vẹt theo một thứ tự cố định. Sau khi xáo trộn, dữ liệu được chia theo tỷ lệ 95% dùng để học (train) và 5% dùng để làm bài kiểm tra đánh giá (validation).\n\nQuá trình huấn luyện được thiết lập trên môi trường máy chủ sử dụng card đồ họa GPU L4 có hiệu năng cao. Để vắt kiệt công suất xử lý của VRAM, tham số kích thước lô (batch size) được đẩy lên mức 90, kết hợp với 4 luồng xử lý dữ liệu song song (num_workers). Cấu hình này giúp đẩy nhanh tốc độ nạp ảnh vào mô hình mà không gây nghẽn cổ chai.\n\nDựa trên quá trình thử nghiệm và quan sát biểu đồ giảm độ lỗi (loss), đồ án quyết định thiết lập chu kỳ huấn luyện kéo dài đúng 20.000 bước (iterations). Đây là con số lý tưởng vừa đủ để mô hình làm quen với sự đa dạng của các phông chữ mới trên biển hiệu, vừa tránh được hiện tượng học vẹt (overfitting) làm phá vỡ đi khả năng đọc chữ in chuẩn mà nó đã có từ bộ trọng số gốc. Trong suốt quá trình chạy 20.000 bước này, cứ mỗi 2.000 bước, hệ thống sẽ tự động tạm dừng việc học để thực hiện chấm điểm độ chính xác trên tập dữ liệu kiểm tra 5%. Việc đánh giá định kỳ này giúp đồ án theo dõi sát sao sự tiến bộ của mô hình và tự động lưu lại những điểm dừng (checkpoints) tốt nhất. Kết thúc chu kỳ huấn luyện, mô hình VietOCR đạt được khả năng thích nghi và độ sắc bén cao nhất, sẵn sàng để tích hợp vào hệ thống nhận diện biển hiệu đường phố thực tế.\n\n2.2.4. Tinh chỉnh mô hình ngôn ngữ lớn Qwen 0.5B (LoRA Fine-tuning)\n\nMục tiêu của giai đoạn này là tinh chỉnh mô hình ngôn ngữ Qwen cỡ nhỏ (0.5 tỷ tham số) nhằm triệt tiêu thói quen sinh văn bản tự do, buộc hệ thống phải tuân thủ tuyệt đối định dạng dữ liệu có cấu trúc JSON. Khác với các phương pháp trích xuất toàn vẹn truyền thống, nghiên cứu này đề xuất một chiến lược lai (Hybrid Pipeline) kết hợp giữa biểu thức chính quy (Regex) và ngôn ngữ mô hình lớn (Qwen 0.5B). Nhận thấy các trường thông tin mang tính khuôn mẫu như số điện thoại và địa chỉ hoàn toàn có thể bóc tách bằng Regex ở khâu tiền xử lý, hệ thống đã chủ động loại bỏ hai trường dữ liệu này ra khỏi đầu vào của LLM để giảm lượng lớn thời gian xử lý.\n\nĐể khắc phục điểm yếu cốt lõi của các tập luật Regex tĩnh (hard-coded rules) vốn dễ nhận dạng nhầm các thông tin cần thiết – ví dụ như nhận diện nhầm tên riêng có chứa từ khóa hành chính thành địa chỉ – em đã nâng cấp bộ lọc này thành mô hình tiền xử lý nhận thức không gian (Spatial-Aware NLP). Cụ thể, bên cạnh việc đối chiếu chuỗi ký tự, thuật toán khai thác trực tiếp tọa độ hộp giới hạn (Bounding Box) từ khâu OCR để trích xuất đặc trưng hình học. Các quy tắc không gian được thiết lập chặt chẽ: thông tin địa chỉ thực sự thường có kích thước nhỏ (không vượt quá 60% chiều cao của dòng chữ lớn nhất) và được định vị ở nửa dưới của biển hiệu. Sự kết hợp chéo giữa đặc trưng ngữ nghĩa và tọa độ vật lý này tạo ra một màng lọc kép, ngăn chặn triệt để việc các tên thương hiệu phá cách bị hệ thống vô tình \"nuốt\" mất. Sự tinh giản và dọn dẹp dữ liệu thông minh này giúp giảm tải đáng kể khối lượng văn bản đầu vào, ép mô hình ngôn ngữ tập trung toàn bộ năng lực suy luận ngữ nghĩa vào việc giải quyết bài toán phức tạp nhất: phân tách rạch ròi giữa Tên thương hiệu (BRAND), Dịch vụ cung cấp (SERVICE) và các thông tin nhiễu ngoại lai (O).\n\nĐể giải quyết bài toán huấn luyện mạng nơ-ron lớn trên nguồn tài nguyên phần cứng giới hạn, nghiên cứu đã áp dụng kỹ thuật tinh chỉnh tham số hiệu quả thông qua việc lượng tử hóa và thích nghi hạng thấp (LoRA). Quá trình này sẽ đóng băng toàn bộ trọng số gốc của mô hình và chỉ tiến hành cập nhật tính toán trên các ma trận thu gọn mới được thêm vào. Về mặt cấu hình ma trận thu gọn, hệ thống lựa chọn mức hạng (rank) bằng 16 nhằm tạo ra sự cân bằng tối ưu giữa sức mạnh biểu diễn đặc trưng và chi phí tính toán máy chủ, kết hợp với hệ số tỷ lệ (alpha) được đặt ở mức 32 để khuếch đại hợp lý các trọng số mới khi cộng gộp vào mạng gốc. Thay vì chỉ áp dụng lên các lớp cơ bản, thuật toán được cấu hình để can thiệp sâu vào toàn bộ các lớp chiếu () thuộc cơ chế tự chú ý và khối mạng nơ-ron truyền thẳng. Việc mở rộng vùng can thiệp này giúp mô hình vừa học được cấu trúc dữ liệu phức tạp, vừa tăng tính khái quát để ngăn chặn triệt để hiện tượng học vẹt.\n\nSong song đó, để tối ưu hóa bộ nhớ, toàn bộ mô hình gốc được nén xuống định dạng 4-bit (nf4) với cơ chế lượng tử hóa kép. Đồng thời, các phép tính toán lan truyền ngược và xuôi đều được ép về không gian dữ liệu dấu phẩy động thu gọn (bfloat16), giúp duy trì dải động của mức sai số và ngăn ngừa hiện tượng tràn số thường gặp khi huấn luyện các mô hình ngôn ngữ lớn. Quá trình huấn luyện được vận hành bởi thuật toán tối ưu hóa  có khả năng tự động phân trang bộ nhớ giữa card đồ họa và bộ nhớ hệ thống, đảm bảo tiến trình không bị gián đoạn do cạn kiệt tài nguyên đột ngột.\n\nVề mặt thiết lập thông số, hệ thống sử dụng kích thước lô dữ liệu (batch size) là 8, kết hợp với tham số tích lũy gradient qua 2 bước để tạo ra một kích thước lô hiệu dụng bằng , đủ lớn để đảm bảo sự ổn định khi ước lượng và cập nhật trọng số. Tốc độ học (learning rate) khởi điểm được thiết lập ở mức , kết hợp với lịch trình điều chỉnh dạng đường cong hình sin (cosine scheduler). Cụ thể, hệ thống sẽ khởi động chậm rãi qua 5 bước đầu tiên (warmup steps) để làm quen với dữ liệu, sau đó giảm dần tốc độ học giúp mô hình hội tụ mượt mà tại các điểm tối ưu của hàm mất mát. Chiều dài tối đa của chuỗi văn bản đầu vào và đầu ra cũng được giới hạn ở mức 1024 ký tự (token), vừa vặn để bao quát toàn bộ nội dung của một biển hiệu phức tạp.\n\nĐể tìm ra điểm hội tụ hoàn hảo nhất mà không phụ thuộc vào cảm tính, chu kỳ huấn luyện được thiết lập mở rộng lên tối đa 20 vòng lặp (epochs) nhưng chịu sự giám sát khắt khe của cơ chế dừng sớm (Early Stopping). Sau khi kết thúc mỗi vòng lặp, hệ thống sẽ tự động đánh giá hàm mất mát (eval_loss) trên tập dữ liệu kiểm tra. Nếu mức sai số này không có dấu hiệu cải thiện sau 5 vòng liên tiếp, tiến trình học sẽ lập tức bị ngắt. Lúc này, hệ thống sẽ tự động khôi phục lại điểm lưu có kết quả tốt nhất, đảm bảo mô hình xuất ra là phiên bản xuất sắc nhất.\n\nCuối cùng, ở giai đoạn suy luận thực tế để sinh kết quả, các tham số điều khiển tính ngẫu nhiên được siết chặt tối đa thông qua việc áp dụng thuật toán tìm kiếm tham lam (Greedy Search). Việc vô hiệu hóa hoàn toàn cơ chế lấy mẫu ngẫu nhiên  và thiết lập khắt khe các tham số đầu ra đảm bảo mô hình chỉ tập trung bóc tách và trả về chính xác cấu trúc dữ liệu JSON mong muốn một cách có tính tất định (deterministic), hoàn toàn không tự ý sáng tạo hay bịa đặt thêm các thông tin ngoại lai gây sai lệch cho cơ sở dữ liệu.\n\n2.2.5. Cài đặt tối ưu siêu tham số và quá trình huấn luyện mô hình phân loại\n\nSau khi hoàn thiện bộ dữ liệu phân loại được cân bằng và tự động gán nhãn, nghiên cứu tiến hành xây dựng và huấn luyện các mô hình học máy để tự động hóa việc phân loại danh mục cửa hàng. Thay vì sử dụng các mạng nơ-ron học sâu phức tạp đòi hỏi cấu hình máy tính mạnh, đồ án lựa chọn sáu thuật toán học máy truyền thống mang tính tiêu biểu, bao gồm: Decision Tree (Cây quyết định), Random Forest (Rừng ngẫu nhiên), Multinomial Naive Bayes, Logistic Regression (Hồi quy logistic), Linear SVC (Máy véc-tơ hỗ trợ tuyến tính) và KNN (K-Láng giềng gần nhất). Các thuật toán này có ưu điểm là tốc độ huấn luyện nhanh, dễ dàng tinh chỉnh và đặc biệt phù hợp với các bài toán phân loại văn bản ngắn.\n\nĐiểm đột phá trong khâu tiền xử lý văn bản của đề tài là việc áp dụng kỹ thuật tách từ tiếng Việt (Word Segmentation). Do tiếng Việt là ngôn ngữ đơn lập, nếu chỉ tách văn bản bằng khoảng trắng thông thường, thuật toán sẽ băm nát các cụm từ quan trọng (ví dụ: “nhà thuốc” sẽ bị tách rời thành “nhà” và “thuốc”). Để giải quyết triệt để vấn đề này, hệ thống sử dụng thư viện underthesea nhằm tự động nhận diện và nối các âm tiết thuộc cùng một từ ghép bằng dấu gạch dưới (ví dụ: “nhà_thuốc”, “thiết_bị”). Bước xử lý này giúp bảo toàn trọn vẹn ngữ nghĩa của cụm từ trước khi đưa vào mô hình.\n\nTiếp theo, các chuỗi văn bản đã được tách từ chuẩn xác sẽ được biến đổi thành không gian véc-tơ đặc trưng thông qua thuật toán TF-IDF (Term Frequency - Inverse Document Frequency). Cụ thể, hệ thống trích xuất đặc trưng theo cấu trúc N-gram (từ 1 đến 3 cụm từ liên tiếp) và giới hạn kích thước từ điển tối đa ở mức 15.000 đặc trưng. Quá trình này giúp loại bỏ các từ ngữ nhiễu và chỉ giữ lại những cụm từ mang tính quyết định cao nhất đối với từng ngành nghề. Để đảm bảo kết quả huấn luyện khách quan và ngăn chặn triệt để hiện tượng học vẹt (Overfitting), toàn bộ dữ liệu được chia làm ba tập độc lập theo tỷ lệ: 80% dùng để huấn luyện (Train Set), 10% dùng để tinh chỉnh tham số (Validation Set) và 10% cuối cùng dùng để kiểm thử thực tế (Test Set). Việc chia tách được áp dụng kỹ thuật phân tầng (Stratified split) nhằm duy trì tỷ lệ mẫu đồng đều giữa toàn bộ các danh mục ngành nghề trong cả ba tập dữ liệu.\n\nNhằm tìm ra bộ thông số hoạt động tốt nhất cho từng thuật toán, hệ thống thực hiện quá trình tối ưu hóa siêu tham số (Hyperparameter Tuning) thông qua việc đánh giá lặp vòng trực tiếp trên tập dữ liệu Validation. Cụ thể, đối với Decision Tree, hệ thống tinh chỉnh độ sâu tối đa của cây (max_depth: 10, 20, 30, 40, 50, 60, None), số lượng mẫu tối thiểu để chia nhánh (min_samples_split từ 2 đến 20, bước nhảy 2) và số mẫu tối thiểu ở nút lá (min_samples_leaf từ 1 đến 19, bước nhảy 2). Đối với Random Forest, quá trình dò tìm kết hợp giữa số lượng cây quyết định (n_estimators: 50, 100, 200, 300) và độ sâu tối đa (max_depth: 10, 30, 50, None). Với Multinomial Naive Bayes, hệ thống tập trung điều chỉnh hệ số ước lượng Laplace (0.001, 0.01, 0.1, 0.5, 1.0, 2.0). Để kiểm soát mức độ phạt vi phạm lề, mô hình Logistic Regression và Linear SVC lần lượt được thử nghiệm với tham số điều chuẩn C tại các tập giá trị (0.1, 1.0, 10.0, 100.0) và (0.01, 0.1, 1.0, 10.0). Cuối cùng, thuật toán KNN lặp qua dải giá trị lẻ từ 3 đến 29 (bước nhảy 2) để tìm ra số lượng láng giềng k tối ưu. Các cấu hình tham số mang lại độ chính xác cao nhất trên tập Validation sau đó sẽ được trích xuất để thiết lập trực tiếp vào luồng xử lý (Pipeline) chính thức.\n\nSau khi các mô hình đã được tinh chỉnh hoàn thiện, hệ thống tiến hành đối chiếu năng lực của chúng trên tập dữ liệu kiểm tra độc lập (Test Set). Sự ưu việt của từng thuật toán được lượng hóa thông qua bốn chỉ số đo lường học thuật tiêu chuẩn: Độ chính xác tổng thể (Accuracy), Độ chuẩn xác (Precision), Độ bao phủ (Recall) và Điểm F1-Score. Bên cạnh các con số thống kê, hệ thống tự động xuất ra ma trận nhầm lẫn (Confusion Matrix) dưới dạng biểu đồ nhiệt. Ma trận này cung cấp cái nhìn trực quan về những nhóm ngành nghề mà mô hình thường xuyên nhầm lẫn với nhau, từ đó giúp định hướng các bước cải thiện dữ liệu trong tương lai. Kết thúc quá trình, các mô hình tốt nhất cùng toàn bộ trọng số được lưu trữ vĩnh viễn thành các tệp định dạng .pkl, sẵn sàng tích hợp vào phần mềm nhận diện biển hiệu tổng thể.\n\n2.3. Các công cụ và thư viện hỗ trợ\n\nĐể hiện thực hóa toàn bộ các thuật toán và xây dựng giao diện ứng dụng hoàn chỉnh cho luồng xử lý đa phương thức, đồ án được lập trình hoàn toàn bằng ngôn ngữ Python, kết hợp chặt chẽ với hệ sinh thái mã nguồn mở và các công cụ phát triển đa dạng:\n\nMôi trường phát triển và lập trình (IDE): Toàn bộ mã nguồn của hệ thống được xây dựng, biên tập và gỡ lỗi (debug) chủ yếu trên trình soạn thảo Visual Studio Code (VS Code). Đây là một môi trường phát triển tích hợp nhẹ nhưng mạnh mẽ, hỗ trợ tối ưu cho ngôn ngữ Python thông qua hệ thống tiện ích mở rộng (extensions), giúp việc kiểm thử các kịch bản học máy và xây dựng giao diện trở nên thuận tiện và trực quan.\n\nHọc sâu và thị giác máy tính (Deep Learning & Computer Vision): Khung làm việc (framework) PyTorch được sử dụng làm nền tảng tính toán cốt lõi cho các mạng nơ-ron. Khâu tiền xử lý hình ảnh, cắt ghép và biến đổi phối cảnh được thực hiện linh hoạt qua OpenCV (cv2) và Pillow (PIL). Để nhận diện vùng chữ và bóc tách ký tự, hệ thống tích hợp các bộ thư viện chuyên dụng và mạnh mẽ bao gồm Ultralytics (triển khai mô hình phát hiện đối tượng YOLO), PaddleOCR (định vị khung chữ) và VietOCR (nhận dạng chữ tiếng Việt).\n\nXử lý ngôn ngữ tự nhiên (NLP) và mô hình ngôn ngữ lớn (LLM): Quá trình tải và tinh chỉnh mô hình ngôn ngữ Qwen 0.5B được thực hiện nhờ hệ sinh thái Hugging Face thông qua các thư viện Transformers, PEFT, TRL và BitsAndBytes (hỗ trợ lượng tử hóa 4-bit giúp tối ưu hóa bộ nhớ RAM/VRAM). Đặc biệt, đối với xử lý ngôn ngữ truyền thống, thư viện Underthesea được tích hợp để thực hiện kỹ thuật tách từ tiếng Việt (Word Segmentation), giúp bảo toàn ngữ nghĩa của các từ ghép trước khi đưa vào mô hình phân loại.\n\nHọc máy và xử lý dữ liệu (Machine Learning & Data Processing): Việc xây dựng, tinh chỉnh các mô hình phân loại danh mục cửa hàng (bao gồm Decision Tree, Random Forest, Multinomial Naive Bayes, Logistic Regression, Linear SVC, KNN) và biến đổi văn bản sang không gian véc-tơ (TF-IDF) được hỗ trợ đắc lực bởi bộ thư viện Scikit-learn. Hai thư viện Pandas và NumPy đóng vai trò xử lý cấu trúc và tính toán ma trận cho hàng ngàn dòng dữ liệu một cách nhanh chóng. Cuối cùng, công cụ Joblib được sử dụng để nén và lưu trữ vĩnh viễn các trọng số mô hình sau khi huấn luyện dưới định dạng .pkl.\n\nGiao diện và tiện ích bổ sung (GUI & Utilities): Giao diện người dùng cuối (GUI) của phần mềm thử nghiệm được xây dựng bằng Tkinter, đảm bảo tính trực quan và dễ sử dụng. Để hỗ trợ bài toán phân tích không gian thực tế, thư viện Geopy và thư viện xử lý siêu dữ liệu được tích hợp nhằm tự động trích xuất định vị GPS (EXIF) từ ảnh chụp. Các biểu đồ đánh giá mô hình, hàm mất mát và ma trận nhầm lẫn được trực quan hóa sắc nét bằng Matplotlib và Seaborn.\n\nMôi trường huấn luyện (Training Environment): Đối với các tác vụ đòi hỏi khả năng tính toán đồ họa cao như tinh chỉnh YOLO, VietOCR và Qwen LoRA, toàn bộ quá trình đào tạo được thực thi trên môi trường đám mây Google Colab (sử dụng GPU chuyên dụng). Quá trình huấn luyện các mô hình học máy truyền thống và chạy ứng dụng thử nghiệm được thực hiện trên môi trường máy tính cá nhân.\n\nCHƯƠNG 3. KIỂM THỬ VÀ ĐÁNH GIÁ\n\n3.1. Giao diện sản phẩm\n\nĐể kiểm chứng năng lực hoạt động của các thuật toán và tạo tính tương tác trực quan cho người sử dụng, em đã tiến hành xây dựng một phần mềm thử nghiệm với giao diện đồ họa bằng thư viện Tkinter. Giao diện được thiết kế theo hướng tối giản, chia thành các phần chức năng rõ ràng để người dùng dễ dàng theo dõi toàn bộ luồng xử lý của hệ thống.\n\nKhung tải dữ liệu: Cho phép người dùng dễ dàng chọn và nạp ảnh chụp biển hiệu cần phân tích vào hệ thống để khởi động quá trình trích xuất thông tin.\n\nKhung hiển thị quá trình thị giác máy tính: Cung cấp cho người dùng góc nhìn minh bạch về cách hệ thống xử lý hình ảnh. Bao gồm ảnh gốc với hộp bao (Bounding Box) do YOLOv8 phát hiện, và bức ảnh biển hiệu sau khi đã được hệ thống tự động cắt và nắn phẳng phối cảnh.\n\nKhung kết quả nhận dạng và cấu trúc hóa: Đây là nơi hiển thị đầu ra cuối cùng của hệ thống. Chuỗi văn bản sau khi được VietOCR đọc, Qwen 0.5B + Regex bóc tách sẽ hiển thị gọn gàng dưới định dạng JSON (gồm BRAND, SERVICE, ADDRESS, PHONE). Kết hợp cùng với đó là nhãn danh mục ngành nghề kinh doanh do mô hình học máy phân loại.\n\nBước đầu tiên chúng ta chọn ảnh đầu vào chứa biển hiệu sau đó hệ thống tự động phân tích và nhận dạng vùng chứa biển hiệu, nếu như hình ảnh chỉ chứa một biển hiệu duy nhất thì hệ thống tự động cắt và nắn phẳng biển hiệu, ngược lại thì hệ thống sẽ vẽ những khung chứa biển hiệu và yêu cầu người dùng chọn một trong những biển hiệu đó để xử lý những phần tiếp theo.\n\nHình 7: Hình ảnh minh họa Yolo cắt biển hiệu từ ảnh gốc\n\nHệ thống sẽ tự động nhận dạng biển hiệu, sau đó hệ thống tự động cắt biển hiệu  và nắn  phẳng biển hiệu làm đầu vào tương đối ổn định cho các bước xử lý tiếp theo.\n\nHình 8: Hình ảnh minh họa ảnh được hệ thống xử lý 3 chiều (nắn phẳng).\n\nSau đó hệ thống tự động nhận dạng vùng chứa chữ đến việc xử lý nhận dạng chữ trong vùng chứa chữ, sau đó hiển thị lên giao diện, khung giao diện màu đỏ là các khung chữ được nhận dạng và đọc bởi hệ thống, khung xanh dương là chi tiết đoạn văn bản được đọc và bộ lọc được áp dụng trước khi đưa vào mô hình đọc chữ, khung màu vàng và đen lần lược là ảnh khung chữ được cắt và khung chữ đã áp dụng bộ lọc trước khi đưa vào mô hình đọc chữ.\n\nHình 9: Hình ảnh minh họa các dòng chữ được cắt và nhận dạng\n\nSau khi hệ thống xử lý xong bước nhận dạng chữ, hệ thống sẽ tiếp tục xử lý: nhận dạng địa chỉ và số điện thoại sau đó loại bỏ chúng ta khỏi tập văn bản đầu vào của ngôn ngữ mô hình lớn.\n\nĐối với các văn bản còn lại, hệ thống sẽ ghi nhận vị trí và kích thước của từng dòng chữ trên biển. Việc biết rõ dòng nào nằm ở đâu, to hay nhỏ giúp mô hình ngôn ngữ lớn (Qwen) dễ dàng hình dung được bố cục, từ đó bóc tách chính xác Tên thương hiệu và Dịch vụ để xuất ra định dạng JSON.\n\nKế tiếp, hệ thống gộp tên thương hiệu và dịch vụ lại, đưa qua thư viện underthesea để nối các từ ghép tiếng Việt (ví dụ: “siêu thị” thành “siêu_thị”). Đoạn chữ này sau đó được truyền vào mô hình Linear SVC để phân loại xem cửa hàng đó thuộc ngành nghề gì.\n\nCuối cùng, hệ thống tổng hợp mọi thông tin lại và hiển thị kết quả ra màn hình.\n\nHình 10: Hình ảnh kết quả xử lý của mô hình ngôn ngữ lớn và mô hình phân loại\n\n3.2. Kết quả thực nghiệm\n\n3.2.1. Đánh giá mô hình phát hiện biển hiệu (YOLO)\n\nĐể tìm ra kiến trúc mạng nơ-ron tối ưu nhất cho bài toán phát hiện và khoanh vùng biển hiệu trong môi trường đường phố phức tạp, nghiên cứu đã tiến hành huấn luyện và kiểm thử đối chiếu 22 kịch bản khác nhau. Các kịch bản này là sự kết hợp chéo giữa hai mức độ phân giải ảnh đầu vào (640x640 và 1056x1056 pixel) với 11 biến thể thuộc các thế hệ YOLO. Cụ thể, các cấu trúc mạng được đánh giá bao gồm: ba biến thể của YOLOv8 (Nano - YOLOv8n, Small - YOLOv8s, Medium - YOLOv8m), cùng với các phiên bản kích thước Nano và Small của các thế hệ tiến tiến hơn bao gồm YOLOv9, YOLOv10, YOLOv11 và YOLOv12.\n\nToàn bộ quá trình thực nghiệm được thiết lập đồng nhất với số chu kỳ học (epochs) tối đa là 100, kết hợp với cơ chế dừng sớm (Early Stopping) có độ trễ (patience) là 10 chu kỳ nhằm bảo toàn trọng số tốt nhất và ngăn chặn hiện tượng học vẹt (Overfitting). Khả năng nhận diện và sự ổn định của từng kịch bản được lượng hóa chi tiết thông qua các hàm mất mát (Train/Val Box Loss) và các chỉ số đo lường hiệu năng cốt lõi (Precision, Recall, mAP50, mAP50-95) tại thời điểm mô hình đạt kết quả tốt nhất trước khi dừng.\n\n\n| Version | Input Size (px) | Epochs | Train Box Loss | Val Box Loss | Precision | Recall | mAP50 | mAP50-95 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| YOLOv8n | 640x640 | 22 | 0.61 | 0.71 | 0.85 | 0.77 | 0.87 | 0.70 |\n| YOLOv8n | 1056x1056 | 38 | 0.53 | 0.74 | 0.86 | 0.79 | 0.86 | 0.68 |\n| YOLOv8s | 640x640 | 30 | 0.48 | 0.76 | 0.87 | 0.79 | 0.88 | 0.71 |\n| YOLOv8s | 1056x1056 | 35 | 0.44 | 0.76 | 0.81 | 0.86 | 0.87 | 0.69 |\n| YOLOv8m | 640x640 | 28 | 0.44 | 0.65 | 0.86 | 0.82 | 0.87 | 0.74 |\n| YOLOv8m | 1056x1056 | 28 | 0.45 | 0.73 | 0.86 | 0.82 | 0.88 | 0.73 |\n| YOLOv9t | 640x640 | 70 | 0.58 | 0.68 | 0.85 | 0.84 | 0.89 | 0.71 |\n| YOLOv9t | 1056x1056 | 62 | 0.60 | 0.72 | 0.88 | 0.80 | 0.89 | 0.70 |\n| YOLOv9s | 640x640 | 50 | 0.63 | 0.72 | 0.86 | 0.83 | 0.90 | 0.71 |\n| YOLOv9s | 1056x1056 | 50 | 0.65 | 0.68 | 0.87 | 0.81 | 0.89 | 0.70 |\n| YOLOv10n | 640x640 | 50 | 0.7 | 0.80 | 0.78 | 0.86 | 0.67 |  |\n| YOLOv10n | 1056x1056 | 70 | 0.65 | 0.75 | 0.88 | 0.78 | 0.88 | 0.68 |\n| YOLOv10s | 640x640 | 75 | 0.55 | 0.78 | 0.84 | 0.89 | 0.71 |  |\n| YOLOv10s | 1056x1056 | 65 | 0.65 | 0.75 | 0.85 | 0.78 | 0.88 | 0.69 |\n| YOLOv11n | 640x640 | 45 | 0.70 | 0.80 | 0.85 | 0.80 | 0.87 | 0.68 |\n| YOLOv11n | 1056x1056 | 68 | 0.60 | 0.75 | 0.88 | 0.82 | 0.89 | 0.70 |\n| YOLOv11s | 640x640 | 48 | 0.65 | 0.75 | 0.85 | 0.80 | 0.88 | 0.70 |\n| YOLOv11s | 1056x1056 | 85 | 0.55 | 0.70 | 0.88 | 0.85 | 0.90 | 0.72 |\n| YOLOv12n | 640x640 | 35 | 0.80 | 0.81 | 0.80 | 0.78 | 0.88 | 0.65 |\n| YOLOv12n | 1056x1056 | 55 | 0.70 | 0.75 | 0.85 | 0.80 | 0.89 | 0.69 |\n| YOLOv12s | 640x640 | 50 | 0.72 | 0.78 | 0.85 | 0.80 | 0.89 | 0.69 |\n| YOLOv12s | 1056x1056 | 70 | 0.68 | 0.78 | 0.84 | 0.83 | 0.90 | 0.70 |\n\nBảng 3: Tổng hợp các chỉ số đánh giá hiệu năng chi tiết các kịch bản YOLO.\n\nPhân tích sâu vào các chỉ số từ bảng tổng hợp và biểu đồ huấn luyện, có thể rút ra những đánh giá quan trọng mang tính quy luật về hành vi học của mạng YOLOv8 đối với bài toán nhận diện biển hiệu. Xét về tác động của độ phân giải đầu vào, theo lý thuyết, việc tăng độ phân giải lên 1056x1056 sẽ giúp mô hình trích xuất được các đặc trưng nhỏ và chi tiết hơn. Tuy nhiên, thực nghiệm lại cho thấy kết quả đi ngược với kỳ vọng. Ở tất cả các biến thể từ Nano, Small đến Medium, khi đẩy độ phân giải lên mức 1056, chỉ số Val Box Loss đều cao hơn và mAP50-95 lại bị sụt giảm đáng kể (điển hình như bản Small giảm từ 0.712 xuống 0.685).\n\nNguyên nhân cốt lõi của hiện tượng sụt giảm này bắt nguồn từ chính tiêu chí gán nhãn (labeling criteria) của tập dữ liệu. Nhằm phục vụ tối ưu cho khâu nhận dạng chữ (OCR) phía sau, chiến lược gán nhãn đã chủ động loại bỏ, không đánh dấu các biển hiệu ở quá xa, bị che khuất nghiêm trọng hoặc mất chữ không thể bóc tách thông tin. Khi đẩy độ phân giải lên mức siêu cao 1056, mạng nơ-ron trở nên quá nhạy bén và phát hiện ra cả những tấm biển lờ mờ, khuất lấp ở tít hậu cảnh. Do những đối tượng này cố tình không được gán nhãn trong dữ liệu gốc (Ground Truth), hệ thống tự động đánh giá đó là các dự đoán sai (False Positives), dẫn đến việc hàm mất mát trên tập kiểm thử bị đội lên cao và làm giảm độ chính xác khắt khe của hộp bao.\n\nBên cạnh yếu tố độ phân giải, hiện tượng quá khớp (Overfitting) cũng thể hiện rõ rệt ở các kiến trúc mạng có kích thước nhỏ. Quan sát sự chênh lệch giữa Train Box Loss và Val Box Loss, các biến thể Nano và Small hội tụ khá nhanh ở những chu kỳ đầu. Tuy nhiên, đồ thị Validation Loss của chúng nhanh chóng có dấu hiệu đảo chiều, tăng ngược lên mức 0.75 - 0.76 sau chu kỳ thứ 15 đến 20. Điều này minh chứng cho việc giới hạn về số lượng tham số của mạng nhỏ khiến chúng dễ bị “học vẹt” trên tập dữ liệu huấn luyện mà đánh mất đi độ chính xác khi dự đoán trên tập kiểm thử, buộc cơ chế Early Stopping phải can thiệp cắt ngang quá trình học từ rất sớm.\n\nVượt lên trên những hạn chế đó, kiến trúc YOLOv8 Medium với độ phân giải 640x640 đã thể hiện sự ưu việt và cân bằng hoàn hảo nhất trong kịch bản thử nghiệm thế hệ v8. Đây là cấu hình ép được chỉ số Val Box Loss xuống mức cực thấp (0.653). Điều này chứng tỏ khả năng học véc-tơ đặc trưng của biển hiệu rất ổn định, bám sát đúng định hướng của tiêu chí gán nhãn. Mặc dù chỉ số mAP50 (0.867) gần tương đương với các biến thể khác, nhưng chỉ số mAP50-95 của bản Medium 640 lại chạm mức rất cao là 0.738. Trong bài toán trích xuất văn bản, chỉ số mAP50-95 cao mang ý nghĩa sống còn, đồng nghĩa với việc hộp bao cắt ra sẽ ôm sát viền biển hiệu một cách chính xác tuyệt đối, giảm thiểu dải nền rác, cung cấp những vùng ảnh sạch sẽ nhất cho module nhận dạng chữ.\n\nMở rộng phân tích sang các thế hệ thuật toán mới hơn từ YOLOv9 đến YOLOv12, một xu hướng thú vị được bộc lộ: sự đánh đổi giữa kiến trúc hiện đại và độ bám sát miền dữ liệu đặc thù. Mặc dù các phiên bản như YOLOv11 Small hay YOLOv12 Small cho thấy sự cải thiện đáng kể về chỉ số mAP50 (chạm ngưỡng 0.9), nhưng ở chỉ số mang tính quyết định là mAP50-95, toàn bộ các mô hình thế hệ mới thuộc phân khúc Nano và Small đều không thể vượt qua đỉnh cao 0.738 của YOLOv8 Medium (chỉ dao động ở mức 0.67 - 0.72). Thêm vào đó, quy luật về tác động tiêu cực của độ phân giải đầu vào 1056x1056 vẫn lặp lại nhất quán. Khả năng trích xuất đặc trưng ngày càng tinh vi của các kiến trúc mới vô tình khiến mạng nơ-ron càng trở nên nhạy cảm, dễ dàng bắt nhầm các biển hiệu lờ mờ hoặc logo rời rạc nằm khuất sâu ở hậu cảnh hay không có đủ thông tin để trích xuất vốn đã bị chủ động loại bỏ khỏi tập Ground Truth. Việc phát hiện thừa này khiến hàm mất mát Val Box Loss tiếp tục duy trì ở mức cao và không thể tối ưu triệt để.\n\nHơn thế nữa, khi đặt trong bức tranh tổng thể của việc xây dựng một hệ thống bản đồ cửa hàng thông minh khép kín, tiêu chí lựa chọn mô hình không chỉ dừng lại ở các thông số lý thuyết mà còn bị chi phối mạnh mẽ bởi khả năng tương thích môi trường triển khai. Các phiên bản từ YOLOv9 đến YOLOv12 đòi hỏi hệ thống phải cập nhật bộ thư viện Ultralytics và các framework cốt lõi lên những phiên bản rất mới. Điều này vô hình trung tạo ra rào cản và xung đột môi trường (dependency conflicts) nghiêm trọng khi cấu hình hệ thống chạy local. Cụ thể, các module cốt cán ở chặng sau như PaddleOCR (đảm nhiệm kiến trúc DBNet phục vụ phát hiện chữ) hay VietOCR (sử dụng kiến trúc Transformer để nhận dạng văn bản tiếng Việt) thường yêu cầu các phiên bản thư viện ổn định và đặc thù hơn. Việc cố gắng nâng cấp chéo môi trường chỉ để tích hợp một mô hình phát hiện đối tượng đời mới có nguy cơ làm phá vỡ tính đồng bộ, gây lỗi nền tảng cho toàn bộ hệ thống (hybrid pipeline).\n\nChốt lại, dựa trên những luận điểm vững chắc về sự ổn định của hàm mất mát, khả năng khoanh vùng chính xác nhất (mAP50-95 cao nhất), sự phù hợp tuyệt đối với chiến lược dữ liệu, cũng như tính khả thi và an toàn trong kỹ thuật phần mềm, nghiên cứu quyết định lựa chọn mô hình YOLOv8 Medium với độ phân giải 640x640 làm bộ trọng số phát hiện đối tượng chính thức cho toàn bộ hệ thống.\n\nBên cạnh các chỉ số đánh giá tổng quát trong quá trình huấn luyện, năng lực thực tế của kịch bản tốt nhất (YOLOv8m - 640x640) tiếp tục được kiểm chứng chuyên sâu thông qua ma trận nhầm lẫn (Confusion Matrix) và kết quả dự đoán trực quan trên tập kiểm thử.\n\nHình 11: Ma trận nhầm lẫn mô hình Yolo_medium_640px\n\nPhân tích chi tiết từ ma trận nhầm lẫn trên, có thể thấy tỷ lệ dự đoán đúng đối tượng biển hiệu (True Positive) đạt mức 81% (0.81). Đây là một kết quả khả quan, cho thấy mô hình đã học được các đặc trưng không gian cốt lõi để khoanh vùng thành công đại đa số các biển hiệu trên thực tế. Điểm sáng lớn nhất của mô hình nằm ở khả năng kháng nhiễu xuất sắc: tỷ lệ nhận diện nhầm cảnh nền thành biển hiệu (False Positive) được kiểm soát ở mức cực kỳ thấp, chỉ 3% (0.03). Điều này chứng tỏ hệ thống rất hiếm khi bị “đánh lừa” bởi các yếu tố gây nhiễu thị giác trên đường phố như cửa cuốn có in chữ, các mảng tường nhiều màu sắc hay xe cộ qua lại.\n\nMặt khác, tỷ lệ bỏ sót đối tượng (False Negative - biển hiệu bị dự đoán nhầm thành cảnh nền) đang ghi nhận ở mức 19% (0.19). Mặc dù thoạt nhìn đây là một con số mang tính đánh đổi, nhưng khi đối chiếu với đặc thù của luồng dữ liệu, kết quả này là hoàn toàn hợp lý và nằm trong dự tính. Hầu hết các trường hợp bỏ sót đều rơi vào những tấm biển nằm ở tít hậu cảnh (quá nhỏ), bị che khuất nghiêm trọng bởi mớ dây điện chằng chịt, hoặc góc chụp bị khuất lấp khiến cấu trúc hộp chữ nhật của biển hiệu bị biến dạng hoàn toàn. Đối với mục tiêu xây dựng cơ sở dữ liệu cho bản đồ thông minh, việc thuật toán chủ động bỏ qua các biển hiệu mờ nhạt, không đủ điều kiện để trích xuất thông tin chữ này thực chất lại là một cơ chế tự chắt lọc hữu ích. Nó giúp hệ thống không bị lãng phí tài nguyên xử lý vào những vùng ảnh rác, từ đó cung cấp hình ảnh đầu ra sạch sẽ và chất lượng nhất cho module nhận dạng quang học (VietOCR) ở giai đoạn tiếp theo.\n\nNgoài ra kết quả nhận dạng trên dữ liệu thực tế nhìn chung tương đối tốt, mô hình nhận dạng với sai số khung chứa biển hiệu nhỏ, các biển hiệu được nhận dạng với độ tự tin cao, kết quả của mô hình này đã đạt được yêu cầu cơ bản cho bước đầu cắt ảnh biển hiệu ra khỏi ảnh chụp để chuyển sang các quá trình xử lý tiếp tục một cách tốt nhất như hình ảnh minh họa phía dưới.\n\nHình 12: Kết quả nhận dạng biển hiệu trên hình ảnh thực tế trên tập kiểm thử\n\n3.2.2 Đánh giá mô hình VietOCR sau quá trình tinh chỉnh (Fine-tuning)\n\nĐể kiểm chứng hiệu quả của việc tinh chỉnh (fine-tuning) mô hình nhận dạng chữ VietOCR trên tập dữ liệu biển hiệu thực tế, nghiên cứu đã tiến hành đánh giá và đối chiếu hiệu năng giữa hai phiên bản: Mô hình gốc (Base Model - sử dụng bộ trọng số pre-trained tiêu chuẩn) và mô hình tinh chỉnh (Fine-tuned Model - đã qua quá trình đào tạo với chiến lược dữ liệu đa tầng của đề tài).\n\nQuá trình kiểm thử được thực hiện độc lập, nghiêm ngặt trên tập dữ liệu kiểm thử (Test Set) chiếm 5% tổng số lượng mẫu. Năng lực của các mô hình được lượng hóa thông qua hai thang đo tiêu chuẩn trong bài toán nhận dạng văn bản: Độ chính xác tuyệt đối ở cấp độ chuỗi (Sequence Accuracy) và tỷ lệ lỗi ký tự (Character Error Rate - CER).\n\n\n| Phiên bản Mô hình | Độ chính xác tuyệt đối (Accuracy) | Tỉ lệ lỗi ký tự (CER) |\n| --- | --- | --- |\n| Mô hình gốc (Base) | 27.15% | 28.05% |\n| Mô hình tinh chỉnh (Fine-tuned) | 96.27% | 0.90% |\n\nBảng 4: So sánh khả năng nhận dạng giữa VietOCR và phiên bản đã tinh chỉnh\n\nPhân tích sâu vào các chỉ số từ bảng kết quả, có thể thấy sự chênh lệch hiệu năng giữa hai phiên bản là vô cùng lớn. Mô hình gốc chỉ đạt mức độ chính xác khá khiêm tốn là 27.15%, đồng nghĩa với việc tỷ lệ dự đoán sai chuỗi ký tự trên biển hiệu là rất cao, kéo theo tỷ lệ lỗi ký tự (CER) lên đến 28.05%. Nguyên nhân cốt lõi của sự thất bại này là do mô hình gốc chủ yếu được huấn luyện trên các loại văn bản in chuẩn mực trong điều kiện môi trường lý tưởng. Khi phải đối mặt với đặc thù phức tạp của biển hiệu ngoài trời tại Việt Nam: bao gồm vô số phông chữ cách điệu, chữ nét nổi, chữ thư pháp, cùng với điều kiện môi trường chụp bị che khuất hoặc lóa sáng, mạng nơ-ron gốc đã hoàn toàn bị ngợp. Đặc biệt, cấu trúc không gian phức tạp của hệ thống dấu câu tiếng Việt kết hợp với nhiễu nền đã làm đứt gãy khả năng suy luận ngữ cảnh của kiến trúc Transformer nguyên bản.\n\nNgược lại, mô hình sau khi tinh chỉnh đã chứng minh sự vượt trội mang tính đột phá khi độ chính xác tuyệt đối tăng vọt lên mức 96.27% và tỷ lệ lỗi ký tự giảm xuống ngưỡng xấp xỉ 0 (chỉ còn 0.90%). Bước nhảy vọt về mặt số liệu này là minh chứng rõ ràng cho sự thành công của chiến lược xây dựng và trộn dữ liệu đa tầng (Mixed-data Strategy).\n\nViệc nạp vào mạng nơ-ron hàng ngàn mẫu dữ liệu thực tế kết hợp với 100.000 ảnh dòng chữ nhân tạo được mô phỏng chi tiết các hiệu ứng quang học (như làm mờ Gaussian, nhiễu hạt) và biến đổi hình học (xô nghiêng, xoay góc) đã giúp mô hình thích nghi hoàn toàn với sự khắc nghiệt của môi trường đường phố. Mạng Transformer lúc này không chỉ đơn thuần là đọc từng chữ cái rời rạc, mà đã học được thói quen tự chú ý (self-attention) tới các đặc trưng không gian của phông chữ hiệu, qua đó khôi phục chuẩn xác các dấu thanh tiếng Việt ngay cả khi chữ bị đổ bóng hay chồng lấp màu nền\n\nĐể làm rõ hơn sự chênh lệch về hiệu suất này, hình bên dưới sẽ minh họa trực quan kết quả nhận dạng thực tế của hai mô hình.\n\nHình 13: Hình ảnh minh họa so sánh 2 mô hình trước và sau khi finetune\n\nPhiên bản tinh chỉnh duy trì độ ổn định vượt trội và khắc phục hoàn toàn tình trạng dự đoán sai lệch các nhãn văn bản phức tạp thường gặp ở mô hình gốc. Với tỷ lệ lỗi ký tự (CER) được nén xuống chỉ còn 0.90%, khâu nhận dạng chữ hiện tại đã cung cấp một nguồn dữ liệu văn bản thô cực kỳ sạch sẽ và chính xác giúp triệt tiêu hiện tượng sai lệch thông tin từ sớm và giảm thiểu tối đa gánh nặng cho mô hình ngôn ngữ lớn (LLM Qwen 0.5B) ở khâu bóc tách ngữ nghĩa tiếp theo.\n\n3.2.3.Đánh giá mô hình ngôn ngữ lớn (Qwen 0.5B) trong tác vụ bóc tách ngữ nghĩa\n\nMục tiêu của giai đoạn này là đánh giá khả năng bóc tách thông tin từ chuỗi OCR thô thành định dạng JSON có cấu trúc. Khác với các thử nghiệm trước đó, trong kiến trúc lai (Hybrid Pipeline) hiện tại, các trường dữ liệu mang tính khuôn mẫu như số điện thoại (PHONE) và địa chỉ (ADDRESS) đã được bộ lọc biểu thức chính quy (Regex) xử lý triệt để và gạt bỏ. Do đó, bài toán đặt ra cho LLM trở nên chuyên biệt và khó khăn hơn: mô hình phải tập trung toàn bộ năng lực để phân định các ngữ cảnh nhập nhằng giữa tên thương hiệu (BRAND), dịch vụ cung cấp (SERVICE) và các thông tin khác (O).\n\nNghiên cứu tiến hành đánh giá đối chiếu hiệu năng giữa Mô hình Gốc (Base Qwen 0.5B) và Mô hình tinh chỉnh (Finetuned LoRA Qwen 0.5B) trên 101 mẫu biển hiệu thực tế đã được chuẩn hóa. Kết quả cho thấy mô hình gốc bộc lộ sự yếu kém rõ rệt khi đối mặt với tác vụ yêu cầu định dạng cấu trúc, với tỷ lệ khớp tuyệt đối ở các trường cốt lõi như BRAND và SERVICE chỉ vỏn vẹn ở mức 4.0% và 5.0%. Mô hình gốc liên tục sinh ra các văn bản rác ngoài lề khiến tỷ lệ lỗi ký tự (CER - Character Error Rate) tổng thể bị đẩy lên mức 102.71%. Ngược lại, phiên bản tinh chỉnh LoRA đã khắc phục triệt để lỗi định dạng, đảm bảo 100% kết quả trả về là chuỗi JSON hợp lệ, đồng thời kéo giảm CER tổng thể xuống chỉ còn 62.42%.\n\n\n| Trường thông tin | Base Exact | LoRA Exact | Base CER | LoRA CER |\n| --- | --- | --- | --- | --- |\n| BRAND  (Thương hiệu) | 4.0% | 55.4% | 82.9% | 40.0% |\n| SERVICE  (Dịch vụ) | 5.0% | 58.4% | 109.4% | 60.3% |\n| O (Nhiễu/Khác) | 42.6% | 52.5% | 131.3% | 115.4% |\n\nBảng 5: So sánh khả năng bóc tách chi tiết từng trường thông tin (Base vs LoRA)\n\nDựa vào bảng số liệu, có thể thấy mô hình tinh chỉnh xử lý tương đối đồng đều ở cả ba trường dữ liệu phức tạp. Tỷ lệ nhận diện khớp tuyệt đối (Exact Match) sau khi đã chuẩn hóa văn bản đối với trường SERVICE đạt mức cao nhất (58.4%), theo sát là BRAND (55.4%) và nhãn O (52.5%). Sự cải thiện vượt bậc thể hiện rõ nhất ở chỉ số CER của trường BRAND khi giảm mạnh từ 82.9% ở mô hình gốc xuống chỉ còn 40.0% ở mô hình LoRA.\n\nTuy nhiên, việc tỷ lệ chính xác tuyệt đối dao động quanh mức 52-58% xuất phát từ những giới hạn mang tính bản chất của mạng nơ-ron nhỏ và sự khắt khe của hệ thống đánh giá. Thứ nhất, với quy mô chỉ 0.5 tỷ tham số, mô hình đôi khi bị mất tập trung dẫn đến hiện tượng bỏ sót từ. Ngoài ra, thuật toán chấm điểm Exact Match trừng phạt cực kỳ nặng các lỗi về khoảng trắng (ví dụ: chuỗi “SUKEM” bị LLM tách thành “SU KEM”) hoặc các lỗi chính tả nhỏ do VietOCR ở bước trước (ví dụ: cụm “CHIẾT XUẤT” bị OCR đọc nhầm và AI dự đoán theo thành \"CHIẾC XUẤT\"). Những lỗi vi mô này khiến tỷ lệ khớp tuyệt đối bị kéo giảm nghiêm trọng mặc dù ngữ nghĩa cốt lõi không hề bị thay đổi.\n\nThứ hai, đặc thù ngôn ngữ trên biển hiệu đường phố thường có sự liên kết trong cách gom cụm thực thể. Một trường hợp tiêu biểu được ghi nhận trong tập kiểm thử là biển hiệu “MM Mega Market”. Nhãn gốc (Ground Truth) do người gán đã tách rạch ròi chữ “MM” thành thông tin phụ (O) và “Mega Market” là thương hiệu (BRAND). Tuy nhiên, mô hình LLM đã tổng hợp ngữ cảnh và tự động gộp toàn bộ thành một cụm BRAND hoàn chỉnh là “MM Mega Market”. Về mặt ứng dụng thực tiễn, hành vi gom cụm này của mô hình là có thể chấp nhận được đối với một tên thương hiệu, nhưng khi đối chiếu máy móc với bộ nhãn gốc thì trường hợp trên vẫn đánh dấu đây là một trường hợp dự đoán sai lệch.\n\nNhìn chung, dù còn một số hạn chế về năng lực suy luận sâu và sai số từ hiện tượng phân mảnh văn bản, việc tinh chỉnh LoRA đã giúp Qwen 0.5B hoàn thành cơ bản vai trò phân tích ngữ cảnh trong đường ống xử lý đa phương thức. Mô hình đã chuẩn hóa cấu trúc JSON thành công và bóc tách hiệu quả các thông tin phi cấu trúc, tạo ra nguồn dữ liệu đầu vào ổn định để hỗ trợ cho thuật toán phân loại danh mục ở giai đoạn cuối cùng.\n\n3.2.4. Đánh giá các mô hình học máy phân loại danh mục\n\nMục tiêu cốt lõi của khâu xử lý cuối này là tự động hóa việc phân loại cửa hàng vào 18 danh mục ngành nghề kinh doanh. Đầu vào của mô hình là các chuỗi văn bản (được gộp chung từ tên thương hiệu và dịch vụ) sau khi trải qua bước tách từ tiếng Việt (Word Segmentation) đã được mã hóa thành không gian véc-tơ đặc trưng thông qua kỹ thuật TF-IDF. Nhằm tìm ra giải pháp định danh tối ưu nhất, đồ án đã tiến hành thực nghiệm và đối chiếu hiệu năng trên sáu thuật toán học máy phân loại văn bản tiêu biểu: Decision Tree, Random Forest, Multinomial Naive Bayes, Logistic Regression, Linear SVC và KNN.\n\nNhìn vào biểu đồ so sánh tổng thể trên tập dữ liệu kiểm thử độc lập (Test Set), kết quả cho thấy sự phân hóa hiệu năng rõ rệt thành hai nhóm. Nhóm các thuật toán tuyến tính và xác suất thể hiện sự áp đảo tuyệt đối. Nhờ khả năng phân tách siêu phẳng xuất sắc trong không gian đa chiều và bảo toàn tốt ngữ nghĩa từ vựng, mô hình Linear SVC đã đạt độ chính xác 97.45%. Multinomial Naive Bayes (97.40%) và Logistic Regression (97.29%). Ở chiều ngược lại, nhóm các thuật toán dựa trên phân chia ranh giới và tính toán khoảng cách vật lý tỏ ra yếu thế hơn khi xử lý không gian dữ liệu văn bản phức tạp, trong đó Random Forest đạt 92.79%, KNN đạt 90.19%, và bộc lộ nhiều hạn chế nhất là thuật toán Decision Tree cơ bản khi chỉ dừng lại ở mức 88.08%. Sự vượt trội và ổn định của Linear SVC qua các bài kiểm thử đã khẳng định đây là thuật toán nên được lựa chọn làm mảnh ghép cuối cùng trong luồng xử lý tự động của hệ thống.\n\nHình 14: Biểu đồ so sánh độ chính xác của các mô hình phân loại danh mục\n\nĐi sâu vào phân tích năng lực của từng thuật toán thông qua ma trận nhầm lẫn (Confusion Matrix), kết quả thực nghiệm đã phơi bày rõ nét những đặc tính riêng biệt của từng mô hình khi đối mặt với không gian dữ liệu văn bản đường phố. Thứ tự hiệu năng được ghi nhận từ thấp đến cao như sau:\n\nBắt đầu với thuật toán đạt mức hiệu năng thấp nhất là Cây quyết định (Decision Tree) với độ chính xác tổng thể 88.08%. Nhìn vào ma trận nhầm lẫn, mặc dù đường chéo chính (thể hiện số lượng dự đoán đúng) vẫn hiện diện, nhưng không gian xung quanh xuất hiện rất nhiều vùng nhiễu phân tán. Đáng chú ý, mô hình có xu hướng nhầm lẫn khá nhiều mẫu thuộc nhóm “Xe Cộ & Phương Tiện” sang \"Mua Sắm\" (6 mẫu), hoặc “Y Tế & Sức Khỏe” sang “Tài Chính & Doanh Nghiệp” (7 mẫu). Sự chệch hướng này xuất phát từ bản chất của thuật toán: cấu trúc phân nhánh rập khuôn rất nhạy cảm với các từ vựng giao thoa và dễ bị học vẹt (overfitting) cục bộ. Dù tốc độ huấn luyện nhanh, Cây quyết định tỏ ra quá mỏng manh để xử lý các biến thể văn bản lộn xộn từ thực tế.\n\nHình 15: Ma trận nhầm lẫn cây quyết định\n\nTiếp theo là thuật toán K-Láng giềng gần nhất (KNN) với độ chính xác đạt 90.19%. Phân tích biểu đồ của KNN bộc lộ một khuyết điểm cực kỳ nghiêm trọng trong việc phân tách không gian: xuất hiện một vệt dự đoán sai dồn dập dóng theo cột dọc của nhãn “Tài Chính & Doanh Nghiệp”. Rất nhiều lớp dữ liệu hoàn toàn khác biệt như “Ẩm Thực” (21 mẫu bị nhận diện sai), “Y Tế & Sức Khỏe” (17 mẫu), và “Vận Tải & Kho Bãi” (17 mẫu) đều bị mô hình dự đoán vào danh mục này. Hiện tượng này là minh chứng điển hình khi véc-tơ TF-IDF phình to lên 15.000 chiều, các phép đo khoảng cách vật lý của KNN mất đi ý nghĩa thống kê trọng yếu, khiến thuật toán bị mất phương hướng và dự đoán lệch hẳn về một vùng không gian có mật độ từ vựng vô tình trùng khớp.\n\nHình 16: Ma trận nhầm lẫn K-Láng Giềng gần nhất\n\nBước sang mô hình Rừng ngẫu nhiên (Random Forest), độ chính xác đã có sự cải thiện  lên mức 92.79%. Nhờ cơ chế học tập hợp (Ensemble learning) kết hợp nhiều cây quyết định, đường chéo chính của ma trận trở nên đậm, liền mạch và các điểm nhiễu ngoại lai giảm đi trông thấy so với mô hình cây quyết định đơn lẻ. Dù vậy, biểu đồ vẫn ghi nhận một số nhầm lẫn nhỏ ở các ranh giới ngành nghề có từ khóa dùng chung (ví dụ: “Công Nghệ & Điện Máy” bị nhầm sang “Mua Sắm” 5 mẫu). Nhìn chung, Random Forest là một mô hình kháng nhiễu tốt, nhưng việc duy trì hàng trăm cây quyết định khiến thời gian suy luận chậm hơn đôi chút và chưa phải là tối ưu nhất.\n\nHình 17: Ma trận nhầm lẫn Random Forest\n\nBứt phá mạnh mẽ ở nhóm dẫn đầu là thuật toán Hồi quy logistic (Logistic Regression) với độ chính xác vọt lên mức 97.29%. Ma trận nhầm lẫn của mô hình này thể hiện một cấu trúc phân loại sắc bén: đường chéo chính cực kỳ đậm và vùng không gian bên ngoài gần như trắng hoàn toàn. Các lỗi sai số chỉ đếm trên đầu ngón tay (ví dụ: “Mua Sắm” nhầm sang “Tài Chính & Doanh Nghiệp” 4 mẫu). Thuật toán này chứng minh khả năng xuất sắc trong việc thiết lập ranh giới tuyến tính, đồng thời có thể cung cấp điểm số xác suất rất hữu ích để hệ thống phần mềm thiết lập các ngưỡng cảnh báo an toàn.\n\nHình 18: Ma trận nhầm lẫn Logistic Regression\n\nNaive Bayes  đạt kết quả rất tốt với độ chính xác 97.40%. Trực quan từ biểu đồ cho thấy một dải phân phối tiệm cận mức hoàn hảo. Ở hầu hết 18 nhãn, thuật toán đều đoán đúng khoảng 100 mẫu cho mỗi lớp và các điểm nhiễu bên ngoài đa số chỉ lệch 1 mẫu. Điều này khẳng định sự tương thích tuyệt đối giữa thuật toán Naive Bayes và cấu trúc phân phối đếm tần suất của dữ liệu văn bản. Nhờ tích hợp ước lượng Laplace, mô hình loại bỏ hoàn toàn rủi ro khi gặp từ khóa mới, biến nó thành một công cụ phân loại siêu nhẹ và cực kỳ tốc độ.\n\nHình 19: Ma trận nhầm lẫn Naives Bayes\n\nDẫn đầu độ chính xác của các mô hình máy học là véc-tơ hỗ trợ tuyến tính (Linear SVC) với mức độ chính xác cao 97.45%. Hình ảnh ma trận của Linear SVC là minh chứng rõ nét nhất cho sự phân loại chính xác: đường chéo chính đặc, sắc nét nhất và các ô nhiễu gần như bị triệt tiêu hoàn toàn (rất nhiều cột sai số hiển thị số 0). Mô hình đã xuất sắc tìm ra siêu phẳng (hyperplane) tối ưu để chia cắt rành mạch 18 vùng không gian ngành nghề, đồng thời sử dụng linh hoạt hệ số điều chuẩn để nới lỏng lề, ngăn chặn triệt để hiện tượng học vẹt.\n\nHình 20: Ma trận nhầm lẫn Linear SVC\n\nThông qua quá trình so sánh trên 6 thuật toán máy học, các mô hình dựa trên phân tách ranh giới tuyến tính và xác suất (Linear SVC, Naive Bayes, Logistic Regression) đã áp đảo hoàn toàn các mô hình phân chia theo khoảng cách và luật nhánh (Decision Tree, Random Forest, KNN). Đặc biệt, với đường chéo phân loại hoàn hảo nhất, khả năng tổng quát hóa kháng nhiễu vượt trội và tốc độ dự đoán tức thì, mô hình Linear SVC đã khẳng định vị thế ưu việt tuyệt đối. Vì vậy, mô hình này được lựa chọn để phân loại danh mục cửa hàng của hệ thống.\n\n3.2.5. Đánh giá hệ thống\n\nSau khi kiểm định và tinh chỉnh độc lập từng mô hình thành phần ở các mục trước, nghiên cứu tiến hành đánh giá hiệu năng và tính ổn định của toàn bộ luồng xử lý khép kín (End-to-End Pipeline). Quá trình này bắt đầu từ lúc hệ thống tiếp nhận một bức ảnh đường phố thô, trải qua các khâu xử lý như phát hiện biển hiệu, đọc chữ, phân tích ngữ nghĩa và phân loại danh mục. Việc đánh giá được thực hiện trực tiếp thông qua một tệp nhật ký hệ thống ghi nhận 20 mẫu chạy thử nghiệm (các hình ảnh cụ thể sẽ được giới thiệu phụ lục 4), giúp phản ánh chân thực nhất tốc độ và khả năng phối hợp của 4 mô hình trí tuệ nhân tạo (YOLOv8, PaddleOCR, VietOCR, Qwen 0.5B + Regex) cùng thuật toán phân loại Linear SVC trên môi trường máy tính cá nhân tiêu chuẩn(chỉ chạy trên cpu).\n\n\n| Giai đoạn xử lý trong Pipeline | Tên mô hình / Khối chức năng | Thời gian trung bình (Giây) | Tỷ trọng (%) |\n| --- | --- | --- | --- |\n| Tiền xử lý & Cắt ảnh | YOLOv8 (Phát hiện biển hiệu) | ~ 0.35s | ~ 2.5% |\n|  | Rectify_3D (Nắn phẳng phối cảnh) | ~ 0.29s | ~ 2.1% |\n| Nhận dạng văn bản (OCR) | PaddleOCR_Det (Định vị hộp chữ) | ~ 0.17s | ~ 1.2% |\n|  | VietOCR_Rec (Đọc chữ tiếng Việt) | ~ 2.44s | ~ 17.5% |\n| Bóc tách ngữ nghĩa | LLM Qwen 2.5 0.5B + Regex | ~ 10.68s | ~ 76.7% |\n| Phân loại danh mục | Linear SVC | ~ 0.002s | ~ 0.01% |\n| Tổng thời gian trung bình | Luồng xử lý hoàn chỉnh | ~ 13.93s | 100% |\n\nBảng 6: Thống kê thời gian xử lý trung bình của từng giai đoạn\n\nVề mặt độ chính xác, trong một đường ống xử lý tuần tự, kết quả tổng thể không phải là phép cộng trung bình của các mô hình mà tuân theo quy luật suy hao dây chuyền: lỗi ở khâu trước sẽ nhân lên và làm giảm hiệu năng ở khâu sau. Để đánh giá một cách thực tiễn, nghiên cứu định nghĩa việc “Trích xuất thành công toàn diện (end to end success)” là khi hệ thống định vị đúng biển hiệu, đọc chữ tương đối tốt, LLM bóc tách đúng thông tin cốt lõi (Brand/Service) và dự đoán đúng danh mục kỳ vọng.\n\n\n| STT | Biển hiệu đại diện | YOLO | DBNet | VietOCR | LLM & Regex | Phân Loại (Linear SVC) | Tổng thể |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| 1 | Winmart (img_5) | Tốt | Đúng  (Siêu Thị & Tạp Hóa) | 100% |  |  |  |\n| 2 | Quán Cà Phê (img_34) | Tốt | Đúng  (Đồ Uống) | 100% |  |  |  |\n| 3 | Cà Phê Võng Phố (img_38) | Tốt | Một số khung cắt sai | Tốt | Tên riêng bị bỏ qua | Đúng  (Đồ Uống) | 85% |\n| 4 | Hớt Tóc Nam  Thảo Loan 2 (img_42) | Tốt | Đúng  (Làm Đẹp & Spa) | 100% |  |  |  |\n| 5 | Tạp Hóa Kiều Vy (img_50) | Tốt | Bắt dư ở trường Brand | Đúng  (Siêu Thị & Tạp Hóa) | 90% |  |  |\n| 6 | Bún Mắm Út Béo (img_72) | Tốt | Sai một từ | Tốt | Đúng  (Ẩm Thực) | 95% |  |\n| 7 | Cửa Hàng Quốc Toàn (img_79) | Tốt | Có thể chấp nhận  (Tài Chính & Doanh Nghiệp) | 95% |  |  |  |\n| 8 | Cửa Hàng Kim Lâm (img_97) | Tốt | Có thể chấp nhận (Mua Sắm) | 95% |  |  |  |\n| 9 | Cửa Hàng Thiết Bị Điện Ánh Quang (img_254) | Tốt | Đúng  (Tài Chính & Doanh Nghiệp) | 100% |  |  |  |\n| 10 | Doanh Trại Quân Đội Nhân Dân VN (img_287) | Tốt | Đúng  (Hành Chính & Công Cộng) | 100% |  |  |  |\n| 11 | Quang Minh Nhà Trọ Sinh Viên (img_1283) | Tốt | Đúng  (Lưu Trú) | 100% |  |  |  |\n| 12 | Trường THCS  Chu Văn An  (img_864) | Tốt | Đúng  (Giáo Dục) | 100% |  |  |  |\n| 13 | Cửa Hàng Xe  Tân Hoàng Sơn (img_228) | Tốt | Đúng  (Xe Cộ & Phương Tiện) | 100% |  |  |  |\n| 14 | ĐK Và Cảnh Quan Vạn Xuân Thành (img_311) | Tốt | Đúng  (Xây Dựng & Nội Thất) | 100% |  |  |  |\n| 15 | Tiệm Bánh Canh  Anh Ba Chỉ (img_332) | Tốt | Cắt dư | Sai một vài ký tự | Tốt | Đúng (Ẩm Thực) | 90% |\n| 16 | Trà Dâu Hoa Viên (img_306) | Tốt | Đúng  (Đồ Uống) | 100% |  |  |  |\n| 17 | Hair Salon Giàu (img_594) | Tốt | Tên riêng bị bỏ qua | Đúng  (Làm Đẹp & Spa) | 95% |  |  |\n| 18 | Tiệm Nước Ép  (img_1128) | Tốt | Đúng  (Đồ Uống) | 100% |  |  |  |\n| 19 | Phở Thành 68 (img_621) | Tốt | Cắt dư | Sai một vài ký tự | Brand bị bỏ trống | Đúng  (Ẩm Thực) | 80% |\n| 20 | DNTN Diễm Ngân (img_221) | Tốt | Đúng  (Xây Dựng & Nội Thất) | 100% |  |  |  |\n| TỔNG KẾT | Độ chính xác  trung bình | 100% | 85% | 95% | 80% | 95% | 85% |\n\nBảng 7: Bảng đánh giá độ chính xác tổng thể các luồng xử lý của hệ thống.\n\nĐi sâu vào phân tích bảng trên, có thể thấy luồng xử lý đã có sự phân hóa rõ rệt về hiệu năng giữa các module. Khâu định vị khung biển hiệu bằng YOLOv8 hoạt động xuất sắc với độ chính xác đạt 100%. Tuy nhiên, điểm nghẽn lớn nhất làm sụt giảm độ chính xác tổng thể của toàn bộ hệ thống lại nằm ở khâu phát hiện vùng chữ (Text Detection - DBNet). Với tỷ lệ thành công tụt giảm chỉ còn 85% (mức thấp nhất trong toàn bộ đường ống), DBNet bộc lộ rõ giới hạn khi thường xuyên cắt lẹm viền của các cấu trúc chữ nổi 3D lớn, nhận nhầm các chi tiết nhỏ thành chữ hay các hoa văn logo... , hay bỏ sót các dòng chữ to,... hoặc bỏ sót hoàn toàn các khung chữ phụ nằm chênh vênh sát mép biển.\n\nBù lại cho điểm yếu của khâu Detection, mô hình nhận dạng chữ VietOCR lại thể hiện sự bền bỉ vượt trội (95%): các vùng chữ dù bị cắt thiếu nét vẫn được khôi phục nguyên vẹn tiếng Việt với mức độ tin cậy (Confidence) phần lớn đều đạt trên 0.90. Toàn bộ cụm mô hình tiền xử lý và thị giác máy tính này hoạt động vô cùng chớp nhoáng, chỉ tiêu tốn trung bình khoảng 2.9 giây cho mỗi bức ảnh.\n\nĐáng chú ý nhất là khâu trích xuất ngữ nghĩa. Sau khi được nâng cấp bộ lọc biểu thức chính quy nhận thức không gian (Spatial-Aware Regex), mô hình Qwen 2.5 0.5B đã cho thấy những cải thiện rõ rệt. Dù chiếm nhiều thời gian nhất (trung bình 10.68 giây, tương đương 76% tổng thời gian xử lý) những khâu này mang lại tỷ lệ chính xác khá ấn tượng ở mức 80%. Ở mức độ này, LLM đã khắc phục được phần lớn thói quen sinh văn bản tự do, có khả năng phân tích ngữ cảnh để gom cụm các tên thương hiệu dài và lọc bỏ thông tin nhiễu (slogan, tên nhà tài trợ) nhằm kết xuất định dạng JSON đúng chuẩn. Tuy nhiên, mức hiệu suất 80% cũng phản ánh giới hạn của hệ thống hiện tại. Sự hao hụt 20% độ chính xác có thể được lý giải bởi hai nguyên nhân chính: cấu trúc giới hạn của một mô hình cỡ nhỏ (chỉ 500 triệu tham số) và sự ảnh hưởng của nhiễu tích lũy (cascading errors) từ các khâu xử lý phía trước, cộng thêm việc tập dữ liệu tối ưu có thể chưa đủ lớn để mô hình bao quát mọi trường hợp ở thực tế.\n\nỞ khâu cuối cùng, nhờ được bổ sung module tách từ tiếng Việt (underthesea) để đồng bộ hóa dữ liệu với quá trình huấn luyện, thuật toán Linear SVC đã lấy lại phong độ. Thuật toán chạy với tốc độ gần như tức thời (0.002 giây) và đạt độ chính xác phân loại 100%. Tuy nhiên ở thực tế mức độ chính xác có thể giảm xuống 90 hay 80% vì các biển hiệu thực tế có nhiều dòng chữ gây nhiễu, chưa kể đến các từ vựng vay mượn ngoại lai hiếm gặp (“Fillter”, “Nangbouti”,... ) hay các biển hiệu chỉ có tên riêng mà không có các thông tin liên quan đến việc kinh doanh điều này dẫn đến thiếu hụt trọng số TF-IDF trong không gian véc-tơ làm mô hình dự đoán không chính xác.\n\nTổng kết lại, mặc dù hệ thống vẫn tồn tại những điểm nghẽn cục bộ tại khâu phát hiện vùng chữ (Detection) và giới hạn của mô hình ngôn ngữ cỡ nhỏ, độ chính xác đầu cuối (End-to-End) vẫn được duy trì ở mức rất khả quan là 85%. Với tổng thời gian xử lý trung bình 13.9 giây cho mỗi biển hiệu trên môi trường CPU cá nhân, hệ thống cho thấy tiềm năng tối ưu hóa rất lớn để đạt tốc độ thời gian thực (real-time) khi được triển khai trên các hệ thống tích hợp GPU. Quan trọng hơn, kết quả thực nghiệm đã minh chứng cho sự thành công của chiến lược lai ghép giữa Thị giác máy tính (YOLOv8, PaddleOCR, VietOCR) và Xử lý ngôn ngữ tự nhiên (Regex, Qwen, Linear SVC). Giải pháp này đã giải quyết trọn vẹn bài toán chuyển hóa dữ liệu hình ảnh phi cấu trúc thành luồng thông tin có cấu trúc chuẩn xác, tạo tiền đề dữ liệu vững chắc cho phân hệ Bản đồ cửa hàng thông minh ở giai đoạn tiếp theo.\n\n3.3. Thảo luận về kết quả đạt được\n\nSau quá trình tích hợp và kiểm thử toàn diện luồng xử lý đa phương thức (Multimodal Pipeline) trên tập dữ liệu biển hiệu thực tế, nghiên cứu đã tiến hành đánh giá và đối chiếu các kết quả thu được. Dưới đây là những thảo luận chi tiết về mức độ đạt được mục tiêu cũng như những vấn đề còn tồn đọng của hệ thống.\n\n3.3.1. Đánh giá mức độ đạt được mục tiêu đề ra\n\nDựa trên các chỉ số thực nghiệm ở các phần trước, có thể khẳng định hệ thống đã cơ bản hoàn thành xuất sắc mục tiêu tổng quát được đặt ra ở đầu đề tài: Tự động hóa quá trình số hóa thông tin phi cấu trúc từ hình ảnh biển hiệu thành dữ liệu có cấu trúc.\n\nVề năng lực thị giác máy tính: Sự kết hợp giữa mạng YOLOv8 (định vị và cắt ảnh) và thuật toán phân tích hình học đã giải quyết tốt bài toán loại bỏ bối cảnh nhiễu và nắn phẳng phối cảnh. Điểm sáng lớn nhất là việc tinh chỉnh thành công mô hình VietOCR. Với tỷ lệ lỗi ký tự (CER) được ép xuống mức cực thấp (0.90%), hệ thống đã vượt qua được rào cản lớn nhất của OCR tại Việt Nam là lỗi nhận dạng dấu câu và phông chữ cách điệu, cung cấp nguồn văn bản thô cực kỳ sạch sẽ.\n\nVề năng lực bóc tách và phân loại: Điểm đột phá của đề tài là việc xây dựng thành công cấu trúc lai (Hybrid) giữa biểu thức chính quy (Regex) và mô hình ngôn ngữ lớn (Qwen 2.5 0.5B). Regex xử lý triệt để các định dạng cứng như số điện thoại, tọa độ và địa chỉ; trong khi LLM thấu hiểu ngữ cảnh để gộp nhóm tên thương hiệu (BRAND) và dịch vụ (SERVICE), đảm bảo 100% đầu ra tuân thủ định dạng JSON. Cuối cùng, sự góp mặt của thuật toán học máy Linear SVC với độ chính xác độc lập đạt 97.45% đã hoàn thiện chu trình, giúp gán nhãn danh mục cửa hàng với tốc độ tính bằng phần nghìn giây. Toàn bộ khối thông tin đa phương thức này đã sẵn sàng để trở thành cơ sở dữ liệu lõi cho hệ thống bản đồ thông minh ở phân hệ tiếp theo.\n\n3.3.2. Những hạn chế và vấn đề tồn đọng\n\nBên cạnh những thành quả đã đạt được, quá trình thực nghiệm luồng xử lý trên môi trường thực tiễn cũng phơi bày những góc khuất và giới hạn công nghệ nhất định. Sự sai số tích lũy qua từng giai đoạn đã khiến tỷ lệ thành công của toàn bộ luồng xử lý đầu cuối (End-to-End Pipeline) chỉ dừng lại ở mức 85%. Cụ thể, hệ thống đang phải đối mặt với 4 rào cản cốt lõi sau:\n\nThứ nhất, hạn chế ở khâu định vị văn bản (Text Detection) do chưa được tinh chỉnh: Mặc dù hệ thống sử dụng mạng DBNet (thông qua PaddleOCR) để định vị khung chữ, nhưng hiện tại mô hình này chỉ đang sử dụng bộ trọng số huấn luyện sẵn (Pre-trained weights) mà chưa được tinh chỉnh (Fine-tuning) chuyên sâu trên tập dữ liệu biển hiệu đường phố đặc thù tại Việt Nam. Điều này dẫn đến việc mô hình định vị đôi khi lúng túng trước các cấu trúc chữ nổi 3D có kích thước quá lớn, các biển hiệu có bố cục chữ cong, vắt chéo hoặc màu chữ hòa lẫn với nền. Điển hình như ở mẫu biển hiệu có chữ trên nền trời hay chữ 3D khó nhận dạng thì DBNet đã cắt vỡ nát khung chữ của tên thương hiệu hay những biển hiệu tương tự thì bỏ sót hoàn toàn, dẫn đến ra đầu vào nhiễu khiến mô hình VietOCR đọc sai hoàn toàn. Sự đứt gãy ngay từ bước tiền xử lý này tạo ra quá trình sai nối tiếp sai, làm suy giảm nghiêm trọng chất lượng dữ liệu của các khâu phía sau.\n\nThứ hai, điểm nghẽn về tính cứng nhắc của bộ lọc Regex và giới hạn suy luận của LLM thu nhỏ. Mặc dù sự kết hợp giữa biểu thức chính quy (Regex) và Qwen 2.5 0.5B đóng vai trò then chốt trong việc cấu trúc hóa dữ liệu, phương pháp này vẫn tồn tại những rủi ro sai số mang tính bản chất. Đối với Regex, do vận hành hoàn toàn dựa trên các tập luật tĩnh (hard-coded rules), module này thiếu khả năng thích ứng linh hoạt trước sự đa dạng vô tận của cách trình bày văn bản ngoài thực tế. Hệ thống đôi khi vẫn gặp hiện tượng “dương tính giả” (false positive) khi vô tình trích xuất các chuỗi ký tự ngẫu nhiên (như mã sản phẩm, mã số thuế, hoặc số giấy phép) có định dạng vô tình trùng khớp với quy luật của số điện thoại, hoặc lúng túng trước các địa chỉ viết tắt quá đặc biệc.\n\nVề phía LLM, sự đánh đổi giữa tốc độ xử lý nhanh gọn và độ chính xác tuyệt đối là một giới hạn thực tế cần được nhìn nhận khách quan. Do bị ràng buộc bởi giới hạn vật lý của quy mô kiến trúc (chỉ 0.5 tỷ tham số), mô hình chưa thể hiện được năng lực tự sửa lỗi (self-correction) phức tạp và khả năng suy luận ngữ nghĩa ở tầng sâu như các mô hình khổng lồ. Khi đối mặt với các biển hiệu lạm dụng từ viết tắt chuyên ngành, cách đặt tên phá cách, hoặc kết quả OCR đầu vào bị nhiễu nghiêm trọng, LLM đôi lúc vẫn có hiện tượng “ảo giác” (hallucination) và chưa phân định thực sự rạch ròi ranh giới giữa trường tên thương hiệu (BRAND) và dịch vụ (SERVICE).\n\nThứ ba, sự chệch hướng của mô hình phân loại và rào cản về tính tổng quát hóa dữ liệu: Thuật toán Linear SVC có tốc độ rất nhanh, nhưng do đặc thù sử dụng kỹ thuật trích xuất đặc trưng đếm tần suất TF-IDF, nó hoàn toàn thiếu vắng khả năng thấu hiểu ngữ nghĩa sâu (Semantic understanding) như các phương pháp nhúng từ (Word Embeddings). Khi luồng dữ liệu LLM truyền vào chứa các từ vựng vay mượn ngoại lai (“Milktea”, “NangBoutie”,...), các từ khóa cực kỳ hiếm gặp hay những dòng văn bản ghép nối không hợp lý từ LLM, không gian véc-tơ của Linear SVC lập tức bị thiếu hụt trọng số trầm trọng. Bản chất vấn đề ở đây không nằm ở sự mất cân bằng giữa các lớp, mà xuất phát từ việc không gian từ vựng của các ngành nghề kinh doanh trên thực tế là quá lớn. Tập dữ liệu huấn luyện hiện tại dù được chuẩn trong suốt quá trình làm đề tài nhưng vẫn khó có thể bao phủ trọn vẹn mọi thông tin của biển hiệu ngoài thực tế. Sự giới hạn về độ phủ từ vựng (Data Coverage) và tính tổng quát hóa này khiến thuật toán không đủ cơ sở đặc trưng để thiết lập siêu phẳng ranh giới chính xác, dẫn đến hệ quả mô hình có thể bị nhầm lẫn qua lại giữa các lớp danh mục.\n\nThứ tư, nút thắt cổ chai về thời gian xử lý (Latency Bottleneck): Mặc dù mô hình ngôn ngữ lớn Qwen 2.5 0.5B được lựa chọn thuộc nhóm có quy mô tham số nhỏ (0.5 tỷ tham số), nhưng việc thực thi toàn bộ mạng nơ-ron phức tạp này trực tiếp trên bộ vi xử lý trung tâm (CPU) của máy tính cá nhân mà không có phần cứng tăng tốc đồ họa (GPU) vẫn tạo ra một gánh nặng tính toán khổng lồ. Khâu bóc tách ngữ nghĩa tiêu tốn quá nhiều thời gian (trung bình khoảng 10.6 giây, chiếm hơn 76% tổng thời lượng của toàn luồng). Với tổng thời gian xử lý xấp xỉ 13.9 giây cho một bức ảnh, hệ thống hiện tại chỉ thực sự phù hợp với các tác vụ xử lý theo lô ngoại tuyến (Offline Batch Processing) tại máy chủ địa phương. Để có thể triển khai hệ thống thành một ứng dụng theo thời gian thực (Real-time application) trên thiết bị di động, đòi hỏi phải có sự can thiệp và hỗ trợ xử lý từ các máy chủ đám mây được trang bị GPU chuyên dụng.\n\n\n## III. PHẦN KẾT LUẬN\n\n\n### 1. Kết quả đạt được\n\nNghiên cứu đã hoàn thành được mục tiêu tổng quát mà đề tài đặt ra: Xây dựng thành công một luồng xử lý khép kín (End-to-End Pipeline) tự động hóa quá trình trích xuất và số hóa thông tin phi cấu trúc từ ảnh chụp biển hiệu đường phố thành cơ sở dữ liệu có cấu trúc. Đối chiếu với các mục tiêu cụ thể, hệ thống đã đáp ứng trọn vẹn các yêu cầu về mặt kỹ thuật với tỷ lệ thành công toàn trình đạt mức 85%, đồng thời đảm bảo tính khả thi về thời gian xử lý khi vận hành hoàn toàn trên môi trường máy tính cá nhân (CPU).\n\nVề mặt thị giác máy tính, đề tài đã thu thập, xây dựng được bộ dữ liệu thực tế mang tính địa phương cao và phát triển thuật toán sinh dữ liệu tổng hợp hiệu quả. Hệ thống tích hợp và tối ưu hóa thành công mô hình YOLOv8 kết hợp xử lý hình học để định vị, cắt và nắn phẳng biển hiệu tự động. Điểm đột phá lớn nhất ở giai đoạn này là việc tinh chỉnh (fine-tuning) thành công mô hình VietOCR, giúp giảm tỷ lệ lỗi ký tự (CER) xuống chỉ còn 0.90%, giải quyết triệt để rào cản nhận dạng hệ thống dấu tiếng Việt và các phông chữ cách điệu trong điều kiện ánh sáng phức tạp.\n\nVề mặt xử lý ngôn ngữ tự nhiên và phân loại, nghiên cứu ghi dấu ấn với việc đề xuất và triển khai thành công kiến trúc lai (Hybrid Pipeline), kết hợp biểu thức chính quy (Regex) và khả năng thấu hiểu ngữ cảnh của mô hình ngôn ngữ lớn Qwen 2.5 0.5B thông qua kỹ thuật tinh chỉnh LoRA. Regex đóng vai trò như một bộ lọc tiền xử lý sắc bén để dọn dẹp triệt để các trường khuôn mẫu (địa chỉ, số điện thoại), qua đó giải phóng tài nguyên để LLM tập trung phân định rạch ròi tên thương hiệu và dịch vụ, đảm bảo 100% đầu ra tuân thủ định dạng JSON. Dựa trên nguồn dữ liệu văn bản đã được bóc tách siêu sạch, thuật toán véc-tơ hỗ trợ tuyến tính (Linear SVC) được áp dụng và đạt độ chính xác độc lập lên tới 97.45% trong nhiệm vụ phân loại 18 danh mục ngành nghề với tốc độ suy luận tức thời (0.002 giây). Cuối cùng, toàn bộ luồng đa phương thức này được đóng gói thành một ứng dụng giao diện đồ họa trực quan giúp trích xuất thông tin từ ảnh chụp biển hiệu, sẵn sàng phục vụ cho hệ thống bản đồ thông minh ở phân hệ tiếp theo.\n\n\n### 2. Hướng phát triển\n\nMặc dù kiến trúc lai (Hybrid Pipeline) đã vận hành trơn tru và đạt được những kết quả khả quan, hệ thống trong môi trường thực tiễn vẫn còn tồn tại một số hạn chế nhất định xuất phát từ rào cản tài nguyên phần cứng và độ phức tạp của dữ liệu. Khó khăn lớn nhất nằm ở năng lực phân định ngữ nghĩa của mô hình ngôn ngữ lớn (LLM). Do quy mô tham số còn nhỏ (0.5 tỷ), mạng nơ-ron đôi khi thiếu chiều sâu suy luận để phân biệt rạch ròi giữa tên thương hiệu và dịch vụ đối với những biển hiệu có bố cục quá lộn xộn, sử dụng từ lóng hoặc bị ẩn dụ hóa. Điều này khiến tỷ lệ khớp chính xác tuyệt đối ở hai trường thông tin này hiện chỉ dao động quanh mức 60%.\n\nThêm vào đó, do bản chất của một đường ống xử lý tuần tự đi từ khâu định vị biển hiệu, nhận dạng vùng chữ, giải mã OCR, bóc tách ngữ nghĩa đến phân loại cuối cùng, hiện tượng sai số dây chuyền (cascading errors) là không thể tránh khỏi. Cụ thể, khâu phát hiện vùng chứa chữ (DBNet) đóng vai trò như một điểm nghẽn của hệ thống. Dù DBNet hiện tại hoạt động khá ổn định với độ chính xác khoảng 80%, nhưng khi đối mặt với các biển hiệu có thiết kế chữ uốn lượn, phá cách, dính liền hoặc bị hiệu ứng 3D đổ bóng mạnh, mô hình thỉnh thoảng vẫn cắt lẹm nét hoặc gom nhầm các dòng. Sự thiếu sót này trực tiếp đẩy độ nhiễu lên các khâu phía sau, làm giảm chất lượng tổng thể của hệ thống.\n\nBên cạnh sai số dây chuyền, khâu phân loại danh mục cũng vấp phải rào cản lớn khi đối mặt với sự tối giản trong thiết kế. Thuật toán học máy (Linear SVC) dù đạt kết quả xuất sắc trên tập kiểm thử nhưng lại dễ bị sai ở thực tế do không gian véc-tơ bị thiếu hụt đặc trưng nghiêm trọng. Rất nhiều biển hiệu hiện đại chỉ in duy nhất một tên thương hiệu (ví dụ: “Fillter”, “Nangbouti”, “Minh Huy”...) mà lược bỏ hoàn toàn các từ khóa chỉ dịch vụ kinh doanh. Hơn nữa, sự phong phú và biến đổi liên tục của các loại hình kinh doanh cùng các thuật ngữ mới trên đường phố cũng tạo ra rào cản lớn về độ bao phủ dữ liệu mà hệ thống chưa thể đáp ứng toàn diện trong một thời gian ngắn.\n\nTừ những rào cản kỹ thuật chuyên sâu nói trên, hướng phát triển tương lai cho phân hệ trích xuất thông tin sẽ tập trung vào việc giải quyết bài toán sai số dây chuyền, bù đắp sự thiếu hụt ngữ cảnh và nâng cao sức chịu đựng của toàn bộ luồng xử lý. Trước tiên, để ngăn chặn sai số dây chuyền ngay từ đầu, hệ thống cần tiến hành tinh chỉnh (fine-tune) lại mô hình phát hiện khung chữ DBNet trên một tập dữ liệu chuyên biệt gồm các biển hiệu ngoài trời của Việt Nam. Việc huấn luyện bổ sung với các mẫu chữ thư pháp, chữ nghệ thuật hay chữ 3D sẽ giúp mô hình vạch ra các ranh giới hộp bao chuẩn xác hơn, tạo đầu vào sạch cho khâu OCR.\n\nTiếp theo, để khắc phục điểm yếu khi gặp các biển hiệu “ít chữ”, hệ thống cần vượt ra khỏi giới hạn của văn bản thuần túy bằng cách áp dụng phương pháp học đa phương thức (Multimodal Learning). Việc kết hợp trích xuất các đặc trưng thị giác tổng thể của mặt tiền cửa hàng (như phong cách trang trí, màu sắc logo, thiết kế tủ kệ) sẽ tạo ra dữ liệu hiệp đồng, giúp chẩn đoán ngành nghề một cách toàn diện. Bên cạnh đó, hệ thống có thể tích hợp kỹ thuật sinh văn bản tăng cường truy xuất (RAG) nhằm tự động tra cứu chéo các tên thương hiệu độc lập trên cơ sở dữ liệu mở, cung cấp cho LLM đầy đủ thông tin về dịch vụ kinh doanh thực tế trước khi phân loại. Cuối cùng, việc tiếp tục mở rộng tập dữ liệu huấn luyện và định hướng nâng cấp lên các kiến trúc LLM có quy mô tham số lớn hơn (như 1.5B hoặc 3B) sẽ là điều kiện kiên quyết giúp hệ thống tối ưu hóa khả năng suy luận sắc bén, giảm thiểu ảo giác và đáp ứng trọn vẹn các tình huống dữ liệu hóc búa nhất.\n\nTÀI LIỆU THAM KHẢO\n\nPHỤ LỤC\n\nPHỤ LỤC 1: CẤU HÌNH HUẤN LUYỆN MÔ HÌNH YOLOV8\n\nDưới đây là mã nguồn thể hiện các siêu tham số (Hyperparameters) được thiết lập trong quá trình huấn luyện mô hình YOLOv8. Cấu hình dưới đây minh họa cho kịch bản huấn luyện mô hình Medium với độ phân giải đầu vào 1056x1056 (Các kịch bản Nano, Small và phân giải 640x640 được tinh chỉnh tham số MODEL_TYPE, imgsz và batch tương ứng theo kiến trúc).\n\n\n| 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 | from ultralytics import YOLO  # 1. Khởi tạo mô hình # Lựa chọn linh hoạt giữa kiến trúc: 'yolov8n.pt', 'yolov8s.pt', 'yolov8m.pt' MODEL_TYPE = 'yolov8m.pt'  model = YOLO(MODEL_TYPE)  print(f\"Bắt đầu tiến trình huấn luyện với mô hình: {MODEL_TYPE}\")  # 2. Thiết lập siêu tham số và tiến hành huấn luyện results = model.train(     data='signboard_dataset.yaml',   # Đường dẫn cấu hình tập dữ liệu (Train/Val/Test)     name=f'signboard_tuned_{MODEL_TYPE}_1056px', # Tên phiên huấn luyện          # --- CẤU HÌNH HUẤN LUYỆN CỐT LÕI ---     epochs=50,         # Số chu kỳ học tối đa (Theo thiết lập thực nghiệm)     patience=10,       # Cơ chế dừng sớm (Early Stopping) chống học vẹt     imgsz=1056,        # Độ phân giải ảnh đầu vào (640 hoặc 1056)     batch=8,           # Kích thước lô dữ liệu (Tùy chỉnh theo VRAM của GPU)          # --- CẤU HÌNH LƯU TRỮ VÀ ĐÁNH GIÁ ---     val=True,          # Tự động đánh giá trên tập Validation sau mỗi Epoch     save_best=True,    # Chỉ lưu lại bộ trọng số (weights) có mAP cao nhất     device=0,          # Chỉ định huấn luyện trên GPU     plots=True         # Tự động kết xuất ma trận nhầm lẫn và biểu đồ PR_curve )  print(f\"Mô hình tốt nhất được lưu tại: {results.save_dir}/weights/best.pt\") |\n| --- | --- |\n\nPHỤ LỤC 2: THUẬT TOÁN ĐỊNH VỊ VÀ NẮN PHẲNG PHỐI CẢNH BIỂN HIỆU (RECTIFICATION)\n\nĐể khắc phục tình trạng hình ảnh biển hiệu bị biến dạng hình học do góc chụp xiên, hệ thống đề xuất một thuật toán nắn phẳng (Rectification) tự động dựa trên nội suy cấu trúc văn bản. Quá trình này được thực hiện thông qua hàm rectify_whole_sign. Đầu tiên, thuật toán sử dụng mô hình PaddleOCR (kiến trúc DBNet) để quét nhanh qua ảnh và thu thập tập hợp các hộp giới hạn (bounding boxes) bao quanh các dòng chữ. Thay vì tính toán dựa trên viền của tấm biển (vốn dễ bị hòa lẫn với cảnh nền), thuật toán trích xuất hệ số góc dốc (slope) của cạnh trên và cạnh dưới từ từng khung chữ.\n\nĐể loại bỏ các hệ số góc bị nhiễu do logo hoặc các dòng chữ thiết kế phá cách, hệ thống áp dụng phép tính trung vị (np.median) nhằm tìm ra góc nghiêng đại diện chính xác nhất cho toàn bộ mặt phẳng biển hiệu. Tiếp theo, thuật toán tìm các điểm cực trị (min/max) kết hợp với lề đệm động (Dynamic Padding - được tính toán tự động bằng 5% kích thước thực tế của toàn bộ cụm chữ) để thiết lập 4 điểm nguồn (src_pts) trên không gian 3D. Việc áp dụng lề đệm động thay cho một chỉ số pixel cố định giúp hệ thống thích nghi hoàn hảo với mọi độ phân giải ảnh đầu vào. Cuối cùng, một ma trận biến đổi phối cảnh (Perspective Transform) được tính toán để ánh xạ các điểm nguồn này về một hình chữ nhật 2D trực diện (dst_pts), đồng thời sử dụng cơ chế nội suy khối bậc ba (cv2.INTER_CUBIC) trong hàm cv2.warpPerspective để đảm bảo nét chữ sau khi nắn không bị vỡ hạt hay răng cưa.\n\n\n| 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 | def rectify_whole_sign(self, img):         # Bước 1: Sử dụng DBNet để định vị nhanh các khung chữ làm điểm neo         ocr_res = self.paddle.ocr(img, cls=False, det=True, rec=False)         if not ocr_res or ocr_res[0] is None or len(ocr_res[0]) < 1:              return img          # Hàm sắp xếp 4 góc của bounding box theo thứ tự chuẩn         def order_points(pts):             rect = np.zeros((4, 2), dtype=\"float32\")             s = pts.sum(axis=1)             rect[0] = pts[np.argmin(s)]             rect[2] = pts[np.argmax(s)]             diff = np.diff(pts, axis=1)             rect[1] = pts[np.argmin(diff)]             rect[3] = pts[np.argmax(diff)]             return rect          boxes = [order_points(np.array(b)) for b in ocr_res[0]]                  # Bước 2: Trích xuất độ dốc (slope) cạnh trên và cạnh dưới của từng chữ         top_slopes, bot_slopes = [], []         for b in boxes:             if b[1][0] != b[0][0]:                  top_slopes.append((b[1][1] - b[0][1]) / (b[1][0] - b[0][0]))             if b[2][0] != b[3][0]:                  bot_slopes.append((b[2][1] - b[3][1]) / (b[2][0] - b[3][0]))          # Sử dụng trung vị (median) để lọc nhiễu góc nghiêng         m_top = np.median(top_slopes) if top_slopes else 0         m_bot = np.median(bot_slopes) if bot_slopes else 0          # Bước 3: Tìm tọa độ cực trị và thiết lập 4 góc của biển hiệu trên ảnh gốc         all_pts = np.concatenate(boxes)                  # --- Tính toán lề đệm động (Dynamic Padding) theo tỷ lệ 5% ---         width_text = np.max(all_pts[:, 0]) - np.min(all_pts[:, 0])         height_text = np.max(all_pts[:, 1]) - np.min(all_pts[:, 1])         pad_ratio = 0.05          pad_x = int(width_text * pad_ratio)         pad_y = int(height_text * pad_ratio)         # -------------------------------------------------------------          min_x, max_x = np.min(all_pts[:, 0]) - pad_x, np.max(all_pts[:, 0]) + pad_x         c_top = np.min(all_pts[:, 1] - m_top * all_pts[:, 0]) - pad_y         c_bot = np.max(all_pts[:, 1] - m_bot * all_pts[:, 0]) + pad_y          tl, tr = [min_x, min_x * m_top + c_top], [max_x, max_x * m_top + c_top]         br, bl = [max_x, max_x * m_bot + c_bot], [min_x, min_x * m_bot + c_bot]          if tl[1] >= bl[1] or tr[1] >= br[1]:              return img          src_pts = np.array([tl, tr, br, bl], dtype=\"float32\")         h_left, h_right = bl[1] - tl[1], br[1] - tr[1]         h_new, w_new = int(max(h_left, h_right)), int(max_x - min_x)          # Cân bằng lại tỷ lệ (Aspect Ratio) nếu góc chụp bị xô lệch quá mạnh         ratio = max(h_left, h_right) / (min(h_left, h_right) + 1e-5)         if 1.1 < ratio < 3.0:              w_new = int(w_new * (1.0 + (ratio - 1.0) * 0.55))           if w_new <= 0 or h_new <= 0:              return img                      # Bước 4: Thiết lập mặt phẳng đích (2D) và tiến hành nắn phẳng         dst_pts = np.array([[0, 0], [w_new, 0], [w_new, h_new], [0, h_new]], dtype=\"float32\")         try:             return cv2.warpPerspective(img, cv2.getPerspectiveTransform(src_pts, dst_pts),                                         (w_new, h_new), flags=cv2.INTER_CUBIC,                                         borderMode=cv2.BORDER_REPLICATE)         except:              return img |\n| --- | --- |\n\nPHỤ LỤC 3: CẤU TRÚC CÂU LỆNH DẪN DẮT (PROMPT ENGINEERING) CHO MÔ HÌNH NGÔN NGỮ LỚN\n\nĐể kiểm soát hành vi sinh văn bản tự do của mô hình Qwen 2.5 0.5B và ép buộc đầu ra tuân thủ tuyệt đối định dạng dữ liệu có cấu trúc, nghiên cứu đã thiết kế một câu lệnh dẫn dắt (Prompt) chuyên biệt áp dụng kỹ thuật Few-shot Prompting (Học qua ví dụ mẫu).\n\nCâu lệnh được cấu trúc thành 3 phần rõ rệt:\n\nRàng buộc định dạng (System Instructions): Đặt ra mệnh lệnh nghiêm ngặt chỉ cho phép mô hình xuất dữ liệu dưới dạng JSON với các giá trị là mảng (Array), đồng thời vô hiệu hóa khả năng tự giải thích của LLM để tiết kiệm thời gian suy luận.\n\nĐịnh nghĩa trường ngữ nghĩa: Định hướng rõ ràng cho mô hình cách phân định 3 nhãn phức tạp nhất là thương hiệu (BRAND), dịch vụ (SERVICE) và thông tin nhiễu (O). Đặc biệt, Prompt có kèm theo quy tắc logic yêu cầu LLM phải “Gộp chung” tên công ty chủ quản và tên chi nhánh nếu chúng đi liền nhau.\n\nMô phỏng không gian (Spatial Few-shot Example): Thay vì chỉ đưa văn bản thuần túy, Prompt được nhúng kèm tọa độ hộp giới hạn [xmin, ymin, xmax, ymax] của từng dòng chữ lấy từ OCR. Thông qua ví dụ mẫu được cung cấp sẵn, mô hình không chỉ hiểu về mặt từ vựng mà còn ngầm học được cách liên kết các dòng chữ có vị trí vật lý gần nhau trên biển hiệu để bóc tách ngữ nghĩa một cách chính xác nhất.\n\n\n| 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 | prompt = f\"\"\"Nhiệm vụ: Phân tích các dòng chữ OCR từ biển hiệu và trích xuất vào định dạng JSON.  Chỉ xuất JSON hợp lệ, các giá trị phải là mảng (Array). Không giải thích.  Các trường cần trích xuất: - \"BRAND\": Tên thương hiệu, công ty, cửa hàng. TRÍCH XUẤT ĐẦY ĐỦ loại hình kinh doanh và tên riêng. CHÚ Ý: Nếu biển hiệu có cả tên công ty chủ quản và tên chi nhánh/cửa hàng trực thuộc, hãy GỘP CHUNG tất cả thành 1 giá trị BRAND duy nhất. - \"SERVICE\": Các loại hình dịch vụ, ngành nghề, sản phẩm kinh doanh hoặc liên quan tới việc kinh doanh. - \"O\": Thông tin phụ, nhiễu: câu slogan, bằng cấp, nhãn hiệu quảng cáo, hoặc các đoạn địa chỉ/số điện thoại thừa bị sót lại.  --- VÍ DỤ --- Đầu vào OCR: [50, 20, 800, 60] CÔNG TY TNHH DƯỢC PHẨM TÂY ĐÔ [100, 80, 750, 150] NHÀ THUỐC HUỲNH LỘC [200, 160, 600, 200] CHUYÊN BÁN SỈ VÀ LẺ THUỐC TÂY [120, 220, 400, 250] DSĐH: Tiêu Huỳnh Lộc [150, 400, 300, 440] Salonpas  Đầu ra JSON: {{\"BRAND\": [\"CÔNG TY TNHH DƯỢC PHẨM TÂY ĐÔ NHÀ THUỐC HUỲNH LỘC\"], \"SERVICE\": [\"CHUYÊN BÁN SỈ VÀ LẺ THUỐC TÂY\"], \"O\": [\"DSĐH: Tiêu Huỳnh Lộc\", \"Salonpas\"]}} -------------  Đầu vào OCR: {ctx}  Đầu ra JSON:\"\"\" |\n| --- | --- |\n\nPHỤ LỤC 4: KẾT QUẢ KIỂM THỬ TOÀN TRÌNH TRÊN 20 MẪU BIỂN HIỆU (END-TO-END PIPELINE)\n\nPhụ lục này cung cấp hình ảnh minh họa thực tế từ giao diện phần mềm cho 20 mẫu biển hiệu đã được thống kê và đánh giá trong bảng 6 (Mục 3.2.5). Các hình ảnh thể hiện trực quan quá trình nhận dạng vùng chữ của YOLOv8, khâu bóc tách ngữ nghĩa của LLM Qwen 0.5B và nhãn danh mục cuối cùng do Linear SVC phân loại.\n\n\n### 1. Mẫu số 1: Winmart (img_5)\n\nKết quả phân loại: Siêu Thị & Tạp Hóa (Đúng)\n\nĐánh giá: Đạt. Luồng xử lý hoạt động hoàn hảo từ đầu đến cuối. Hệ thống phát hiện trọn vẹn khung chữ, nhận diện OCR chính xác và LLM đã làm tốt nhiệm vụ loại bỏ câu slogan phụ (“Tươi ngon thượng hạng!”) để không làm nhiễu dữ liệu phân loại.\n\n\n### 2. Mẫu số 2: Quán Cà Phê Hè Phố (img_34)\n\nKết quả phân loại: Đồ Uống (Đúng)\n\nĐánh giá: Đạt. Mặc dù biển hiệu có cấu trúc khá nhiều text (Cà phê võng, bida,...), các cụm mô hình thị giác máy tính vẫn bắt trọn vẹn thông tin. LLM tổng hợp ngữ nghĩa xuất sắc để mô hình phân loại phân tích đúng danh mục: Đồ Uống.\n\n\n### 3. Mẫu số 3: Cà Phê Võng Phố (img_38)\n\nKết quả phân loại: Đồ Uống (Đúng)\n\nĐánh giá: Đạt (85%). Phát sinh khiếm khuyết nhỏ ở khâu phát hiện vùng chữ khi DBNet cắt sai một số khung. Kế tiếp, LLM nhận diện được các cụm từ mô tả dịch vụ nhưng lại bỏ qua tên riêng thương hiệu (\"Phố\"). Bù lại, nhờ thông tin dịch vụ “Cà phê” được bảo toàn, Linear SVC vẫn dự đoán chính xác nhãn danh mục.\n\n\n### 4. Mẫu số 4: Hớt Tóc Nam Thảo Loan 2 (img_42)\n\nKết quả phân loại: Làm Đẹp & Spa (Đúng)\n\nĐánh giá: Đạt. Các khâu đều đạt mức “Tốt”. LLM bóc tách thành công một chuỗi dịch vụ dài (gội đầu, massage mặt, lấy ráy tai...) giúp mô hình phân loại dễ dàng chốt kết quả chính xác 100%.\n\n\n### 5. Mẫu số 5: Tạp Hóa Kiều Vy (img_50)\n\nKết quả phân loại: Siêu Thị & Tạp Hóa (Đúng)\n\nĐánh giá: Đạt (90%). Quá trình tiền xử lý và nhận dạng văn bản hoạt động trơn tru. Tuy nhiên, LLM bị nhầm lẫn khi thu thập cả tên thương hiệu nhà tài trợ (“Tiger”) vào trường Brand. Dù bị lẫn thông tin nhiễu, trọng số TF-IDF của từ “Tạp hóa” vẫn đủ lớn để thuật toán SVC phân loại đúng.\n\n\n### 6. Mẫu số 6: Bún Mắm Út Béo (img_72)\n\nKết quả phân loại: Ẩm Thực (Đúng)\n\nĐánh giá: Đạt (95%). VietOCR nhận diện sai một từ, nguyên nhân khách quan có thể đến từ font chữ cách điệu hoặc bị lóa sáng. Nhờ cơ chế nhận diện theo cụm của Regex và LLM, lỗi này được dung sai và hệ thống vẫn kết xuất định dạng đúng.\n\n\n### 7. Mẫu số 7: Cửa Hàng Quốc Toàn (img_79)\n\nKết quả phân loại: Tài Chính & Doanh Nghiệp (Có thể chấp nhận)\n\nĐánh giá: Chấp nhận được. Pipeline thị giác máy tính trích xuất chữ cực kỳ hoàn hảo. Điểm gợn duy nhất nằm ở khâu phân loại: do ngành hàng đặc thù “vật tư ngành nước, đồ điện” chưa có đủ độ phủ từ vựng trong không gian vector đào tạo, SVC đã gom cụm vào “Doanh Nghiệp” thay vì “Xây dựng/Nội thất”.\n\n\n### 8. Mẫu số 8: Cửa Hàng Kim Lâm (img_97)\n\nKết quả phân loại: Mua Sắm (Có thể chấp nhận)\n\nĐánh giá: Chấp nhận được. Tương tự mẫu số 7, thông tin chuyên ngành (khóa cửa, bản lề) được OCR đọc rất chuẩn xác nhưng thuật toán phân loại quyết định xếp vào nhãn rộng là Mua Sắm. Kết quả này không hoàn toàn sai lệch ngữ nghĩa.\n\n\n### 9. Mẫu số 9: Cửa Hàng Thiết Bị Điện Ánh Quang (img_254)\n\nKết quả phân loại: Tài Chính & Doanh Nghiệp (Đúng)\n\nĐánh giá: Đạt. Toàn bộ đường ống xử lý duy trì sự ổn định tuyệt đối. Các thông tin cốt lõi đều được bóc tách và định danh chính xác.\n\n\n### 10. Mẫu số 10: Doanh Trại Quân Đội Nhân Dân VN (img_287)\n\nKết quả phân loại: Hành Chính & Công Cộng (Đúng)\n\nĐánh giá: Đạt. Hệ thống xử lý xuất sắc mẫu biển hiệu cơ quan nhà nước, trích xuất chính xác cụm danh từ dài và gán nhãn danh mục hoàn hảo mà không bị nhiễu.\n\n\n### 11. Mẫu số 11: Nhà Trọ Sinh Viên Minh Quang (img_1283)\n\nKết quả phân loại: Lưu Trú (Đúng)\n\nĐánh giá: Đạt. Luồng xử lý mượt mà. LLM cho thấy khả năng tách biệt rành mạch giữa từ khóa dịch vụ (“Nhà trọ sinh viên”) và thương hiệu (“Minh Quang”).\n\n\n### 12. Mẫu số 12: Trường THCS Chu Văn An (img_864)\n\nKết quả phân loại: Giáo Dục (Đúng)\n\nĐánh giá: Đạt. Biển hiệu chuẩn mực, các module YOLOv8, DBNet, VietOCR hoạt động với độ tin cậy cao. Phân loại Linear SVC đạt độ chính xác 100%.\n\n\n### 13. Mẫu số 13: Cửa Hàng Xe Tân Hoàng Sơn (img_228)\n\nKết quả phân loại: Xe Cộ & Phương Tiện (Đúng)\n\nĐánh giá: Đạt. Dù biển hiệu có chứa một đoạn text dài mô tả nghiệp vụ phức tạp (\"”cầm, mua bán, trao đổi xe...”), các khâu trích xuất vẫn bắt trọn vẹn, cung cấp đủ trọng số vựng để thuật toán chốt đúng danh mục.\n\n\n### 14. Mẫu số 14: ĐK Và Cảnh Quan Vạn Xuân Thành (img_311)\n\nKết quả phân loại: Xây Dựng & Nội Thất (Đúng)\n\nĐánh giá: Đạt. LLM tỏ ra rất nhạy bén khi phân tích đúng từ khóa chuyên ngành (“Điêu khắc”, “Cảnh quan”) làm cơ sở để Linear SVC phân luồng chính xác vào nhóm xây dựng.\n\n\n### 15. Mẫu số 15: Tiệm Bánh Canh Anh Ba Chỉ (img_332)\n\nKết quả phân loại: Ẩm Thực (Đúng)\n\nĐánh giá: Đạt (90%). Biển hiệu có chữ nỗi 3D và góc chụp tương đối xấu dẫn đến mô hình đọc chữ tương đối khó khăn từ đó dẫn đến sai sót một vài ký tự (chỉ  chi, bánh  bảnh), thuật toán NLP tuyến cuối đủ thông minh để chắp vá ngữ nghĩa và dự đoán đúng kết quả.\n\n\n### 16. Mẫu số 16: Trà Dâu Hoa Viên (img_306)\n\nKết quả phân loại: Đồ Uống (Đúng)\n\nĐánh giá: Đạt. Khâu phát hiện chữ và nhận dạng tiếng Việt hoạt động trơn tru. Bộ lọc Regex gạt bỏ tốt phần địa chỉ bên dưới, để lại thông tin lõi sạch sẽ cho LLM xử lý.\n\n\n### 17. Mẫu số 17: Hair Salon Giàu (img_594)\n\nKết quả phân loại: Làm Đẹp & Spa (Đúng)\n\nĐánh giá: Đạt (95%). Các module thị giác làm rất tốt nhưng LLM lại trích xuất thiếu sót tên riêng (“Giàu”). Rất may cụm từ “Hair Salon” mang tính đại diện cực cao, giúp thuật toán phân loại không bị mất phương hướng.\n\n\n### 18. Mẫu số 18: Tiệm Nước Ép (img_1128)\n\nKết quả phân loại: Đồ Uống (Đúng)\n\nĐánh giá: Đạt. Hệ thống xử lý xuất sắc các font chữ bo tròn cách điệu và gom cụm thành công hàng loạt từ khóa đồ uống liền kề nhau.\n\n\n### 19. Mẫu số 19: Phở Thành 68 (img_621)\n\nKết quả phân loại: Ẩm Thực (Đúng)\n\nĐánh giá: Đạt (80%). Đây là mẫu chịu tác động rõ nhất của “sai số tích lũy”. Việc DBNet cắt dư khung chữ kéo theo VietOCR đọc sai ký tự, khiến LLM bị nhiễu loạn và bỏ trống luôn trường Brand. Tuy nhiên, luồng text dịch vụ (“Phở bò, bún bò”) vẫn giúp khâu phân loại cuối chính xác.\n\n\n### 20. Mẫu số 20: DNTN Liễm Ngân (img_221)\n\nKết quả phân loại: Xây Dựng & Nội Thất (Đúng)\n\nĐánh giá: Đạt. Dù bề mặt biển chứa rất nhiều dòng chữ phân mảnh mô tả vật liệu xây dựng, toàn bộ pipeline vẫn đọc hiểu và tổng hợp chính xác tuyệt đối.\n",
+    "target_student": "Học sinh thành thị, Học sinh nông thôn",
+    "status": "PUBLISHED",
+    "average_rating": 0.0,
+    "total_ratings": 0,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "Môn học": "",
+      "Loại hình": "Lý thuyết",
+      "knowledge_tags": [],
+      "tien_trinh_day_hoc": []
+    },
+    "created_at": "2026-05-26T05:55:36.926Z",
+    "updated_at": "2026-05-26T06:14:17.908Z"
+  }
+},
+{
+  "model": "app.lessonplan",
+  "pk": 77,
+  "fields": {
+    "creator": 1,
+    "title": "CHỦ ĐỀ 1: DINH DƯỠNG HỌC ĐƯỜNG – XÂY DỰNG \r\nTHỰC ĐƠN KHỎE MẠNH",
+    "description": "Bài giảng môn Hoạt động trải nghiệm hướng nghiệp, dành cho THCS/THPT, Thời gian thực hiện: 2 tiết (90 phút). Gồm các hoạt động chính: HĐ 1: Khởi động: Thực phẩm yêu thích và sức khỏe; HĐ 2: Tìm hiểu các nhóm chất dinh dưỡng; HĐ 3: Xây dựng thực đơn dinh dưỡng; HĐ 4: Chia sẻ và phản biện thực đơn; HĐ 5: Vận dụng thực tế.",
+    "file_path": "lesson_plans/tai_lieu_UgRjBCg.docx",
+    "content_preview": "\n# CHỦ ĐỀ 1: DINH DƯỠNG HỌC ĐƯỜNG – XÂY DỰNG \nTHỰC ĐƠN KHỎE MẠNH\n\nMôn: Hoạt động trải nghiệm hướng nghiệp; lớp: THCS/THPT\n\nThời gian thực hiện dự kiến: 2 tiết (90 phút)\n\nGiáo viên giảng dạy: ……………………………………….\n\n\n## I. MỤC TIÊU DẠY HỌC\n\n\n| Tiêu chí | YÊU CẦU CẦN ĐẠT | Mã hóa |\n| --- | --- | --- |\n| 1. Về kiến thức | Nêu được vai trò của dinh dưỡng đối với sức khỏe học đường. | KT1 |\n| 1. Về kiến thức | Nhận biết được nhóm chất dinh dưỡng cần thiết trong khẩu phần ăn. | KT2 |\n| 1. Về kiến thức | Biết nguyên tắc xây dựng thực đơn cân đối, hợp lý. | KT3 |\n| 2. Về năng lực: Sau khi học xong bài này, HS có khả năng: |  |  |\n| 2.1. Năng lực đặc thù | Xây dựng được thực đơn phù hợp với lứa tuổi học sinh | NLĐT1 |\n| 2.1. Năng lực đặc thù | Phân tích được thói quen ăn uống tích cực và chưa tích cực | NLĐT2 |\n| 2.1. Năng lực đặc thù | Thực hiện được hoạt động trải nghiệm theo nhóm | NLĐT3 |\n| 2.2. Năng lực chung | Giao tiếp và hợp tác trong hoạt động nhóm | NLC1 |\n| 2.2. Năng lực chung | Giải quyết vấn đề và sáng tạo khi thiết kế thực đơn | NLC2 |\n| 2.2. Năng lực chung | Tự chủ và tự học thông qua khảo sát khẩu phần cá nhân | NLC3 |\n| 3. Về phẩm chất | Chăm chỉ và có ý thức bảo vệ sức khỏe bản thân | PC1 |\n| 3. Về phẩm chất | Có trách nhiệm với sức khỏe cộng đồng | PC2 |\n| 3. Về phẩm chất | Trung thực trong khảo sát và đánh giá thói quen ăn uống | PC3 |\n\n\n## II. THIẾT BỊ DẠY HỌC, HỌC LIỆU\n\n\n| Chuẩn bị | Giáo viên | Học sinh | Ghi chú |\n| --- | --- | --- | --- |\n| Hoạt động 1: | Video ngắn về dinh dưỡng học đường, hình ảnh thực phẩm | Giấy note |  |\n| Hoạt động 2: | Bộ thẻ nhóm chất dinh dưỡng, phiếu xây dựng thực đơn | Máy tính cầm tay, bút màu |  |\n| Hoạt động 3: | Phiếu đánh giá thói quen ăn uống | Điện thoại hoặc sổ ghi chép |  |\n\n\n## III. TIẾN TRÌNH DẠY HỌC\n\n\n### 1. Khung tiến trình dạy học\n\n\n| Hoạt động  (Thời gian) | Nội dung dạy học trọng tâm | PPDH – KTDH chủ đạo | Phương án  đánh giá |\n| --- | --- | --- | --- |\n| HĐ 1 (10 phút) | Khởi động: Thực phẩm yêu thích và sức khỏe | Trò chơi – hỏi đáp nhanh | Quan sát, vấn đáp |\n| HĐ 2 (20 phút) | Tìm hiểu các nhóm chất dinh dưỡng | Thảo luận nhóm – khăn trải bàn | Phiếu học tập |\n| HĐ 3 (25 phút) | Xây dựng thực đơn dinh dưỡng | Dự án nhỏ – trải nghiệm | Sản phẩm nhóm |\n| HĐ 4 (15 phút) | Chia sẻ và phản biện thực đơn | Trình bày – phản hồi | Rubric đánh giá |\n| HĐ 5 (10 phút) | Vận dụng thực tế | Nhật ký dinh dưỡng | Đánh giá cá nhân |\n\n\n### 2. Tiến trình dạy học chi tiết\n\n\n### Hoạt động 01:\n\nMục tiêu (Yêu cầu cần đạt)\n\n- Tạo hứng thú học tập.\n- Kích hoạt hiểu biết của HS về dinh dưỡng.\nTổ chức thực hiện (10 phút)\n\n\n| Hoạt động giáo viên | Hoạt động học sinh | Nội dung  lưu bảng |\n| --- | --- | --- |\n| GV trình chiếu hình ảnh các món ăn quen thuộc. Tổ chức trò chơi “Đoán nhanh nhóm chất”. | HS giơ bảng hoặc trả lời nhanh. | Các nhóm chất dinh dưỡng |\n| GV đặt câu hỏi: “Nếu chỉ ăn đồ ăn nhanh liên tục sẽ ảnh hưởng gì?” | HS chia sẻ ý kiến cá nhân. | Vai trò của dinh dưỡng |\n\nGợi ý trò chơi trải nghiệm\n\n- “Chiếc giỏ bí mật”: HS bốc thăm hình thực phẩm và chạy về đúng “góc dinh dưỡng”.\n- “Bữa ăn cân bằng”: Mỗi đội ghép thực phẩm để tạo khẩu phần hợp lý trong 1 phút.\n\n### Hoạt động 02: TÌM HIỂU NHÓM CHẤT DINH DƯỠNG\n\nMục tiêu (Yêu cầu cần đạt)\n\n- Nhận biết được các nhóm chất dinh dưỡng.\n- Biết vai trò của từng nhóm chất.\nTổ chức thực hiện (20 phút)\n\n\n| Hoạt động giáo viên | Hoạt động học sinh | Nội dung  lưu bảng |\n| --- | --- | --- |\n| Chia lớp thành 4 nhóm, phát bộ thẻ thực phẩm. | Phân loại thực phẩm theo nhóm chất. | Chất bột đường |\n| Yêu cầu HS giải thích vai trò từng nhóm. | Thảo luận và ghi kết quả. | Chất đạm |\n| GV nhận xét, chuẩn hóa kiến thức. | Đại diện nhóm trình bày. | Chất béo, vitamin và khoáng |\n\nHoạt động trải nghiệm\n\n- HS mang bao bì đồ ăn vặt từ nhà để phân tích thành phần dinh dưỡng.\n- Tổ chức “Siêu thị mini”: HS chọn thực phẩm phù hợp với số tiền giới hạn.\n\n### Hoạt động 03: THIẾT KẾ THỰC ĐƠN DINH DƯỠNG\n\nMục tiêu (Yêu cầu cần đạt)\n\n- Xây dựng được thực đơn hợp lý.\n- Hình thành kỹ năng làm việc nhóm.\nTổ chức thực hiện (25 phút)\n\n\n| Hoạt động giáo viên | Hoạt động học sinh | Nội dung  lưu bảng |\n| --- | --- | --- |\n| Giao nhiệm vụ thiết kế thực đơn cho HS THCS trong 1 ngày. | Thảo luận nhóm. | Nguyên tắc xây dựng thực đơn |\n| Quy định tiêu chí: đủ chất – tiết kiệm – phù hợp địa phương. | Thiết kế poster hoặc menu. | Thực đơn mẫu |\n| Hướng dẫn HS tính chi phí bữa ăn. | Tính toán và trình bày. |  |\n\nSản phẩm trải nghiệm\n\n- Poster “Bữa ăn khỏe mạnh”.\n- Thực đơn 3 bữa/ngày.\n- Video ngắn giới thiệu món ăn.\n\n### Hoạt động 04: CHIA SẺ - PHẢN BIỆN\n\nMục tiêu (Yêu cầu cần đạt)\n\n- Biết lắng nghe và phản hồi tích cực.\n- Rèn kỹ năng giao tiếp.\nTổ chức thực hiện (15 phút)\n\n\n| Hoạt động giáo viên | Hoạt động học sinh | Nội dung  lưu bảng |\n| --- | --- | --- |\n| Mời các nhóm trình bày sản phẩm. | Đại diện nhóm báo cáo. | Tiêu chí thực đơn tốt |\n| GV đặt câu hỏi phản biện. | Các nhóm nhận xét chéo. |  |\n\n\n### Hoạt động 05: VẬN DỤNG\n\nMục tiêu (Yêu cầu cần đạt)\n\n- Vận dụng kiến thức vào thực tế.\nTổ chức thực hiện (10 phút)\n\n\n| Hoạt động giáo viên | Hoạt động học sinh | Nội dung  lưu bảng |\n| --- | --- | --- |\n| Giao nhiệm vụ ghi nhật ký dinh dưỡng 3 ngày. | HS ghi nhận khẩu phần ăn cá nhân. | Nhật ký dinh dưỡng |\n| Khuyến khích HS thay đổi thói quen chưa tốt. | Cam kết thực hiện. |  |\n",
+    "target_student": "Học sinh thành thị, Học sinh nông thôn",
+    "status": "PUBLISHED",
+    "average_rating": 5.0,
+    "total_ratings": 1,
+    "ai_summary": null,
+    "ai_processing_status": "PENDING",
+    "attributes": {
+      "Môn học": "Dinh dưỡng học đường, Thực đơn khỏe mạnh, Nhóm chất dinh dưỡng, Hoạt động trải nghiệm, Sức khỏe học đường",
+      "Loại hình": "Thực hành",
+      "knowledge_tags": [
+        "Dinh dưỡng học đường",
+        "Thực đơn khỏe mạnh",
+        "Nhóm chất dinh dưỡng",
+        "Hoạt động trải nghiệm",
+        "Sức khỏe học đường"
+      ],
+      "tien_trinh_day_hoc": [
+        {
+          "tom_tat": "Khởi động: Thực phẩm yêu thích và sức khỏe",
+          "thoi_gian": "10 phút",
+          "ten_hoat_dong": "HĐ 1"
+        },
+        {
+          "tom_tat": "Tìm hiểu các nhóm chất dinh dưỡng",
+          "thoi_gian": "20 phút",
+          "ten_hoat_dong": "HĐ 2"
+        },
+        {
+          "tom_tat": "Xây dựng thực đơn dinh dưỡng",
+          "thoi_gian": "25 phút",
+          "ten_hoat_dong": "HĐ 3"
+        },
+        {
+          "tom_tat": "Chia sẻ và phản biện thực đơn",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "HĐ 4"
+        },
+        {
+          "tom_tat": "Vận dụng thực tế",
+          "thoi_gian": "10 phút",
+          "ten_hoat_dong": "HĐ 5"
+        }
+      ]
+    },
+    "created_at": "2026-05-26T06:08:33.772Z",
+    "updated_at": "2026-05-26T06:37:39.162Z"
+  }
+},
+{
+  "model": "app.lessonplanrating",
+  "pk": 21,
+  "fields": {
+    "user": 1,
+    "lesson_plan": 71,
+    "rating": 5,
+    "comment": "OKE",
+    "created_at": "2026-05-26T05:40:25.905Z"
+  }
+},
+{
+  "model": "app.lessonplanrating",
+  "pk": 22,
+  "fields": {
+    "user": 1,
+    "lesson_plan": 65,
+    "rating": 5,
+    "comment": "",
+    "created_at": "2026-05-26T06:05:53.805Z"
+  }
+},
+{
+  "model": "app.lessonplanrating",
+  "pk": 23,
+  "fields": {
+    "user": 16,
+    "lesson_plan": 71,
+    "rating": 5,
+    "comment": "",
+    "created_at": "2026-05-26T06:35:44.788Z"
+  }
+},
+{
+  "model": "app.lessonplanrating",
+  "pk": 24,
+  "fields": {
+    "user": 1,
+    "lesson_plan": 77,
+    "rating": 5,
+    "comment": "",
+    "created_at": "2026-05-26T06:36:44.107Z"
+  }
+},
+{
+  "model": "app.approvalrequest",
+  "pk": 20,
+  "fields": {
+    "lesson_plan": 77,
+    "requester": 1,
+    "target_directory": 67,
+    "approver": null,
+    "status": "APPROVED",
+    "feedback": "Tự động duyệt do người đăng có quyền quản trị thư mục.",
+    "created_at": "2026-05-26T06:09:05.649Z"
+  }
+},
+{
+  "model": "app.approvalrequest",
+  "pk": 21,
+  "fields": {
+    "lesson_plan": 76,
+    "requester": 1,
+    "target_directory": 68,
+    "approver": null,
+    "status": "APPROVED",
+    "feedback": "Tự động duyệt do người đăng có quyền quản trị thư mục.",
+    "created_at": "2026-05-26T06:14:17.932Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 67,
+  "fields": {
+    "lesson_plan": 64,
+    "directory": 63,
+    "added_at": "2026-05-26T05:17:04.629Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 68,
+  "fields": {
+    "lesson_plan": 64,
+    "directory": 64,
+    "added_at": "2026-05-26T05:17:04.633Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 69,
+  "fields": {
+    "lesson_plan": 65,
+    "directory": 69,
+    "added_at": "2026-05-26T05:17:04.682Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 70,
+  "fields": {
+    "lesson_plan": 65,
+    "directory": 70,
+    "added_at": "2026-05-26T05:17:04.691Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 71,
+  "fields": {
+    "lesson_plan": 66,
+    "directory": 71,
+    "added_at": "2026-05-26T05:17:04.750Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 72,
+  "fields": {
+    "lesson_plan": 66,
+    "directory": 73,
+    "added_at": "2026-05-26T05:17:04.756Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 73,
+  "fields": {
+    "lesson_plan": 67,
+    "directory": 71,
+    "added_at": "2026-05-26T05:17:04.805Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 74,
+  "fields": {
+    "lesson_plan": 67,
+    "directory": 73,
+    "added_at": "2026-05-26T05:17:04.812Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 75,
+  "fields": {
+    "lesson_plan": 68,
+    "directory": 63,
+    "added_at": "2026-05-26T05:17:04.864Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 76,
+  "fields": {
+    "lesson_plan": 68,
+    "directory": 65,
+    "added_at": "2026-05-26T05:17:04.868Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 77,
+  "fields": {
+    "lesson_plan": 69,
+    "directory": 63,
+    "added_at": "2026-05-26T05:17:04.925Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 78,
+  "fields": {
+    "lesson_plan": 69,
+    "directory": 66,
+    "added_at": "2026-05-26T05:17:04.931Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 79,
+  "fields": {
+    "lesson_plan": 70,
+    "directory": 63,
+    "added_at": "2026-05-26T05:17:04.984Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 80,
+  "fields": {
+    "lesson_plan": 70,
+    "directory": 68,
+    "added_at": "2026-05-26T05:17:04.993Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 81,
+  "fields": {
+    "lesson_plan": 71,
+    "directory": 71,
+    "added_at": "2026-05-26T05:17:05.057Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 82,
+  "fields": {
+    "lesson_plan": 71,
+    "directory": 72,
+    "added_at": "2026-05-26T05:17:05.065Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 89,
+  "fields": {
+    "lesson_plan": 76,
+    "directory": 68,
+    "added_at": "2026-05-26T06:14:17.901Z"
+  }
+},
+{
+  "model": "app.lessonplandirectory",
+  "pk": 91,
+  "fields": {
+    "lesson_plan": 77,
+    "directory": 67,
+    "added_at": "2026-05-26T06:37:39.155Z"
+  }
+}
+]

@@ -52,8 +52,23 @@ minerU
 - Gộp giao diện chỉnh sửa nhận xét của bản thân inline trực tiếp vào phần hiển thị Nhận xét của bạn, tự động hiển thị chế độ chỉnh sửa hoặc chế độ xem động => xong
 - Xây dựng biểu đồ thống kê phân bổ số sao trực quan (Rating bar chart) và bộ lọc số sao (Star rating pills filters) tương tác động trong phần nhận xét giáo án => xong
 - Tích hợp thanh cuộn mỏng (scrollbar-thin) giới hạn chiều cao tối đa cho cây thư mục trong cả 2 tab Thư viện chung và Thư viện cá nhân, đồng thời mặc định chỉ tự động mở rộng đến cấp 2 => xong
-
+- Triển khai AI Processing Hub với Tiến trình Roadmap 5 bước xử lý tri thức thời gian thực => xong
+- Xây dựng cấu hình phân mảnh thông minh (Heading/Fixed Strategy) và AI Model Engine settings cho Admin => xong
+- Tách biệt hành vi click card xem chi tiết với nút kích hoạt và liên kết trợ lý AI tập trung => xong
+- Hỗ trợ tải lên và hiển thị trực tiếp tài liệu Markdown (.md) và văn bản thô (.txt) => xong
+- Khắc phục triệt để lỗi ghi log Unicode CP1252 trên Windows khiến treo luồng ngầm => xong
+- Khắc phục lỗi crash gửi tin nhắn chatbot AI do biến is_asking_about_focus chưa khởi tạo (UnboundLocalError) khi bắt đầu chat không chọn tài liệu focus => xong
+- Đồng bộ hệ thống thuộc tính giáo án trải nghiệm Sinh học (4 Mạch kiến thức, 10 Chủ đề, 2 Đối tượng HS, 24 Kiến thức sinh học liên quan) cho bộ lọc Sidebar, Topbar Popover, trang UploadPage, Edit Modal và API Views backend => xong
+- Khắc phục lỗi crash luồng ngầm GGUF song song bằng Thread Lock bảo vệ và tăng n_ctx an toàn lên 4096 => xong
+- Sửa lỗi hiển thị sai lệch đồ thị bằng cách làm sạch an toàn tham số lesson_id query params ở Backend => xong
+- Nâng cấp giới hạn thực thể lên tối đa 12 thực thể và tối ưu prompt bóc tách đa mục tiêu khoa học & sư phạm => xong
+- Tách biệt hành vi mở chatbot AI khi xem tài liệu và hỗ trợ tự động bind ngữ cảnh tài liệu focus khi hỏi đáp => xong
+- Thiết kế Tab WikiNotes cấp cao mới với Split-pane hiện đại và trình phân tích WikiLinks Obsidian [[Tag]] tương tác => xong
+- Tạo signal dọn dẹp pre_delete và script quyét dọn vault tự động xóa note mồ côi/liên kết đứt khi xóa tài liệu => xong
+- Tối ưu hóa dung lượng ngữ cảnh Graph RAG (loại bỏ danh mục hệ thống khi ở chế độ FOCUS_QA) giúp loại bỏ triệt để lỗi vượt quá context window 4096 tokens, đảm bảo chạy Qwen 7B GGUF offline cực kỳ mượt mà => xong
+- Thiết kế lại và tổng quát hóa toàn bộ Prompt của AI và các bộ lọc từ khóa chéo chéo (subject-agnostic) để hỗ trợ toàn bộ các môn học và Hoạt động Trải nghiệm & Hướng nghiệp tổng quát, thay vì bị giới hạn hay định kiến cứng về Sinh học => xong
 - So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.
+
 
 - Thứ 1 là không có 2 file mẫu cho 2 đối tượng học sinh thành thị/nông thôn (chuyên biệt cho từng đối tượng)
 - Thứ 2 là do đã thống nhât từ trước là 1 file đưa lên hệ thống sẽ là file KH bài giảng hoàn chỉnh 

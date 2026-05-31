@@ -8,7 +8,11 @@ from .views import (
     UserSelfPermissionsAPIView, LessonPlanProposeAPIView,
     LessonPlanRatingAPIView, UserProfileUpdateAPIView,
     LessonPlanWithdrawAPIView, LessonPlanParseDocxAPIView,
-    LessonPlanCheckDuplicateAPIView
+    LessonPlanCheckDuplicateAPIView,
+    AIChatSessionListCreateAPIView, AIChatSessionDetailAPIView,
+    AIChatSendMessageAPIView, AIChatGraphDataAPIView,
+    SystemSettingAPIView, BackgroundTasksStatusAPIView, ObsidianStatusAPIView,
+    BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView
 )
 
 urlpatterns = [
@@ -31,4 +35,18 @@ urlpatterns = [
     path('admin/users/<int:pk>/permissions/', AdminAssignPermissionAPIView.as_view(), name='admin-assign-permissions'),
     path('users/me/permissions/', UserSelfPermissionsAPIView.as_view(), name='user-self-permissions'),
     path('users/me/profile/', UserProfileUpdateAPIView.as_view(), name='user-profile-update'),
-]
+    
+    # AI Graph RAG & Chatbot Endpoints
+    path('chat-sessions/', AIChatSessionListCreateAPIView.as_view(), name='chat-sessions-list-create'),
+    path('chat-sessions/<int:pk>/', AIChatSessionDetailAPIView.as_view(), name='chat-sessions-detail'),
+    path('chat-sessions/<int:pk>/send/', AIChatSendMessageAPIView.as_view(), name='chat-sessions-send'),
+    path('chat-graph/', AIChatGraphDataAPIView.as_view(), name='chat-graph'),
+    
+    # New KMS Rebuild APIs
+    path('system-settings/', SystemSettingAPIView.as_view(), name='system-settings'),
+    path('bg-tasks/status/', BackgroundTasksStatusAPIView.as_view(), name='bg-tasks-status'),
+    path('bg-tasks/reprocess/', BackgroundTasksReprocessAPIView.as_view(), name='bg-tasks-reprocess'),
+    path('obsidian/status/', ObsidianStatusAPIView.as_view(), name='obsidian-status'),
+    path('obsidian/notes/', ObsidianNotesListAPIView.as_view(), name='obsidian-notes-list'),
+    path('obsidian/notes/content/', ObsidianNoteContentAPIView.as_view(), name='obsidian-note-content'),
+]

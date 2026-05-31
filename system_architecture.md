@@ -1,15 +1,55 @@
 # Kiến trúc Hệ thống QLTT (He_Thong_QLTT)
 
-Tài liệu này mô tả cấu trúc tổng thể và kiến trúc công nghệ của Hệ thống Quản lý Tri thức Học tập (KMS - Knowledge Management System).
+Tài liệu này mô tả cấu trúc tổng thể và kiến trúc công nghệ của Hệ thống Quản lý Tri thức Học tập (KMS - Knowledge Management System), đặc biệt tập trung vào giải pháp nâng cấp AI Knowledge Hub, Graph RAG và Obsidian Sync cao cấp.
 
-## 1. Tổng quan Kiến trúc
+## 1. Sơ đồ Kiến trúc Tổng thể (System Architecture Diagram)
 
-Hệ thống được thiết kế theo mô hình **Client-Server** tách biệt hoàn toàn giữa Frontend và Backend, giao tiếp thông qua giao thức HTTP/REST API.
+Hệ thống được thiết kế theo mô hình **Client-Server** ba lớp (3-tier) tối ưu hóa khả năng chạy offline mượt mà:
 
 ```mermaid
 graph TD
-    Client[Frontend: Vite + React + TS] <-->|REST API / CORS| Server[Backend: Django REST Framework]
-    Server <-->|SQL / Vector Query| Database[(Docker PostgreSQL + pgvector)]
+    %% Frontend Components
+    subgraph Frontend [UI/UX Client: Vite + React + TS]
+        A[Dashboard & Library] <-->|Đèn báo Roadmap động| B[AI Processing Hub]
+        A <-->|Liên kết thông minh| C[Chatbot Workspace]
+        C -->|Force Graph Canvas| D[Interactive Knowledge Graph]
+        C -->|Split-Pane Reader & WikiLinks| W[Premium WikiNotes Tab]
+        C <-->|Config Settings| E[Admin Chunking Panel]
+    end
+
+    %% Django Backend Lớp trung gian
+    subgraph Backend [Server: Django REST Framework]
+        F[API Gateways & Routers] <-->|Asynchronous Signaling| G[Background Process Manager]
+        G -->|Step 1: Extract| H[minerU / python-docx Parser]
+        G -->|Step 2: Split| I{Admin Chunking Strategy}
+        I -->|Heading Split| I1[Semantic H1/H2/H3]
+        I -->|Fixed Size| I2[Fixed Window + Overlap]
+        G -->|Step 3: Vector| J[Embedding Service]
+        G -->|Step 4: Extract Graph| K[LLM 12 Concepts Extractor]
+        G -->|Step 5: Synced Notes| L[Obsidian Vault Writer]
+        
+        M[Graph RAG Hybrid Engine] <-->|Vector + Graph Traversal| F
+        F <-->|Vault Signals Cleanup| O1[Pre Delete Receiver]
+    end
+
+    %% Database Lớp dữ liệu
+    subgraph Database [Storage: PostgreSQL + Docker]
+        N[(PostgreSQL DB)]
+        O[(pgvector nomic-embed)]
+        P[(Knowledge Graph DB)]
+        
+        Backend <-->|SQL / Vector Query| Database
+    end
+
+    %% AI Model Engines
+    subgraph AIEngines [AI Inference Engines]
+        Q{Qwen 2.5 Local 7B GGUF + Thread Lock}
+        R{External APIs: Gemini / OpenAI}
+    end
+
+    G <-->|Offline Extraction| Q
+    M <-->|Hybrid Retrieval Reasoning| Q
+    M <-->|Premium Reasoning Fallback| R
 ```
 
 ---
@@ -18,47 +58,34 @@ graph TD
 
 ### 2.1. Phía Frontend (`protoc/`)
 *   **Công nghệ cốt lõi:** React 18 (TypeScript), Vite 6.
-*   **Thư viện UI/UX:**
+*   **Thư viện UI/UX cao cấp:**
     *   **shadcn/ui** (dựa trên Radix UI & Tailwind CSS) cho các thành phần UI tinh tế, nhất quán.
     *   **Material UI (MUI)** và **Lucide React** cho hệ thống Icons phong phú.
     *   **Framer Motion / Motion** cho các hiệu ứng chuyển động và micro-animations cao cấp.
-*   **Các thư viện tính năng:**
-    *   `react-router` cho định tuyến.
-    *   `axios` cho việc gọi API tới Backend.
-    *   `docx-preview` & `@cyntler/react-doc-viewer` phục vụ việc hiển thị và đọc trực tiếp file giáo án Word/PDF ngay trên web.
-    *   `recharts` phục vụ thống kê dữ liệu.
-*   **Thiết kế Giao diện đặc trưng:**
-    *   **Bố cục Split-Pane Full-Screen (Toàn màn hình chia đôi):** Giao diện chi tiết giáo án (`Lesson Detail`) được thiết kế toàn màn hình dạng chia đôi tỷ lệ 60/40. Cột trái (60%) hiển thị tài liệu đính kèm trực tuyến (PDF Reader / DocxPreview / PowerPoint instructions) và Metadata giáo án. Cột phải (40%) tích hợp khu vực nhận xét, form đánh giá chất lượng (1-5 sao) và bình luận thời gian thực giúp giáo viên phản hồi thuận tiện nhất mà không làm gián đoạn việc xem giáo án.
-    *   **Bộ lọc, Phân trang & Sắp xếp Cao cấp (Advanced Filter, Pagination & Sorting):** Hệ thống tích hợp công cụ phân trang (10, 15, hoặc 20 tài liệu/trang) và bộ lọc sắp xếp đa chỉ tiêu (Mới nhất/Cũ nhất, Đánh giá trung bình cao/thấp, Tổng số lượt đánh giá nhiều/ít) thông qua cấu trúc `useMemo` phản hồi tức thì, bảo toàn tốc độ tìm kiếm và đếm số lượng tài liệu thư mục mà không gây trễ truy cập máy chủ.
-    *   **Giao diện Thay đổi Thông tin Cá nhân Chuyên nghiệp (UserProfile Modal):** Thiết kế hộp thoại hồ sơ cá nhân hiện đại hỗ trợ thay đổi họ tên và đổi mật khẩu bảo mật (yêu cầu xác thực mật khẩu hiện tại khi thay đổi). Giao diện sử dụng avatar biểu trưng, gradient màu sắc hài hòa và các biểu tượng trực quan.
-    *   **Trang Quản trị Người dùng Toàn màn hình Chuyên nghiệp (Full-screen Admin User Management Panel):** Thay thế hộp thoại Modal chật hẹp cũ bằng một giao diện Dashboard toàn màn hình (Full-Screen Workspace) cao cấp sử dụng tông màu tối sang trọng (Deep Slate/Slate 900). Trang quản lý tích hợp bố cục 2 cột tiêu chuẩn:
-        *   **Cột Sidebar trái:** Danh sách tài khoản hiển thị trực quan kèm theo các bộ lọc vai trò, công cụ tìm kiếm trực tiếp và nút bấm tạo tài khoản mới nhanh chóng.
-        *   **Cột Workspace phải:** Phân tách rõ ràng thành hai Tab chức năng chính thông qua hiệu ứng chuyển Tab mượt mà:
-            *   *Hồ sơ & Bảo mật:* Cho phép cập nhật Họ tên hiển thị, Tên đăng nhập, thay đổi Mật khẩu mới hoặc Nâng/Hạ vai trò hệ thống của tài khoản đó.
-            *   *Phân quyền thư mục:* Cây thư mục đệ quy tích hợp tính năng check-box kế thừa (Cascading Directory Permissions) thời gian thực.
-        *   **Tính năng Quản trị Toàn diện (Full CRUD):** Cung cấp trọn vẹn bộ công cụ quản lý bao gồm tạo mới thành viên, thay đổi mật khẩu/thông tin tài khoản khác, và xóa tài khoản vĩnh viễn (có cơ chế xác nhận an toàn và ngăn tự xóa/tự đổi vai trò của chính mình để tránh khóa hệ thống).
-    *   **Click biểu tượng Logo quay về Tab Thư viện chung:** Biểu tượng 📚 trên Navigation Bar khi được bấm sẽ đồng thời đặt lại `currentView='home'`, xóa bộ lọc thư mục (`selectedDirs=[]`) và chuyển về `homeTab='library'` (Tab Thư viện chung).
-    *   **Tách biệt nút Tải tài liệu lên theo từng tab (uploadMode):** Nút "+ Đăng bài giảng" trên Navigation Bar chỉ hiển thị các thư mục công khai (`uploadMode='public'`). Nút "+ Thêm mới" và nút "+ Tải tài liệu lên" (trong Empty State) ở Tab Thư viện cá nhân đã được sửa đổi và tích hợp rành mạch để thiết lập đúng `uploadMode='personal'`, đảm bảo chỉ hiển thị các thư mục cá nhân riêng tư của người dùng hiện tại, ngăn chặn việc hiển thị sai lệch hoặc chọn nhầm các thư mục dùng chung (publish).
-    *   **Đồng bộ Layout Card Thư viện:** Card hiển thị tài liệu trong Tab Thư viện cá nhân đã được tái cấu trúc để nhất quán với Tab Thư viện chung: cùng cấu trúc header/badge/description/footer, cùng badge "Xem chi tiết ↗" hover effect, và nút "↓ Tải tài liệu" trong footer. Giữ riêng phần hiển thị phản hồi từ chối chỉ có ở cá nhân.
-    *   **Tự động điền Form từ file Word (Auto-fill & Auto-extraction):** Khi người dùng tải tệp giáo án `.docx` lên ở Upload Modal, hệ thống tự động gọi API bóc tách dữ liệu để điền sẵn các trường: Tiêu đề bài giảng, Mô tả/Tóm tắt, Đối tượng học sinh, Loại hình tiết dạy và các Từ khóa kiến thức.
+*   **Các thành phần giao diện đột phá mới:**
+    *   **AI Processing Hub Timeline:** Một widget tuyệt đẹp hiển thị danh sách hàng chờ xử lý ngầm, tỉ lệ phần trăm tiến trình và sơ đồ Roadmap 5 bước nhấp nháy đèn LED động (Phase 1: Parse -> Phase 2: Chunking -> Phase 3: Embedding -> Phase 4: Concept Extraction -> Phase 5: Obsidian Sync). Polling dữ liệu tự động mỗi 3 giây từ API backend.
+    *   **Chatbot Workspace Floating Widget:** Hộp thoại bong bóng trò chuyện hỗ trợ kéo giãn kích thước linh hoạt (Resizable Widget), lưu trữ lịch sử session, tự động chuyển đổi tab chat khi có focus. Tích hợp **Conversational Focus Synchronization** ngầm để bind ngữ cảnh mà không tự động pop-up mở rộng gây phiền hà.
+    *   **Premium WikiNotes Tab View (Split-Pane)**: Tab thứ nhất cấp mới thay thế phần tích hợp ẩn trong cấu hình. Chia tách không gian thành 35% danh sách note và 65% trình đọc kính mờ cao cấp. Tích hợp bộ chuyển đổi **WikiLinks Obsidian** `[[Khái niệm]]` tương tác sang các Purple-glass Badges có khả năng nhấp để chuyển nhanh ghi chú vô cùng mượt mà.
+    *   **Custom Interactive Knowledge Graph Canvas:** Bộ vẽ đồ thị 2D Force-Directed trên thẻ Canvas hiệu năng cao. Hỗ trợ cuộn phóng to/thu nhỏ (Zoom & Pan), kéo thả các nút, tự động thu gọn nhánh phụ đề giáo án khi có focus, bôi sáng đường dẫn các nút (highlight nodes/edges) tương ứng với tài liệu được truy xuất bởi thuật toán Graph RAG.
+    *   **Admin Chunking Config:** Bảng điều khiển dành riêng cho ADMIN để chọn chiến lược chia chunk (Heading-based vs Fixed size + overlap) và lưu trực tiếp xuống database qua API.
 
 ### 2.2. Phía Backend (`backend/`)
 *   **Công nghệ cốt lõi:** Django 6.0.5 và Django REST Framework (DRF) 3.17.1.
-*   **Tính năng chính:**
-    *   Quản lý danh mục thư mục dạng cây đệ quy (`Directory`).
-    *   Quản lý bài giảng/giáo án (`LessonPlan`) kế thừa thuộc tính linh hoạt từ thư mục cha.
-    *   Bộ phân tích giáo án Word tự động (`docx_parser.py`) sử dụng thư viện `python-docx` để bóc tách thông tin cấu trúc giáo án (tiêu đề, môn học, lớp học, thời gian, đối tượng, tiến trình giảng dạy, từ khóa kiến thức) dưới dạng JSON.
-    *   Hệ thống kiểm duyệt giáo án (`ApprovalRequest`) phân quyền đệ quy cho Giáo viên và Admin.
-    *   Hệ thống Thư viện cá nhân (Personal Library) quản lý cây thư mục riêng tư và tài liệu cá nhân offline (`status = LOCAL`).
-    *   Hệ thống Đề xuất công khai (Propose Public) cho phép người dùng gửi bài giảng cá nhân vào thư mục dùng chung để chờ kiểm duyệt và xuất bản.
-    *   Hệ thống Vector hóa tài liệu (`DocumentChunk`) phục vụ tìm kiếm ngữ nghĩa và AI Chat (RAG).
-    *   API Cập nhật Hồ sơ cá nhân (`UserProfileUpdateAPIView` tại `/api/users/me/profile/`) thực hiện thay đổi họ tên hiển thị và đổi mật khẩu mã hóa an toàn sau khi đã xác thực mật khẩu cũ.
-    *   **Bộ API Quản trị Tài khoản Hệ thống Toàn diện (Admin User CRUD REST Endpoints):**
-        *   `AdminUserListAPIView` (`/api/admin/users/`): Trả về danh sách đầy đủ các người dùng kèm danh sách ID thư mục mà họ quản lý (GET). Hỗ trợ Admin tạo mới tài khoản thành viên trực tiếp với mật khẩu được băm (hash) bằng hàm bảo mật của Django (POST).
-        *   `AdminUserDetailAPIView` (`/api/admin/users/<int:pk>/`): Admin có thể chỉnh sửa thông tin chi tiết của người dùng khác (Username, Password, Full Name, Role) bằng phương thức `PATCH` và xóa tài khoản vĩnh viễn bằng phương thức `DELETE`. Hệ thống tự động chặn mọi hành động Admin tự xóa hoặc tự hạ quyền của chính mình nhằm bảo đảm tính liên tục và an toàn của quyền quản trị.
-        *   `AdminAssignPermissionAPIView` (`/api/admin/users/<int:pk>/permissions/`): Giao quyền sở hữu quản lý đệ quy cây thư mục cho người dùng chỉ định.
+*   **Các thành phần dịch vụ thông minh:**
+    *   **Bộ xử lý chạy ngầm (Asynchronous Task Manager - `bg_processor.py`):** Triển khai một Thread-based Background Queue tuần tự để chạy ngầm toàn bộ 5 bước của lộ trình xử lý tri thức ngay khi tài liệu được tải lên.
+    *   **Startup Auto-Scan:** Tự động quét toàn bộ cơ sở dữ liệu khi hệ thống khởi động để queue lại các tài liệu chưa hoàn thành (`ai_processing_status = 'PENDING'`).
+    *   **Windows Safe Encoding Logger:** Hàm ghi log an toàn mã hóa CP1252 trên Windows, tự động lọc và chuyển đổi ký tự tiếng Việt Unicode lạ thành ký hiệu an toàn để tránh gây ra lỗi `UnicodeEncodeError` làm sập luồng nền.
+    *   **Embedding Service (`embedding_service.py`):** Sinh vector 1536 chiều bằng cách gọi Ollama (`nomic-embed-text`) hoặc tự sinh vector ổn định độc lập offline bằng thuật toán Hashing đặc trưng (`Deterministic Hashing generator`) nếu chạy hoàn toàn offline không cần thư viện cồng kềnh.
+    *   **LLM Runner (`llm_runner.py`):** Cung cấp giao thức gọi suy luận linh hoạt kết hợp: (1) Mô hình Qwen Local 7B thông qua Ollama hoặc nạp file GGUF trực tiếp bằng `llama-cpp-python` tích hợp khóa đồng bộ **`_gguf_model_lock = threading.Lock()`** và cấu hình `n_ctx=4096` giải quyết triệt để lỗi sập luồng song song; (2) Các API key thương mại bên ngoài (Gemini/OpenAI); (3) Bộ RAG Simulator thông minh tự bóc tách ngữ cảnh khi chạy offline thuần túy.
+    *   **Conversational Auto-Binding Engine (`views.py`)**: Tự động phát hiện và ánh xạ tên bài giảng được nhắc tới trong cuộc hội thoại chung ở trang chủ để liên kết focus ngay lập tức mà không cần chuyển view.
+    *   **Automated Vault Cleanup Handler (`models.py`)**: Đăng ký tín hiệu `pre_delete` của model `LessonPlan` để tự động dọn dẹp các tệp tin `.md` và dọn dẹp note khái niệm liên đới, tránh để lại rác mồ côi trong Obsidian Vault khi xóa tài liệu.
 
+### 2.3. Obsidian Vault Sync Integration (`obsidian_vault/`)
+*   **Giao thức đồng bộ:** Tạo thư mục `obsidian_vault` tại gốc dự án làm Obsidian Vault.
+*   **Markdown Notes Auto-Generator:** Với mỗi tài liệu đã hoàn thành xử lý tri thức (Phase 5), hệ thống tự động sinh tệp ghi chú `.md` chuẩn định dạng Obsidian chứa đầy đủ metadata, tiến trình hoạt động, và liên kết WikiLinks chéo `[[Khái niệm]]` dựa trên các thực thể và từ khóa trích xuất được bởi LLM. Người dùng chỉ cần mở vault này trên Obsidian Desktop để xem bản đồ mạng lưới 3D Knowledge Graph cực kỳ trực quan.
 
-### 2.3. Cơ sở dữ liệu (`Database`)
-*   **Hệ quản trị:** PostgreSQL 16 tích hợp tiện ích mở rộng **pgvector**.
-*   **Đặc tính Vector:** Lưu trữ các vector embedding 1536 chiều (`VectorField`) để tìm kiếm ngữ nghĩa tương đồng cho tính năng AI Chatbot.
+### 2.4. Cơ sở dữ liệu (`Database`)
+*   **Hệ quản trị:** PostgreSQL 16 tích hợp tiện ích mở rộng **pgvector** chạy trên Docker.
+*   **Thiết lập thực thể mới:**
+    *   `DocumentChunk`: Lưu trữ nội dung phân mảnh của giáo án, kèm theo trường `heading` định danh và trường `embedding` (`VectorField(1536)`).
+    *   `SystemSetting`: Cấu hình hệ thống dạng key-value lưu trữ chiến lược chia nhỏ của Admin.

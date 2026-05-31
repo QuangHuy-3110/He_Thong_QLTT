@@ -1,6 +1,62 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
+export const KNOWLEDGE_TRACKS = [
+  'Hoạt động hướng vào bản thân',
+  'Hoạt động hướng đến xã hội',
+  'Hoạt động hướng đến tự nhiên',
+  'Hoạt động hướng nghiệp'
+];
+
+export const TRACK_TO_TOPICS: Record<string, string[]> = {
+  'Hoạt động hướng vào bản thân': ['Khám phá bản thân', 'Rèn luyện bản thân'],
+  'Hoạt động hướng đến xã hội': ['Chăm sóc gia đình', 'Xây dựng nhà trường', 'Xây dựng cộng đồng'],
+  'Hoạt động hướng đến tự nhiên': ['Tìm hiểu và bảo tồn cảnh quan thiên nhiên', 'Tìm hiểu và bảo vệ môi trường'],
+  'Hoạt động hướng nghiệp': [
+    'Tìm hiểu nghề nghiệp',
+    'Rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp',
+    'Lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp'
+  ]
+};
+
+export const LOCATIONS = [
+  'Lớp học tiêu chuẩn',
+  'Phòng thí nghiệm Sinh học',
+  'Phòng máy tính / AI',
+  'Phòng đa năng / Nhà ăn',
+  'Ngoài trời / Sân trường',
+  'Thực địa / Nông trại',
+  'Hội trường / Sân khấu',
+  'Nông nghiệp công nghệ cao / Thực địa'
+];
+
+export const BIOLOGY_CONNECTIONS = [
+  'Hệ cơ – xương – khớp, tim mạch, hô hấp, năng lượng ATP',
+  'Dinh dưỡng học, chuyển hóa năng lượng, vai trò vitamin/khoáng chất',
+  'Hệ thần kinh, hormone (serotonin, adrenaline), cơ sở sinh học của cảm xúc',
+  'Cân bằng nước, sinh học giấc ngủ, nhịp sinh học',
+  'Cấu tạo cơ thể, tuần hoàn máu, hô hấp nhân tạo, nguyên lý đông máu',
+  'Sinh học thần kinh: trí nhớ, sự hình thành thói quen, ảnh hưởng giấc ngủ và dinh dưỡng đến tập trung',
+  'Hệ miễn dịch, bệnh truyền nhiễm, vệ sinh cá nhân, nguyên tắc phòng bệnh',
+  'Sinh học hành vi: hormone tuổi dậy thì, sức khỏe tâm – sinh lý',
+  'Phản xạ thần kinh, tác động rượu/bia đến hệ thần kinh và tim mạch, sinh học giấc ngủ',
+  'Cơ chế nghe – nhìn, ảnh hưởng âm nhạc đến não bộ, sinh học vận động',
+  'Sinh lý thực vật (quang hợp, dinh dưỡng cây trồng), bệnh học cây trồng',
+  'Vi sinh vật gây bệnh trong rác thải, ảnh hưởng ô nhiễm đến sức khỏe cộng đồng',
+  'Dịch tễ học cơ bản, sức khỏe sinh sản vị thành niên, phòng chống bệnh truyền nhiễm',
+  'Hormone oxytocin, dopamine trong quan hệ xã hội, sức khỏe tinh thần',
+  'Hệ hô hấp người, tác động khí độc, sinh thái đô thị',
+  'Phân loại thực vật, đa dạng sinh học, tiến hóa',
+  'Vòng tuần hoàn vật chất, vi sinh vật phân hủy, sinh thái học',
+  'Quang hợp, hô hấp thực vật, sinh thái rừng',
+  'Vi sinh vật nước, chu trình nitơ, ảnh hưởng ô nhiễm đến sinh vật thủy sinh',
+  'Hệ sinh thái nông nghiệp, đa dạng sinh học địa phương',
+  'Công nghệ gen, sinh học phân tử, ứng dụng y học/nông nghiệp',
+  'Quy trình sản xuất thuốc, an toàn sinh học, nghiên cứu tế bào',
+  'Sinh lý thực vật, nuôi cấy mô, di truyền chọn giống',
+  'Dinh dưỡng thực vật, sinh lý động vật, bệnh học cây trồng/vật nuôi'
+];
+
 interface Directory {
   id: number;
   name: string;
@@ -95,8 +151,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
             isSelected
               ? 'bg-blue-600 text-white shadow-sm'
               : isAllowed
-              ? 'hover:bg-blue-50 text-gray-800'
-              : 'text-gray-400 cursor-not-allowed'
+              ? 'hover:bg-blue-50 dark:hover:bg-blue-950/45 text-gray-800 dark:text-slate-200'
+              : 'text-gray-400 dark:text-slate-500 cursor-not-allowed'
           }`}
           style={{ paddingLeft: `${8 + depth * 18}px` }}
         >
@@ -115,12 +171,12 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           <span className="flex-grow font-medium truncate">{dir.name}</span>
           {isManaged && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-              isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-600'
+              isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
             }`}>Quản lý</span>
           )}
           {dir.is_public && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-              isSelected ? 'bg-white/20 text-white' : 'bg-green-100 text-green-600'
+              isSelected ? 'bg-white/20 text-white' : 'bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400'
             }`}>Công khai</span>
           )}
         </button>
@@ -158,6 +214,12 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [duplicateId, setDuplicateId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedTrack, setSelectedTrack] = useState<string>('');
+  const [selectedTopic, setSelectedTopic] = useState<string>('');
+  const [selectedBiologyConnections, setSelectedBiologyConnections] = useState<string[]>([]);
+  const [biologySearch, setBiologySearch] = useState<string>('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
+
   const handleFileChange = async (selectedFile: File) => {
     setFile(selectedFile);
     if (selectedFile.name.endsWith('.docx')) {
@@ -178,10 +240,11 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         if (data.description) setDescription(data.description);
         if (data.target_students && Array.isArray(data.target_students)) {
           // Map backend strings to exact frontend options
-          const mappedTargets = data.target_students.map((t: string) => {
-            if (t.includes('thành thị')) return 'Học sinh thành thị';
-            if (t.includes('nông thôn')) return 'Học sinh nông thôn';
-            return t;
+          const mappedTargets: string[] = [];
+          data.target_students.forEach((t: string) => {
+            if (t.toLowerCase().includes('thành thị')) mappedTargets.push('HS thành thị');
+            else if (t.toLowerCase().includes('nông thôn')) mappedTargets.push('HS nông thôn');
+            else mappedTargets.push(t);
           });
           setSelectedTargets(mappedTargets);
         }
@@ -194,10 +257,31 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         if (data.activities && Array.isArray(data.activities)) {
           setParsedActivities(data.activities);
         }
+        if (data.attributes) {
+          if (data.attributes['Mạch kiến thức']) setSelectedTrack(data.attributes['Mạch kiến thức']);
+          if (data.attributes['Chủ đề']) setSelectedTopic(data.attributes['Chủ đề']);
+          if (data.attributes['Kiến thức sinh học liên quan']) {
+            const bioVal = data.attributes['Kiến thức sinh học liên quan'];
+            setSelectedBiologyConnections(
+              Array.isArray(bioVal) ? bioVal : (typeof bioVal === 'string' ? bioVal.split(',').map(s => s.trim()) : [])
+            );
+          }
+          if (data.attributes['Địa điểm']) setSelectedLocation(data.attributes['Địa điểm']);
+        }
       } catch (err) {
         console.error('Auto-extraction error:', err);
       } finally {
         setParsing(false);
+      }
+    } else if (selectedFile.name.endsWith('.md') || selectedFile.name.endsWith('.markdown') || selectedFile.name.endsWith('.txt')) {
+      // Auto-prefill the title with the file name (excluding the extension) for Markdown/text documents!
+      const baseName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.'));
+      setTitle(baseName);
+      if (selectedTargets.length === 0) {
+        setSelectedTargets(['HS thành thị']);
+      }
+      if (!selectedType) {
+        setSelectedType('Lý thuyết');
       }
     }
   };
@@ -354,9 +438,13 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       formData.append('status', defaultStatus);
       
       formData.append('attributes', JSON.stringify({
+        'Mạch kiến thức': selectedTrack,
+        'Chủ đề': selectedTopic,
+        'Kiến thức sinh học liên quan': selectedBiologyConnections.join(', '),
         'Loại hình': selectedType,
-        'Môn học': selectedKnowledge.join(', '),
-        knowledge_tags: selectedKnowledge,
+        'Môn học': 'Hoạt động trải nghiệm Sinh học',
+        'Địa điểm': selectedLocation,
+        knowledge_tags: selectedBiologyConnections,
         tien_trinh_day_hoc: parsedActivities
       }));
       if (selectedDirId) formData.append('directory_id', selectedDirId.toString());
@@ -388,14 +476,14 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const tagsForCurrentDir: string[] = currentDir?.attributes?.knowledge_tags || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-800 dark:text-slate-200 font-sans transition-colors duration-300">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center gap-4">
+      <div className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-8 py-4 flex items-center gap-4 transition-colors">
         <button onClick={onBack} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1">
           ← Trang chủ
         </button>
         <span className="text-gray-300">|</span>
-        <h1 className="text-lg font-bold text-gray-900">
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white">
           {uploadMode === 'personal' ? '💾 Lưu vào Thư viện Cá nhân' : '📢 Đăng bài giảng mới'}
         </h1>
         {uploadMode === 'personal' && (
@@ -412,7 +500,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           }`}>
             <span className="text-xl">{selectedDirId ? '📂' : '📁'}</span>
             <div className="flex-grow min-w-0">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Thư mục đích</p>
+              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Thư mục đích</p>
               {selectedDirId && currentDir ? (
                 <p className="text-sm font-semibold text-blue-700 truncate">{currentDir.name}</p>
               ) : (
@@ -428,9 +516,9 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           </div>
 
           {/* Directory Tree */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden transition-colors">
+            <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-850 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 {uploadMode === 'personal' ? '🔒 Thư mục cá nhân' : '📂 Cây thư mục công khai'}
               </p>
               {uploadMode === 'public' && currentUser?.role === 'TEACHER' && managedDirectoryIds.length > 0 && (
@@ -454,9 +542,9 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
 
           {/* Knowledge Tags Panel */}
           {currentDir && (
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-1">Kiến thức thư mục</h3>
-              <p className="text-xs text-gray-500 mb-3">Thêm, sửa, xóa kiến thức cho thư mục này</p>
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Kiến thức thư mục</h3>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mb-3">Thêm, sửa, xóa kiến thức cho thư mục này</p>
 
               {canManageTags && (
                 <div className="flex gap-2 mb-3">
@@ -466,7 +554,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                     onChange={e => setTagInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAddTag()}
                     placeholder="Nhập hoặc tìm kiếm kiến thức..."
-                    className="flex-grow text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    className="flex-grow text-sm border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white dark:bg-slate-800 dark:text-white"
                   />
                   <button
                     onClick={handleAddTag}
@@ -480,10 +568,10 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                   <p className="text-sm text-gray-400 italic">Chưa có kiến thức nào.</p>
                 ) : (
                   tagsForCurrentDir.map(tag => (
-                    <div key={tag} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 hover:bg-gray-50">
-                      <span className="text-sm font-medium text-gray-800">{tag}</span>
+                    <div key={tag} className="flex items-center justify-between border border-gray-100 dark:border-slate-850 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors">
+                      <span className="text-sm font-medium text-gray-800 dark:text-slate-200">{tag}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">{currentDir.name}</span>
+                        <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-900/30">{currentDir.name}</span>
                         {canManageTags && (
                           <button onClick={() => handleRemoveTag(currentDir.id, tag)} className="text-red-400 hover:text-red-600 text-xs w-4 h-4 flex items-center justify-center">✕</button>
                         )}
@@ -504,124 +592,212 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${dragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/30'}`}
+            className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors ${dragOver ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40' : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-300 hover:bg-blue-50/30 dark:hover:bg-blue-950/10'}`}
           >
             <input ref={fileInputRef} type="file" accept=".docx,.pdf,.ppt,.pptx" className="hidden" onChange={e => e.target.files && handleFileChange(e.target.files[0])} />
             {parsing ? (
               <div className="flex flex-col items-center justify-center py-4">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-3"></div>
-                <p className="font-semibold text-blue-600 text-sm">⚡ Đang tự động trích xuất thông tin giáo án...</p>
-                <p className="text-xs text-gray-400 mt-1">Hệ thống đang bóc tách tiêu đề, mục tiêu, hoạt động...</p>
+                <p className="font-semibold text-blue-600 dark:text-blue-400 text-sm">⚡ Đang tự động trích xuất thông tin giáo án...</p>
+                <p className="text-xs text-gray-400 dark:text-slate-450 mt-1">Hệ thống đang bóc tách tiêu đề, mục tiêu, hoạt động...</p>
               </div>
             ) : file ? (
               <>
                 <div className="text-4xl mb-2">📄</div>
-                <p className="font-semibold text-gray-800">{file.name}</p>
-                <p className="text-sm text-gray-500 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p className="font-semibold text-gray-800 dark:text-slate-200">{file.name}</p>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 <button onClick={e => { e.stopPropagation(); setFile(null); }} className="mt-3 text-xs text-red-500 hover:text-red-700">Xóa file</button>
               </>
             ) : (
               <>
-                <div className="text-5xl mb-3 text-gray-300">☁️</div>
-                <p className="font-medium text-gray-600">Kéo thả file vào đây</p>
-                <p className="text-sm text-gray-400 mb-3">hoặc click để chọn file</p>
-                <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full border border-gray-200">.docx &nbsp; .pdf &nbsp; .ppt</span>
+                <div className="text-5xl mb-3 text-gray-300 dark:text-slate-650">☁️</div>
+                <p className="font-medium text-gray-600 dark:text-slate-350">Kéo thả file vào đây</p>
+                <p className="text-sm text-gray-400 dark:text-slate-450 mb-3">hoặc click để chọn file</p>
+                <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-350 px-3 py-1 rounded-full border border-gray-200 dark:border-slate-700">.docx &nbsp; .pdf &nbsp; .ppt</span>
               </>
             )}
           </div>
 
           {/* Title */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tiêu đề bài giảng <span className="text-red-500">*</span></label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nhập tiêu đề bài giảng..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2">Tiêu đề bài giảng <span className="text-red-500">*</span></label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nhập tiêu đề bài giảng..." className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
           </div>
 
           {/* Description */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Mô tả / Tóm tắt</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Mô tả ngắn về nội dung bài giảng..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2">Mô tả / Tóm tắt</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Mô tả ngắn về nội dung bài giảng..." className="w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
           </div>
 
           {/* Target Student */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Đối tượng giảng dạy <span className="text-red-500">*</span></label>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-3">Đối tượng giảng dạy <span className="text-red-500">*</span></label>
             <div className="grid grid-cols-2 gap-3">
-              {['Học sinh thành thị', 'Học sinh nông thôn'].map(val => (
+              {['HS thành thị', 'HS nông thôn'].map(val => (
                 <button
                   key={val}
+                  type="button"
                   onClick={() => toggleTarget(val)}
-                  className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedTargets.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50'}`}
+                  className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedTargets.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-350 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'}`}
                 >{val}</button>
               ))}
             </div>
           </div>
 
-          {/* Lesson Type */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Loại hình tiết dạy <span className="text-red-500">*</span></label>
-            <div className="grid grid-cols-2 gap-3">
-              {['Thực hành', 'Lý thuyết', 'Ôn tập', 'Kiểm tra'].map(val => (
-                <button
-                  key={val}
-                  onClick={() => setSelectedType(val === selectedType ? '' : val)}
-                  className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedType === val ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50'}`}
-                >{val}</button>
+          {/* Mạch kiến thức */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2">Mạch kiến thức <span className="text-red-500">*</span></label>
+            <select
+              value={selectedTrack}
+              onChange={e => {
+                const track = e.target.value;
+                setSelectedTrack(track);
+                setSelectedTopic(''); // Reset topic when track changes
+              }}
+              className="w-full bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+            >
+              <option value="">-- Chọn Mạch kiến thức --</option>
+              {KNOWLEDGE_TRACKS.map(t => (
+                <option key={t} value={t}>{t}</option>
               ))}
-            </div>
+            </select>
           </div>
 
-          {/* Knowledge Multi-select */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
-              <span className="text-yellow-500">⚡</span> Kiến thức môn học <span className="text-red-500">*</span>
+          {/* Chủ đề */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2">Chủ đề <span className="text-red-500">*</span></label>
+            <select
+              value={selectedTopic}
+              onChange={e => setSelectedTopic(e.target.value)}
+              disabled={!selectedTrack}
+              className="w-full bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <option value="">-- {selectedTrack ? 'Chọn Chủ đề' : 'Vui lòng chọn Mạch kiến thức trước' } --</option>
+              {selectedTrack && TRACK_TO_TOPICS[selectedTrack]?.map(topic => (
+                <option key={topic} value={topic}>{topic}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kiến thức sinh học liên quan */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-1 flex items-center gap-1">
+              <span>🧬</span> Kiến thức sinh học liên quan <span className="text-red-500">*</span>
             </label>
-            <p className="text-xs text-gray-400 mb-3">Chọn các kiến thức liên quan đến bài giảng</p>
+            <p className="text-xs text-gray-400 dark:text-slate-450 mb-3 font-medium">Chọn các kiến thức sinh học liên quan tích hợp</p>
+
+            {/* Suggested from Selected Directory */}
+            {currentDir && tagsForCurrentDir.length > 0 && (
+              <div className="mb-4 bg-blue-50/50 dark:bg-blue-950/20 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                <p className="text-xs font-bold text-blue-750 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+                  <span>💡</span> Gợi ý Kiến thức thư mục [{currentDir.name}]:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {tagsForCurrentDir.map(tag => {
+                    const isSelected = selectedBiologyConnections.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBiologyConnections(prev => 
+                            prev.includes(tag) ? prev.filter(b => b !== tag) : [...prev, tag]
+                          );
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-left text-xs transition-all font-medium ${
+                          isSelected 
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/20' 
+                            : 'bg-white dark:bg-slate-800 border-blue-200 hover:border-blue-300 dark:border-slate-700 text-gray-700 dark:text-slate-350 hover:bg-blue-50/50 dark:hover:bg-slate-750'
+                        }`}
+                      >
+                        <span className="text-[10px]">{isSelected ? '✓' : '+'}</span>
+                        <span>{tag}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="relative mb-3">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
               <input
                 type="text"
-                value={knowledgeSearch}
-                onChange={e => setKnowledgeSearch(e.target.value)}
-                placeholder="Tìm kiếm kiến thức từ tất cả thư mục..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                value={biologySearch}
+                onChange={e => setBiologySearch(e.target.value)}
+                placeholder="Tìm kiếm mạch kiến thức sinh học..."
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-850 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
-            {availableTags.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
-                <p>Chưa có kiến thức nào.</p>
-                <p className="text-xs mt-1">Chọn thư mục bên trái và thêm kiến thức trước.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-1">
-                {availableTags.map(({ tag, path }) => (
+            
+            <div className="grid grid-cols-1 gap-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
+              {BIOLOGY_CONNECTIONS.filter(bio => bio.toLowerCase().includes(biologySearch.toLowerCase())).map(bio => {
+                const isSelected = selectedBiologyConnections.includes(bio);
+                return (
                   <button
-                    key={tag}
-                    onClick={() => toggleKnowledge(tag)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-colors ${selectedKnowledge.includes(tag) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-100 hover:border-blue-200 hover:bg-blue-50'}`}
+                    key={bio}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBiologyConnections(prev => 
+                        prev.includes(bio) ? prev.filter(b => b !== bio) : [...prev, bio]
+                      );
+                    }}
+                    className={`flex items-center gap-2 p-2 rounded-lg border text-left text-xs transition-colors ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-100 dark:border-slate-800 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-slate-800'}`}
                   >
-                    <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-xs ${selectedKnowledge.includes(tag) ? 'bg-white border-white text-blue-600' : 'border-gray-300'}`}>
-                      {selectedKnowledge.includes(tag) && '✓'}
+                    <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[10px] ${isSelected ? 'bg-white border-white text-blue-600' : 'border-gray-300'}`}>
+                      {isSelected && '✓'}
                     </span>
-                    <span className="truncate font-medium">{tag}</span>
+                    <span className="break-words font-medium">{bio}</span>
                   </button>
-                ))}
-              </div>
-            )}
-            {selectedKnowledge.length > 0 && (
+                );
+              })}
+            </div>
+            {selectedBiologyConnections.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {selectedKnowledge.map(t => (
-                  <span key={t} className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
-                    {t}
-                    <button onClick={() => toggleKnowledge(t)} className="text-blue-400 hover:text-blue-700">✕</button>
+                {selectedBiologyConnections.map(b => (
+                  <span key={b} className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-full border border-emerald-200/30">
+                    {b}
+                    <button type="button" onClick={() => setSelectedBiologyConnections(prev => prev.filter(x => x !== b))} className="text-emerald-400 hover:text-emerald-700 transition-colors font-bold">✕</button>
                   </span>
                 ))}
               </div>
             )}
           </div>
 
+          {/* Lesson Type */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-3">Loại hình tiết dạy <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-2 gap-3">
+              {['Thực hành', 'Lý thuyết'].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSelectedType(val === selectedType ? '' : val)}
+                  className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedType === val ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-350 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'}`}
+                >{val}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Địa điểm / Phòng thiết bị */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2">Địa điểm / Phòng thiết bị <span className="text-red-500">*</span></label>
+            <select
+              value={selectedLocation}
+              onChange={e => setSelectedLocation(e.target.value)}
+              className="w-full bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+            >
+              <option value="">-- Chọn Địa điểm / Phòng thiết bị --</option>
+              {LOCATIONS.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Submit */}
           {uploadError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-5 py-4 text-sm flex flex-col gap-3">
+            <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-red-700 dark:text-red-400 rounded-xl px-5 py-4 text-sm flex flex-col gap-3">
               <p className="font-semibold flex items-center gap-1.5 leading-relaxed">
                 <span>⚠️</span> {uploadError}
               </p>
@@ -633,7 +809,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                       setUploadError(null);
                       setDuplicateId(null);
                     }}
-                    className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold transition-all shadow-sm"
+                    className="px-4 py-2 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm"
                   >
                     ✏️ Chỉnh sửa thông tin
                   </button>
@@ -651,7 +827,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
 
           {/* Notice based on upload mode */}
           {uploadMode === 'personal' ? (
-            <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-700">
+            <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/30 rounded-xl px-4 py-3 text-sm text-sky-700 dark:text-sky-400">
               💾 Tài liệu sẽ được lưu vào <strong>Thư viện cá nhân</strong> của bạn (LOCAL). Chỉ bạn mới xem được.
             </div>
           ) : (
@@ -670,7 +846,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
               )}
               {/* Notice for Teacher with no dir selected */}
               {currentUser && currentUser.role === 'TEACHER' && !selectedDirId && (
-                <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-700">
+                <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/30 rounded-xl px-4 py-3 text-sm text-sky-700 dark:text-sky-400">
                   💾 Không chọn thư mục → bài giảng sẽ được lưu vào <strong>Thư viện cá nhân</strong> của bạn (LOCAL).
                 </div>
               )}

@@ -45,3 +45,12 @@ Thumbs.db
 ~$*.docx
 ~$*.DOCX
 
+# ==========================================
+# GGUF models & Obsidian Vault files
+# ==========================================
+backend/model_AI/
+obsidian_vault/
+*.gguf
+*.zip
+
+
