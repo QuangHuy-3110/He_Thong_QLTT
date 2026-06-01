@@ -78,7 +78,15 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * Chạy thành công tập lệnh dọn dẹp diện rộng `cleanup_orphaned_notes.py` giải phóng sạch sẽ **10 ghi chú mồ côi** và **6 nốt khái niệm rác** trong thư mục vault thực tế.
     - **Khắc phục lỗi ECONNRESET, Mismatch Đồ thị & Tối ưu hóa Context RAG**:
         * Tích hợp Thread Lock `_gguf_model_lock` và tăng context an toàn `n_ctx=4096` trong `llm_runner.py` để bảo vệ tài nguyên GGUF khỏi xung đột truy cập song song.
-*   **2026-06-01**: **Sửa lỗi Phân tích Giáo án Word (Docx), Tự động chuyển đổi Markdown thời gian thực & Tích hợp nút Về giữa Sơ đồ tư duy**:
+*   **2026-06-01**: **Sửa lỗi Phân tích Giáo án Word (Docx), Tự động chuyển đổi Markdown, Tích hợp nút Về giữa Sơ đồ tư duy & Nâng cấp toàn diện giao diện Chatbot AI**:
+    - **Nâng cấp giao diện Chatbot AI tương tác cao cấp**:
+        * **Kéo dãn phân tách Sidebar**: Thêm `historySidebarWidth` lưu trong `localStorage`, bổ sung vạch kéo phân cách giúp thay đổi độ rộng giữa lịch sử chat và khung chat linh hoạt và mượt mà.
+        * **Nút ẩn/hiện Sidebar thông minh**: Di chuyển nút đóng sang trái (cạnh nút "Tạo mới" trong Sidebar), khi đóng lại hiển thị thanh tab mở rộng "▶" cực kỳ tinh tế ở cạnh trái của khung chat.
+        * **Vị trí nút nổi động (Dynamic Bottom Position)**: Truyền prop `isDetailOpen` từ `App.tsx` vào `ChatbotWorkspace.tsx`. Khi Card chi tiết bài học mở, nút AI nổi tự động nâng lên `bottom: 96px` để tránh che nút Tải tài liệu, khi đóng card tự động hạ xuống dưới cùng `bottom: 24px` gọn gàng.
+        * **Dừng câu trả lời (Stop Response)**: Tích hợp `AbortController` vào luồng gửi tin nhắn Axios, tự động đổi nút "Gửi" thành nút "🛑 Dừng" màu đỏ khi đang sinh câu trả lời để ngắt kết nối lập tức.
+        * **Làm lại câu trước (Remake Question)**: Thêm nút "🔄 Làm lại câu trước" cho phép roll-back trạng thái hội thoại ở client lập tức và điền lại câu hỏi cũ vào input để tiện chỉnh sửa.
+        * **Chỉnh sửa tin nhắn trực tiếp (Inline Prompt Editing)**: Tích hợp biểu tượng bút chì ✏️ bên cạnh mỗi tin nhắn của `USER`. Khi hover và click vào biểu tượng này, khung tin nhắn chuyển sang chế độ biên tập `<textarea>` trực tiếp tại chỗ. Bấm "Lưu & Gửi" sẽ tự động xóa sạch cuộc hội thoại từ điểm đó trở đi và resubmit câu hỏi mới đã sửa đổi đến hệ thống.
+        * **Render Markdown phong phú (Rich Markdown Parser)**: Nâng cấp bộ giải mã tin nhắn chatbot hỗ trợ hiển thị Tiêu đề, danh sách dạng chấm tròn, và bảng biểu kẻ ô (`|`) có màu nền xen kẽ chuyên nghiệp.
     - **Cập nhật Backend Serializer thông minh (On-the-fly Docx Sync)**:
         * Khắc phục lỗi trả về nội dung tóm tắt ngắn từ database thay vì nội dung tài liệu đầy đủ. Cập nhật `get_content_preview` trong `LessonPlanSerializer` (`backend/app/serializers.py`) để tự động kiểm tra nếu dữ liệu xem trước chỉ là tóm tắt ngắn seeded (không chứa `"## "` hoặc `"# "`), hệ thống sẽ **ép buộc chạy trình trích xuất ngầm tài liệu Word** (`convert_docx_to_markdown`) để phân tích tệp `.docx` thực tế tại chỗ, lưu cập nhật lại database và trả về bản Markdown chi tiết cho Frontend.
     - **Nâng cấp Bộ phân tích Sư phạm thích ứng (Adaptive Pedagogical Parser)**:
@@ -86,9 +94,11 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * **Mục tiêu**: Nhận diện thông minh các dòng gạch đầu dòng tự do dưới mục tiêu dạy học (dù không có mã hóa `KT/NL/PC`) để tự động sắp xếp vào nhánh mục tiêu.
         * **Học liệu**: Tự động trích xuất các dòng mô tả thiết bị, đồ dùng dạy học tự do bên ngoài bảng biểu.
         * **Đồng bộ Tiến trình - Hoạt động**: Tích hợp cơ chế liên kết ngược song phương (`Cross-population fallbacks`). Nếu bảng tiến trình bị trống, Frontend tự động vẽ nhánh tiến trình dựa trên danh sách hoạt động chi tiết (và ngược lại), giúp sơ đồ luôn đầy đủ 4 nhánh nội dung thực tế.
-    - **Nút "🎯 Về giữa" (Center View) cho Sơ đồ tư duy**:
+    - **Nút "🎯 Về giữa" (Center View) cho Sơ đồ tư duy & Tách biệt giao diện Tabs chi tiết**:
         * Tích hợp hook `useReactFlow` từ `@xyflow/react` trong `MindmapFlow.tsx`.
         * Thêm nút **🎯 Về giữa** nằm bên cạnh nút **🔄 Reset** với hiệu ứng hover mượt mà và chuyển cảnh di chuyển `fitView` êm ái thời lượng **800ms**, nâng cao độ cao cấp và trải nghiệm tương tác trực quan cho người dùng.
+        * **Tách biệt Sơ đồ vs Tài liệu (Segmented Tabs)**: Thêm state `detailActiveTab` để chia cột xem chi tiết thành 2 tab trực quan riêng biệt (📄 *Xem tài liệu chi tiết* và 🕸️ *Sơ đồ tư duy 4 nhánh*), loại bỏ hoàn toàn việc xếp chồng chiếm không gian cũ.
+        * **Nút ẩn/hiện bình luận trong Card**: Thêm state `showComments` và nút "💬 Ẩn/Hiện bình luận" trên thanh tiêu đề của Card chi tiết. Khi bấm ẩn, khung đọc tài liệu tự động mở rộng chiếm 100% chiều rộng màn hình (`lg:w-full`) cực kỳ tối ưu và thoáng mắt.
     - **Sửa lỗi lặp tệp tin trong Cây Thư mục (Directory Tree Deduplication)**:
         * Khắc phục lỗi hiển thị tệp tin lặp lại ở cả thư mục cha và thư mục con khi một tệp thuộc về nhiều cấp thư mục.
         * Viết thêm hàm đệ quy `getDescendantIds` trong `App.tsx` để xác định toàn bộ các thư mục con (descendants) của thư mục hiện tại.

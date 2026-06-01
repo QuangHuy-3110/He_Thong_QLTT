@@ -73,6 +73,24 @@ class AIChatMessage(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+class LessonPlanEditHistory(models.Model):
+    lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.CASCADE, related_name='edit_histories')
+    edited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    title_before = models.CharField(max_length=255)
+    title_after = models.CharField(max_length=255)
+    description_before = models.TextField(blank=True, null=True)
+    description_after = models.TextField(blank=True, null=True)
+    target_student_before = models.CharField(max_length=100)
+    target_student_after = models.CharField(max_length=100)
+    attributes_before = models.JSONField(default=dict, blank=True)
+    attributes_after = models.JSONField(default=dict, blank=True)
+    file_name_before = models.CharField(max_length=255, blank=True, null=True)
+    file_name_after = models.CharField(max_length=255, blank=True, null=True)
+    edited_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-edited_at']
+
 class LessonPlanDirectory(models.Model):
     lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.CASCADE)
     directory = models.ForeignKey(Directory, on_delete=models.CASCADE)

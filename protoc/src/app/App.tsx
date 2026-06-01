@@ -133,30 +133,27 @@ const LessonActivitiesTimeline: React.FC<LessonActivitiesTimelineProps> = ({ act
   }
 
   return (
-    <div className="mb-6">
-      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tiến trình dạy học (Tóm tắt hoạt động)</h4>
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-        <div className="relative border-l-2 border-blue-100 ml-3 pl-6 space-y-6 py-2">
-          {activities.map((act, index) => (
-            <div key={index} className="relative">
-              {/* Connector Dot */}
-              <span className="absolute -left-[31px] top-1 bg-white border-2 border-blue-500 rounded-full w-4.5 h-4.5 flex items-center justify-center shadow-sm">
-                <span className="bg-blue-500 rounded-full w-2 h-2"></span>
-              </span>
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+      <div className="relative border-l-2 border-blue-100 ml-3 pl-6 space-y-6 py-2">
+        {activities.map((act, index) => (
+          <div key={index} className="relative">
+            {/* Connector Dot */}
+            <span className="absolute -left-[31px] top-1 bg-white border-2 border-blue-500 rounded-full w-4.5 h-4.5 flex items-center justify-center shadow-sm">
+              <span className="bg-blue-500 rounded-full w-2 h-2"></span>
+            </span>
 
-              {/* Node content */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 justify-between">
-                <h5 className="font-bold text-gray-800 text-sm leading-snug">{act.ten_hoat_dong}</h5>
-                <span className="inline-flex self-start sm:self-auto items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100/60 shadow-sm whitespace-nowrap">
-                  ⏱️ {act.thoi_gian || '10 phút'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 leading-relaxed font-medium">
-                {act.tom_tat || 'Tổ chức hoạt động giảng dạy trải nghiệm thực tế.'}
-              </p>
+            {/* Node content */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 justify-between">
+              <h5 className="font-bold text-gray-800 text-sm leading-snug">{act.ten_hoat_dong}</h5>
+              <span className="inline-flex self-start sm:self-auto items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100/60 shadow-sm whitespace-nowrap">
+                ⏱️ {act.thoi_gian || '10 phút'}
+              </span>
             </div>
-          ))}
-        </div>
+            <p className="text-xs text-gray-500 leading-relaxed font-medium">
+              {act.tom_tat || 'Tổ chức hoạt động giảng dạy trải nghiệm thực tế.'}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -386,9 +383,10 @@ function parseMarkdownLessonPlan(markdown?: string, titleFallback?: string) {
 
 interface InteractiveLessonMindmapProps {
   lesson: LessonPlan;
+  isFullscreen?: boolean;
 }
 
-const InteractiveLessonMindmap: React.FC<InteractiveLessonMindmapProps> = ({ lesson }) => {
+const InteractiveLessonMindmap: React.FC<InteractiveLessonMindmapProps> = ({ lesson, isFullscreen }) => {
   // ── Dynamic parser + Fallback pre-authored data ────────────────────────────
   const parsedData = useMemo(() => {
     // Try dynamic markdown parser first!
@@ -527,6 +525,14 @@ const InteractiveLessonMindmap: React.FC<InteractiveLessonMindmapProps> = ({ les
     };
   }, [lesson]);
 
+  if (isFullscreen) {
+    return (
+      <div style={{ height: '100%', width: '100%', overflow: 'hidden' }}>
+        <MindmapFlow data={parsedData} />
+      </div>
+    );
+  }
+
   return (
     <div className="mb-8 rounded-3xl border border-gray-200 shadow-lg bg-white" style={{ overflow: 'visible' }}>
       {/* Header */}
@@ -561,6 +567,19 @@ interface User {
 }
 
 // Count lessons in a directory and all its descendants (deduplicated)
+// Helper to download content as Markdown (.md) file locally
+function downloadMarkdownFile(title: string, content: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const safeTitle = title.replace(/[\s/\\?%*:|"<>]+/g, '_');
+  link.setAttribute('download', `${safeTitle}.md`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function countLessonsInDir(dirId: number, directories: Directory[], allLessons: LessonPlan[]): number {
   return getLessonsInDir(dirId, directories, allLessons).length;
 }
@@ -1422,6 +1441,10 @@ export default function App() {
   const [showRatingSection, setShowRatingSection] = useState<boolean>(false);
   const [selectedStarFilter, setSelectedStarFilter] = useState<string>('all');
   const [editingMyReview, setEditingMyReview] = useState<boolean>(false);
+  const [showComments, setShowComments] = useState<boolean>(true);
+  const [detailActiveTab, setDetailActiveTab] = useState<'document' | 'mindmap'>('document');
+  const [isMindmapFullScreen, setIsMindmapFullScreen] = useState<boolean>(false);
+  const [isDocumentFullScreen, setIsDocumentFullScreen] = useState<boolean>(false);
 
   const starStats = useMemo(() => {
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -1674,6 +1697,32 @@ export default function App() {
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
 
+  // Edit History States & Methods
+  const [editHistory, setEditHistory] = useState<any[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const fetchEditHistory = async (lessonId: number) => {
+    if (!currentUser) return;
+    setHistoryLoading(true);
+    setShowHistoryModal(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/lesson-plans/${lessonId}/history/?user_id=${currentUser.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEditHistory(data);
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Không thể tải lịch sử chỉnh sửa.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Đã xảy ra lỗi khi kết nối tới máy chủ.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   // Tự động đồng bộ sơ đồ tư duy biệt lập của tài liệu khi xem chi tiết và reset khi đóng
   useEffect(() => {
     if (selectedLessonForDetail) {
@@ -1682,7 +1731,7 @@ export default function App() {
       setFocusLessonIdForChat(null);
     }
   }, [selectedLessonForDetail]);
-  const [previewMode, setPreviewMode] = useState<'docx' | 'markdown'>('docx');
+  const [previewMode, setPreviewMode] = useState<'docx' | 'markdown'>('markdown');
   const [selectedCreatorForProfile, setSelectedCreatorForProfile] = useState<User | null>(null);
 
   // Profile Settings States
@@ -1909,7 +1958,7 @@ export default function App() {
 
   useEffect(() => {
     if (selectedLessonForDetail) {
-      setPreviewMode('docx');
+      setPreviewMode('markdown');
       setRatingLoading(true);
       setSelectedStarFilter('all');
       setEditingMyReview(false);
@@ -4666,22 +4715,39 @@ export default function App() {
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
               </div>
-              <button
-                onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
-                className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
-                title="Đóng cửa sổ"
-              >
-                <span className="text-xl">✕</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedLessonForDetail.status !== 'LOCAL' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowComments(!showComments)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-sm ${
+                      showComments 
+                        ? 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' 
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                    title={showComments ? "Ẩn danh mục nhận xét & đánh giá" : "Hiện danh mục nhận xét & đánh giá"}
+                  >
+                    💬 {showComments ? "Ẩn bình luận" : "Hiện bình luận"}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
+                  className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
+                  title="Đóng cửa sổ"
+                >
+                  <span className="text-xl">✕</span>
+                </button>
+              </div>
             </div>
 
             {/* Split Content */}
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-50/20">
               {/* Left Column - Lesson & Info */}
-              <div className={`w-full flex flex-col h-full overflow-y-auto p-6 scrollbar-thin ${selectedLessonForDetail.status === 'LOCAL'
-                  ? 'w-full'
+              <div className={`w-full flex flex-col h-full overflow-y-auto p-6 scrollbar-thin ${
+                (selectedLessonForDetail.status === 'LOCAL' || !showComments)
+                  ? 'lg:w-full'
                   : 'lg:w-[60%] border-b lg:border-b-0 lg:border-r border-gray-200/80'
-                }`}>
+              }`}>
                 {/* Creator and general info banner */}
                 <div className="bg-white border border-gray-150 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -4759,116 +4825,61 @@ export default function App() {
                     </div>
                   </div>
                 )}
-
                 {/* Render activities timeline if exists */}
                 <LessonActivitiesTimeline activities={selectedLessonForDetail.attributes?.tien_trinh_day_hoc} />
 
-                {/* Sơ đồ tư duy 4 nhánh tương tác mới */}
-                <InteractiveLessonMindmap lesson={selectedLessonForDetail} />
-
-                {/* Document Preview & Attachment */}
-                {((selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) || selectedLessonForDetail.content_preview) && (() => {
-                  const fileUrl = getLessonFileUrl(selectedLessonForDetail);
-                  const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
-                  const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
-
-                  if (isPdfFile) {
-                    return (
-                      <div className="mt-2 border-t border-gray-100 pt-6">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem tài liệu trực tuyến</h4>
-                        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm h-[600px] transition-all hover:shadow-md">
-                          <iframe
-                            src={fileUrl}
-                            className="w-full h-full border-0"
-                            title="PDF Preview"
-                          />
+                {/* Modern Workspace Navigation Grid instead of inline viewing */}
+                <div className="mb-6 mt-2">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tri thức & Tài liệu bài dạy</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Interactive Mindmap Workspace Button */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100 hover:border-indigo-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2.5 mb-2">
+                          <span className="text-2xl group-hover:scale-110 transition-transform duration-250">🧠</span>
+                          <h5 className="font-extrabold text-slate-800 text-sm">Sơ đồ tư duy</h5>
                         </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+                          Sơ đồ tư duy dạng cây phân tích mục tiêu kiến thức, năng lực, phẩm chất, tiến trình dạy học. Hỗ trợ kéo thả, phóng thu & xem nhanh nghiệp vụ sư phạm.
+                        </p>
                       </div>
-                    );
-                  } else {
-                    const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!selectedLessonForDetail.content_preview;
-                    const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
-                    if (isMd) {
-                      return (
-                        <div className="mt-2 border-t border-gray-100 pt-6">
-                          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Nội dung tài liệu Markdown</h4>
-                          <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                      
+                      <button
+                        type="button"
+                        onClick={() => setIsMindmapFullScreen(true)}
+                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white text-xs font-extrabold rounded-xl shadow-sm shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        🖥️ Khám phá toàn màn hình
+                      </button>
+                    </div>
+
+                    {/* Full Document Workspace Button */}
+                    <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100 hover:border-emerald-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2.5 mb-2">
+                          <span className="text-2xl group-hover:scale-110 transition-transform duration-250">📄</span>
+                          <h5 className="font-extrabold text-slate-800 text-sm">Tài liệu giáo án chi tiết</h5>
                         </div>
-                      );
-                    } else if (isDocx) {
-                      return (
-                        <div className="mt-2 border-t border-gray-100 pt-6">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 sm:gap-6 mb-4">
-                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Xem chi tiết tài liệu</h4>
-                            <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewMode('docx')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'docx'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-900'
-                                  }`}
-                              >
-                                📝 Bản Word gốc (Offline)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPreviewMode('markdown')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'markdown'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-900'
-                                  }`}
-                              >
-                                ⚡ Bản trích xuất Markdown
-                              </button>
-                            </div>
-                          </div>
-
-                          {previewMode === 'docx' ? (
-                            <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
-                              <DocxPreview fileUrl={fileUrl} />
-                            </div>
-                          ) : (
-                            <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
-                          )}
-                        </div>
-                      );
-                    }
-
-                    const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
-                    const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
-                    const fileIcon = isPptx ? '📊' : '📄';
-
-                    return (
-                      <div className="mt-2 border-t border-gray-100 pt-6">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tài liệu đính kèm</h4>
-                        <div className="border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-white shadow-sm">
-                          <div className="text-6xl mb-4">{fileIcon}</div>
-                          <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
-                          <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
-
-                          <div className="max-w-md bg-blue-50/40 border border-blue-100 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 leading-relaxed">
-                            💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
-                          </div>
-
-                          <a
-                            href={fileUrl}
-                            download={fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 hover:-translate-y-0.5 duration-150"
-                          >
-                            📥 Tải tài liệu về máy ngay
-                          </a>
-                        </div>
+                        <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+                          Trình đọc tài liệu chuẩn cao cấp. Hỗ trợ đọc bản trích xuất Markdown tinh gọn, xem file Word gốc (.docx) offline hoặc tài liệu PDF trực tuyến.
+                        </p>
                       </div>
-                    );
-                  }
-                })()}
+                      
+                      <button
+                        type="button"
+                        onClick={() => setIsDocumentFullScreen(true)}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-extrabold rounded-xl shadow-sm shadow-emerald-100 hover:shadow-emerald-200 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        📖 Xem tài liệu toàn màn hình
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Right Column - Ratings & Comments */}
-              {selectedLessonForDetail.status !== 'LOCAL' && (
+              {selectedLessonForDetail.status !== 'LOCAL' && showComments && (
                 <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
                   {/* Rating Summary Card & Stats */}
                   <div className="bg-gradient-to-br from-amber-50 to-orange-50/20 border border-amber-100/60 rounded-2xl p-5 mb-6 shadow-sm">
@@ -5206,8 +5217,16 @@ export default function App() {
                 Đóng
               </button>
 
-              {currentUser && selectedLessonForDetail.creator?.id === currentUser.id && (
+              {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
                 <>
+                  <button
+                    onClick={() => {
+                      fetchEditHistory(selectedLessonForDetail.id);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 font-bold hover:bg-slate-100 transition-all hover:shadow-sm"
+                  >
+                    📜 Lịch sử chỉnh sửa
+                  </button>
                   <button
                     onClick={() => {
                       const l = selectedLessonForDetail;
@@ -5559,6 +5578,167 @@ export default function App() {
         </div>
       )}
 
+      {/* Edit History Modal */}
+      {showHistoryModal && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto backdrop-blur-md transition-all">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-100/80 flex flex-col my-8 max-h-[85vh] transform transition-transform scale-100">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 relative flex-shrink-0">
+              <div className="absolute right-4 top-4">
+                <button
+                  onClick={() => { setShowHistoryModal(false); setEditHistory([]); }}
+                  className="text-white/80 hover:text-white transition-colors text-2xl font-bold p-1 leading-none rounded-full hover:bg-white/10"
+                >
+                  &times;
+                </button>
+              </div>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                📜 Lịch sử chỉnh sửa tài liệu
+              </h3>
+              <p className="text-slate-300 text-xs mt-1">
+                Hiển thị chi tiết các thay đổi của tài liệu qua từng mốc thời gian.
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-grow bg-slate-50/50">
+              {historyLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-10 h-10 border-4 border-slate-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-slate-500 text-sm mt-3 font-medium">Đang tải lịch sử chỉnh sửa...</p>
+                </div>
+              ) : editHistory.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200/60">
+                  <div className="text-4xl mb-3">📂</div>
+                  <p className="text-slate-500 font-semibold">Chưa có lịch sử chỉnh sửa nào</p>
+                  <p className="text-slate-400 text-xs mt-1">Tài liệu này vẫn giữ nguyên các thông tin đăng tải ban đầu.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-slate-200 ml-4 space-y-8 pb-4">
+                  {editHistory.map((h, idx) => {
+                    const isTitleChanged = h.title_before !== h.title_after;
+                    const isDescChanged = h.description_before !== h.description_after;
+                    const isStudentChanged = h.target_student_before !== h.target_student_after;
+                    const isFileChanged = h.file_name_before !== h.file_name_after;
+
+                    // Diff comparison helper for attributes
+                    const beforeAttrs = h.attributes_before || {};
+                    const afterAttrs = h.attributes_after || {};
+                    const changedAttrs: string[] = [];
+                    const allKeys = Array.from(new Set([...Object.keys(beforeAttrs), ...Object.keys(afterAttrs)]));
+                    allKeys.forEach(k => {
+                      if (JSON.stringify(beforeAttrs[k]) !== JSON.stringify(afterAttrs[k])) {
+                        changedAttrs.push(k);
+                      }
+                    });
+
+                    return (
+                      <div key={h.id} className="relative pl-6">
+                        {/* Timeline node */}
+                        <div className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-slate-600 border-4 border-white shadow-sm flex items-center justify-center"></div>
+
+                        {/* Card wrapper */}
+                        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-shadow">
+                          {/* User tag and timestamp */}
+                          <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-100 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              {h.edited_by_avatar ? (
+                                <img src={h.edited_by_avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-slate-100" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 text-xs font-black">
+                                  {(h.edited_by_name || h.edited_by_username || 'U')[0].toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-xs font-bold text-slate-800">
+                                  {h.edited_by_name || h.edited_by_username || 'Người dùng'}
+                                </p>
+                                <p className="text-[10px] text-slate-400">Người thực hiện chỉnh sửa</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                              {new Date(h.edited_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+
+                          {/* Diff changes list */}
+                          <div className="space-y-3">
+                            {isTitleChanged && (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-600">📝 Tiêu đề:</span>
+                                <div className="mt-1 pl-2 border-l-2 border-slate-200 space-y-0.5">
+                                  <p className="text-red-500 line-through">Cũ: {h.title_before}</p>
+                                  <p className="text-emerald-600 font-medium">Mới: {h.title_after}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {isDescChanged && (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-600">💬 Mô tả:</span>
+                                <div className="mt-1 pl-2 border-l-2 border-slate-200 space-y-0.5">
+                                  <p className="text-red-500 line-through">Cũ: {h.description_before || '(trống)'}</p>
+                                  <p className="text-emerald-600 font-medium">Mới: {h.description_after || '(trống)'}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {isStudentChanged && (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-600">👥 Đối tượng học sinh:</span>
+                                <div className="mt-1 pl-2 border-l-2 border-slate-200 space-y-0.5">
+                                  <p className="text-red-500 line-through">Cũ: {h.target_student_before}</p>
+                                  <p className="text-emerald-600 font-medium">Mới: {h.target_student_after}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {isFileChanged && (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-600">📁 Tệp tin đính kèm:</span>
+                                <div className="mt-1 pl-2 border-l-2 border-slate-200 space-y-0.5">
+                                  <p className="text-red-500 line-through">Cũ: {h.file_name_before || '(Không có tệp)'}</p>
+                                  <p className="text-emerald-600 font-medium">Mới: {h.file_name_after || '(Không có tệp)'}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {changedAttrs.length > 0 && (
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-600">⚙️ Thuộc tính:</span>
+                                <div className="mt-1 pl-2 border-l-2 border-slate-200 space-y-1">
+                                  {changedAttrs.map(k => (
+                                    <div key={k} className="bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                                      <p className="font-semibold text-slate-500 text-[10px]">{k}:</p>
+                                      <p className="text-red-500 line-through">Cũ: {JSON.stringify(beforeAttrs[k]) || '(trống)'}</p>
+                                      <p className="text-emerald-600 font-medium">Mới: {JSON.stringify(afterAttrs[k]) || '(trống)'}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-100 bg-white flex justify-end flex-shrink-0">
+              <button
+                onClick={() => { setShowHistoryModal(false); setEditHistory([]); }}
+                className="px-5 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-700 transition-colors shadow-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* User Profile Settings Modal */}
       {showProfileModal && currentUser && (
         <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-950/60 overflow-y-auto backdrop-blur-md transition-all">
@@ -5773,6 +5953,204 @@ export default function App() {
           }}
           isDetailOpen={!!selectedLessonForDetail}
         />
+      )}
+
+      {isMindmapFullScreen && selectedLessonForDetail && (
+        <div className="fixed inset-0 w-screen h-screen bg-[#f8fafc] z-[200] flex flex-col transition-all duration-300 animate-in fade-in zoom-in-95">
+          {/* Fullscreen Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 text-slate-800 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-600 border border-indigo-100">
+                🧠 Sơ đồ tư duy toàn màn hình
+              </span>
+              <div>
+                <h3 className="text-base font-black text-slate-900">{selectedLessonForDetail.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Cuộn chuột để zoom • Giữ chuột kéo để di chuyển • Click các nút lá để xem chi tiết sư phạm</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex gap-2 text-slate-600 text-xs font-semibold">
+                <span className="px-3 py-1 bg-slate-100 rounded-xl border border-slate-200">🖱️ Kéo thả</span>
+                <span className="px-3 py-1 bg-slate-100 rounded-xl border border-slate-200">🔍 Zoom</span>
+                <span className="px-3 py-1 bg-slate-100 rounded-xl border border-slate-200">👆 Click lá</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMindmapFullScreen(false)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-rose-200 hover:shadow-rose-350 transition-all flex items-center gap-1.5"
+              >
+                ✕ Thoát toàn màn hình
+              </button>
+            </div>
+          </div>
+
+          {/* Fullscreen Interactive Canvas */}
+          <div className="flex-grow w-full relative bg-[#f8fafc] overflow-hidden">
+            <InteractiveLessonMindmap lesson={selectedLessonForDetail} isFullscreen={true} />
+          </div>
+        </div>
+      )}
+
+      {isDocumentFullScreen && selectedLessonForDetail && (
+        <div className="fixed inset-0 w-screen h-screen bg-[#f8fafc] z-[200] flex flex-col transition-all duration-300 animate-in fade-in zoom-in-95">
+          {/* Fullscreen Header */}
+          <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 text-slate-800 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                📄 Xem tài liệu toàn màn hình
+              </span>
+              <div>
+                <h3 className="text-base font-black text-slate-900">{selectedLessonForDetail.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Không gian đọc tài liệu tập trung cao độ</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {/* Download Word Button */}
+              {(selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) ? (
+                <a
+                  href={getLessonFileUrl(selectedLessonForDetail)}
+                  download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-blue-100 hover:shadow-blue-200 transition-all flex items-center gap-1.5"
+                >
+                  📥 Tải bản Word (.docx)
+                </a>
+              ) : null}
+
+              {/* Download Markdown Button */}
+              {selectedLessonForDetail.content_preview ? (
+                <button
+                  type="button"
+                  onClick={() => downloadMarkdownFile(selectedLessonForDetail.title, selectedLessonForDetail.content_preview)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-100 hover:shadow-emerald-200 transition-all flex items-center gap-1.5"
+                >
+                  ⚡ Tải bản Markdown (.md)
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => setIsDocumentFullScreen(false)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-rose-200 hover:shadow-rose-350 transition-all flex items-center gap-1.5"
+              >
+                ✕ Thoát chế độ xem
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-grow w-full overflow-y-auto bg-slate-50 p-6 md:p-12">
+            <div className="max-w-[95%] mx-auto bg-white rounded-3xl border border-slate-200/80 shadow-2xl p-6 md:p-10">
+              {/* Document Preview & Attachment */}
+              {((selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) || selectedLessonForDetail.content_preview) && (() => {
+                const fileUrl = getLessonFileUrl(selectedLessonForDetail);
+                const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
+                const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
+
+                if (isPdfFile) {
+                  return (
+                    <div className="mt-8 border-t border-slate-100 pt-8">
+                      <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span>🌍</span> Tài liệu PDF trực tuyến
+                      </h4>
+                      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-[75vh]">
+                        <iframe
+                          src={fileUrl}
+                          className="w-full h-full border-0"
+                          title="PDF Preview"
+                        />
+                      </div>
+                    </div>
+                  );
+                } else {
+                  const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!selectedLessonForDetail.content_preview;
+                  const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
+                  if (isMd) {
+                    return (
+                      <div className="mt-8 border-t border-slate-100 pt-8">
+                        <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+                          <span>⚡</span> Nội dung tài liệu Markdown
+                        </h4>
+                        <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                      </div>
+                    );
+                  } else if (isDocx) {
+                    return (
+                      <div className="mt-8 border-t border-slate-100 pt-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-2 border-b border-slate-100">
+                          <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                            <span>📝</span> Nội dung chi tiết giáo án Word
+                          </h4>
+                          <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewMode('markdown')}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'markdown'
+                                  ? 'bg-white text-emerald-650 shadow-sm border border-slate-200/50'
+                                  : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                              ⚡ Bản trích xuất Markdown
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewMode('docx')}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'docx'
+                                  ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50'
+                                  : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                            >
+                              📝 Bản Word gốc (Offline)
+                            </button>
+                          </div>
+                        </div>
+
+                        {previewMode === 'docx' ? (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-1 shadow-sm">
+                            <DocxPreview fileUrl={fileUrl} />
+                          </div>
+                        ) : (
+                          <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
+                  const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
+                  const fileIcon = isPptx ? '📊' : '📄';
+
+                  return (
+                    <div className="mt-8 border-t border-slate-100 pt-8">
+                      <h4 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider mb-4">Tài liệu đính kèm</h4>
+                      <div className="border border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-white shadow-sm">
+                        <div className="text-6xl mb-4">{fileIcon}</div>
+                        <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
+                        <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
+
+                        <div className="max-w-md bg-blue-50/40 border border-blue-100 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 leading-relaxed">
+                          💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
+                        </div>
+
+                        <a
+                          href={fileUrl}
+                          download={fileName}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 hover:-translate-y-0.5 duration-150"
+                        >
+                          📥 Tải tài liệu về máy ngay
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

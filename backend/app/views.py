@@ -2,8 +2,8 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating
-from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer, LessonPlanRatingSerializer
+from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating, LessonPlanEditHistory
+from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer, LessonPlanRatingSerializer, LessonPlanEditHistorySerializer
 from django.db.models import Q, Avg
 import json
 
@@ -179,6 +179,13 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         if lesson.creator != user and user.role != 'ADMIN':
             raise PermissionDenied("Chỉ chủ sở hữu mới có quyền chỉnh sửa bài giảng này.")
 
+        import os
+        title_before = lesson.title
+        description_before = lesson.description or ""
+        target_student_before = lesson.target_student
+        attributes_before = lesson.attributes or {}
+        file_name_before = os.path.basename(lesson.file_path.name) if lesson.file_path else ""
+
         attrs = self.request.data.get('attributes', None)
         
         file_base64 = self.request.data.get('file_base64', None)
@@ -306,6 +313,65 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 )
         else:
             serializer.save(**save_kwargs)
+
+        # Ghi nhận lịch sử chỉnh sửa
+        lesson.refresh_from_db()
+        title_after = lesson.title
+        description_after = lesson.description or ""
+        target_student_after = lesson.target_student
+        attributes_after = lesson.attributes or {}
+        file_name_after = os.path.basename(lesson.file_path.name) if lesson.file_path else ""
+
+        has_changed = (
+            title_before != title_after or
+            description_before != description_after or
+            target_student_before != target_student_after or
+            attributes_before != attributes_after or
+            file_name_before != file_name_after
+        )
+
+        if has_changed:
+            from .models import LessonPlanEditHistory
+            LessonPlanEditHistory.objects.create(
+                lesson_plan=lesson,
+                edited_by=user,
+                title_before=title_before,
+                title_after=title_after,
+                description_before=description_before,
+                description_after=description_after,
+                target_student_before=target_student_before,
+                target_student_after=target_student_after,
+                attributes_before=attributes_before,
+                attributes_after=attributes_after,
+                file_name_before=file_name_before,
+                file_name_after=file_name_after
+            )
+
+class LessonPlanEditHistoryAPIView(generics.ListAPIView):
+    serializer_class = LessonPlanEditHistorySerializer
+
+    def get_queryset(self):
+        lesson_plan_id = self.kwargs.get('pk')
+        user_id = self.request.query_params.get('user_id')
+        if not user_id:
+            raise PermissionDenied("Vui lòng cung cấp user_id người thực hiện truy vấn.")
+            
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise PermissionDenied("Không tìm thấy thông tin người dùng.")
+            
+        try:
+            lesson = LessonPlan.objects.get(id=lesson_plan_id)
+        except LessonPlan.DoesNotExist:
+            raise PermissionDenied("Không tìm thấy thông tin bài giảng.")
+            
+        # Chỉ ADMIN hoặc chủ sở hữu bài đăng mới có quyền xem lịch sử chỉnh sửa
+        if lesson.creator != user and user.role != 'ADMIN':
+            raise PermissionDenied("Bạn không có quyền xem lịch sử chỉnh sửa của bài giảng này.")
+            
+        from .models import LessonPlanEditHistory
+        return LessonPlanEditHistory.objects.filter(lesson_plan=lesson)
 
 class DirectoryListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = DirectorySerializer

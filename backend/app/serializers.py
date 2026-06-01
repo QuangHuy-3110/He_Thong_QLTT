@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating, AIChatSession, AIChatMessage
+from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating, AIChatSession, AIChatMessage, LessonPlanEditHistory
 
 class UserSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
@@ -142,4 +142,33 @@ class AIChatSessionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = AIChatSession
-        fields = ['id', 'user', 'lesson_plan', 'lesson_plan_title', 'title', 'created_at', 'messages']
+        fields = ['id', 'user', 'lesson_plan', 'lesson_plan_title', 'title', 'created_at', 'messages']
+
+class LessonPlanEditHistorySerializer(serializers.ModelSerializer):
+    edited_by_name = serializers.ReadOnlyField(source='edited_by.full_name')
+    edited_by_username = serializers.ReadOnlyField(source='edited_by.username')
+    edited_by_avatar = serializers.SerializerMethodField()
+
+    def get_edited_by_avatar(self, obj):
+        if not obj.edited_by or not obj.edited_by.avatar:
+            return None
+        request = self.context.get('request')
+        try:
+            url = obj.edited_by.avatar.url
+        except ValueError:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+    class Meta:
+        model = LessonPlanEditHistory
+        fields = [
+            'id', 'lesson_plan', 'edited_by', 'edited_by_name', 'edited_by_username', 'edited_by_avatar',
+            'title_before', 'title_after',
+            'description_before', 'description_after',
+            'target_student_before', 'target_student_after',
+            'attributes_before', 'attributes_after',
+            'file_name_before', 'file_name_after',
+            'edited_at'
+        ]

@@ -147,6 +147,9 @@ export default function ChatbotWorkspace({
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const selectedNodeRef = useRef<GraphNode | null>(null);
   const hoveredNodeRef = useRef<GraphNode | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState<string>('');
 
   // --- RESIZE STATE ---
   const [widgetSize, setWidgetSize] = useState(() => {
@@ -333,6 +336,9 @@ export default function ChatbotWorkspace({
       };
     });
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const payload = {
         message: textToSend,
@@ -342,7 +348,9 @@ export default function ChatbotWorkspace({
         focus_lesson_id: focusLessonId || undefined
       };
 
-      const res = await axios.post(`/api/chat-sessions/${activeSession.id}/send/`, payload);
+      const res = await axios.post(`/api/chat-sessions/${activeSession.id}/send/`, payload, {
+        signal: controller.signal
+      });
       
       const aiReply = res.data.message;
       const retrievedGraph = res.data.retrieved_graph;
@@ -377,6 +385,10 @@ export default function ChatbotWorkspace({
         });
       }
     } catch (err) {
+      if (axios.isCancel(err)) {
+        console.log('Chat request generation stopped by user.');
+        return;
+      }
       console.error('Error sending message:', err);
       // Remove optimistic message and show error
       setActiveSession(prev => {
@@ -389,7 +401,77 @@ export default function ChatbotWorkspace({
       alert('Không thể gửi tin nhắn. Hãy kiểm tra lại kết nối mô hình của bạn.');
     } finally {
       setSending(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStopResponse = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setSending(false);
+      // Remove the optimistic temporary message or active message from UI state
+      if (activeSession && activeSession.messages && activeSession.messages.length > 0) {
+        // If the last message was a temp user message, clean it up
+        const lastMsg = activeSession.messages[activeSession.messages.length - 1];
+        if (lastMsg.sender_role === 'USER') {
+          setActiveSession(prev => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              messages: (prev.messages || []).slice(0, -1)
+            };
+          });
+        }
+      }
+    }
+  };
+
+  const handleRemakePreviousQuestion = () => {
+    if (!activeSession || !activeSession.messages || activeSession.messages.length === 0) return;
+    
+    // Find the last USER message in activeSession.messages
+    const lastUserMsgIdx = activeSession.messages.findLastIndex(m => m.sender_role === 'USER');
+    if (lastUserMsgIdx === -1) return;
+    
+    const lastUserMsg = activeSession.messages[lastUserMsgIdx];
+    setInputMessage(lastUserMsg.content);
+    
+    // Remove the last USER message and any subsequent messages (like the AI reply)
+    const updatedMessages = activeSession.messages.slice(0, lastUserMsgIdx);
+    setActiveSession(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: updatedMessages
+      };
+    });
+  };
+
+  const handleSaveAndResubmit = async (msgId: number, newText: string) => {
+    if (!newText.trim() || !activeSession || sending) return;
+
+    // Find the index of the message being edited
+    const msgIdx = activeSession.messages.findIndex(m => m.id === msgId);
+    if (msgIdx === -1) return;
+
+    // Roll back the session's messages: keep everything before msgIdx
+    const updatedMessages = activeSession.messages.slice(0, msgIdx);
+
+    // Clear editing state
+    setEditingMessageId(null);
+    setEditingMessageText('');
+
+    // Update UI state by rolling back
+    setActiveSession(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        messages: updatedMessages
+      };
+    });
+
+    // Resubmit the edited text as a new prompt
+    await handleSendMessage(newText);
   };
 
   // 6. Fetch full graph data
@@ -902,94 +984,205 @@ export default function ChatbotWorkspace({
     }
   };
 
-  // Render rich text with custom jump links and bold formatting
+  // Render rich text with custom jump links, bold formatting, and markdown-like block elements
   const renderMessageContent = (content: string, isUser: boolean) => {
     if (!content) return null;
-    
+
     const linkRegex = /\[([^\]]+)\]\((lesson:\/\/(\d+)(?:\?text=([^)]+))?)\)/g;
-    
-    const elements: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match;
-    
-    const renderTextWithBold = (text: string, partKey: string) => {
-      const boldRegex = /\*\*([^*]+)\*\*/g;
-      const subElements: React.ReactNode[] = [];
-      let subLastIdx = 0;
-      let subMatch;
-      
-      while ((subMatch = boldRegex.exec(text)) !== null) {
-        if (subMatch.index > subLastIdx) {
-          subElements.push(text.substring(subLastIdx, subMatch.index));
+
+    const renderRichInline = (text: string) => {
+      const elements: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match;
+
+      const renderTextWithBold = (txt: string, partKey: string) => {
+        const boldRegex = /\*\*([^*]+)\*\*/g;
+        const subElements: React.ReactNode[] = [];
+        let subLastIdx = 0;
+        let subMatch;
+
+        while ((subMatch = boldRegex.exec(txt)) !== null) {
+          if (subMatch.index > subLastIdx) {
+            subElements.push(txt.substring(subLastIdx, subMatch.index));
+          }
+          subElements.push(
+            <strong key={`bold-${subMatch.index}`} className={isUser ? "font-bold" : "font-bold text-blue-700"}>
+              {subMatch[1]}
+            </strong>
+          );
+          subLastIdx = boldRegex.lastIndex;
         }
-        subElements.push(
-          <strong key={`bold-${subMatch.index}`} className={isUser ? "font-bold" : "font-bold text-blue-700"}>
-            {subMatch[1]}
-          </strong>
+        if (subLastIdx < txt.length) {
+          subElements.push(txt.substring(subLastIdx));
+        }
+        return <span key={partKey}>{subElements}</span>;
+      };
+
+      let keyCounter = 0;
+      while ((match = linkRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          const textSegment = text.substring(lastIndex, match.index);
+          elements.push(renderTextWithBold(textSegment, `text-${keyCounter++}`));
+        }
+
+        const linkText = match[1];
+        const lessonId = parseInt(match[3]);
+        const searchText = match[4] ? decodeURIComponent(match[4].replace(/\+/g, ' ')) : undefined;
+
+        const targetLesson = lessonPlans.find(lp => lp.id === lessonId);
+
+        elements.push(
+          <button
+            key={`link-${match.index}`}
+            onClick={() => {
+              if (targetLesson && onViewLessonDetail) {
+                onViewLessonDetail(targetLesson, searchText);
+                setIsOpen(false);
+              } else if (!targetLesson) {
+                axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
+                  .then(res => {
+                    if (onViewLessonDetail) {
+                      onViewLessonDetail(res.data, searchText);
+                      setIsOpen(false);
+                    }
+                  })
+                  .catch(err => {
+                    console.error("Lỗi khi tải chi tiết bài giảng:", err);
+                    alert("Không thể tải tài liệu này.");
+                  });
+              }
+            }}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 my-0.5 rounded-md border text-[10px] font-bold shadow-sm hover:scale-105 active:scale-95 transition-all ${
+              isUser 
+                ? 'bg-white/20 text-white border-white/30 hover:bg-white/30' 
+                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+            }`}
+            title={targetLesson ? `Xem "${targetLesson.title}"` : "Xem tài liệu"}
+          >
+            <span>📄</span>
+            <span className="underline decoration-dotted underline-offset-2">{linkText}</span>
+            {searchText && <span className="text-[8px] opacity-70 italic">({searchText})</span>}
+          </button>
         );
-        subLastIdx = boldRegex.lastIndex;
+
+        lastIndex = linkRegex.lastIndex;
       }
-      if (subLastIdx < text.length) {
-        subElements.push(text.substring(subLastIdx));
+
+      if (lastIndex < text.length) {
+        elements.push(renderTextWithBold(text.substring(lastIndex), `text-${keyCounter++}`));
       }
-      return <span key={partKey}>{subElements}</span>;
+
+      return elements;
     };
 
-    let keyCounter = 0;
-    while ((match = linkRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        const textSegment = content.substring(lastIndex, match.index);
-        elements.push(renderTextWithBold(textSegment, `text-${keyCounter++}`));
+    // Split content by newline to parse block elements
+    const lines = content.split('\n');
+    const renderedElements: React.ReactNode[] = [];
+    let listItems: string[] = [];
+    let inList = false;
+    let tableHeaders: string[] = [];
+    let tableRows: string[][] = [];
+    let inTable = false;
+
+    const flushList = (key: string) => {
+      if (listItems.length > 0) {
+        renderedElements.push(
+          <ul key={key} className="list-disc pl-5 my-2 space-y-1 text-xs text-inherit">
+            {listItems.map((item, idx) => (
+              <li key={idx} className="leading-relaxed">{renderRichInline(item)}</li>
+            ))}
+          </ul>
+        );
+        listItems = [];
+        inList = false;
       }
-      
-      const linkText = match[1];
-      const lessonId = parseInt(match[3]);
-      const searchText = match[4] ? decodeURIComponent(match[4].replace(/\+/g, ' ')) : undefined;
-      
-      const targetLesson = lessonPlans.find(lp => lp.id === lessonId);
-      
-      elements.push(
-        <button
-          key={`link-${match.index}`}
-          onClick={() => {
-            if (targetLesson && onViewLessonDetail) {
-              onViewLessonDetail(targetLesson, searchText);
-              setIsOpen(false);
-            } else if (!targetLesson) {
-              axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
-                .then(res => {
-                  if (onViewLessonDetail) {
-                    onViewLessonDetail(res.data, searchText);
-                    setIsOpen(false);
-                  }
-                })
-                .catch(err => {
-                  console.error("Lỗi khi tải chi tiết bài giảng:", err);
-                  alert("Không thể tải tài liệu này.");
-                });
-            }
-          }}
-          className={`inline-flex items-center gap-1 px-2 py-0.5 mx-0.5 my-0.5 rounded-md border text-[10px] font-bold shadow-sm hover:scale-105 active:scale-95 transition-all ${
-            isUser 
-              ? 'bg-white/20 text-white border-white/30 hover:bg-white/30' 
-              : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-          }`}
-          title={targetLesson ? `Xem "${targetLesson.title}"` : "Xem tài liệu"}
-        >
-          <span>📄</span>
-          <span className="underline decoration-dotted underline-offset-2">{linkText}</span>
-          {searchText && <span className="text-[8px] opacity-70 italic">({searchText})</span>}
-        </button>
-      );
-      
-      lastIndex = linkRegex.lastIndex;
-    }
-    
-    if (lastIndex < content.length) {
-      elements.push(renderTextWithBold(content.substring(lastIndex), `text-${keyCounter++}`));
-    }
-    
-    return <div className="leading-relaxed whitespace-pre-wrap">{elements}</div>;
+    };
+
+    const flushTable = (key: string) => {
+      if (tableHeaders.length > 0 || tableRows.length > 0) {
+        renderedElements.push(
+          <div key={key} className="overflow-x-auto my-3 border border-gray-200 rounded-lg shadow-sm bg-white text-slate-800">
+            <table className="min-w-full divide-y divide-gray-200 text-[11px] text-left">
+              <thead className="bg-slate-50 font-bold text-slate-700">
+                <tr>
+                  {tableHeaders.map((h, idx) => (
+                    <th key={idx} className="px-3 py-2 whitespace-nowrap">{renderRichInline(h)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {tableRows.map((row, rowIdx) => (
+                  <tr key={rowIdx} className="hover:bg-slate-50 transition-colors">
+                    {row.map((cell, cellIdx) => (
+                      <td key={cellIdx} className="px-3 py-2 max-w-xs break-words">{renderRichInline(cell)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        tableHeaders = [];
+        tableRows = [];
+        inTable = false;
+      }
+    };
+
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      const key = `chat-line-${index}`;
+
+      // Table line parsing
+      if (trimmed.startsWith('|')) {
+        flushList(key + '-pre-tbl');
+        inTable = true;
+        const cells = trimmed
+          .split('|')
+          .map(c => c.trim())
+          .filter((c, i, arr) => i > 0 && i < arr.length - 1);
+
+        if (trimmed.includes('---')) {
+          return;
+        }
+
+        if (tableHeaders.length === 0) {
+          tableHeaders = cells;
+        } else {
+          tableRows.push(cells);
+        }
+        return;
+      } else {
+        flushTable(key + '-pre-non-tbl');
+      }
+
+      // List parsing
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+        inList = true;
+        const cleanText = trimmed.replace(/^[-*•]\s*/, '');
+        listItems.push(cleanText);
+        return;
+      } else {
+        flushList(key + '-pre-non-list');
+      }
+
+      // Headings & paragraphs
+      if (trimmed.startsWith('# ')) {
+        renderedElements.push(<h1 key={key} className="text-base font-bold my-3 border-b pb-1 border-slate-200">{renderRichInline(trimmed.slice(2))}</h1>);
+      } else if (trimmed.startsWith('## ')) {
+        renderedElements.push(<h2 key={key} className="text-sm font-bold text-slate-800 my-2">{renderRichInline(trimmed.slice(3))}</h2>);
+      } else if (trimmed.startsWith('### ')) {
+        renderedElements.push(<h3 key={key} className="text-xs font-bold text-blue-600 my-2">{renderRichInline(trimmed.slice(4))}</h3>);
+      } else if (trimmed === '---') {
+        renderedElements.push(<hr key={key} className="my-3 border-slate-200" />);
+      } else if (trimmed) {
+        renderedElements.push(<p key={key} className="text-[12px] leading-relaxed my-1.5">{renderRichInline(trimmed)}</p>);
+      }
+    });
+
+    flushList('final-list');
+    flushTable('final-table');
+
+    return <div className="leading-relaxed space-y-1">{renderedElements}</div>;
   };
 
   // Trình phân tích WikiLinks Obsidian [[Khái niệm]] sang nút bấm tương tác thông minh
@@ -1513,8 +1706,93 @@ export default function ChatbotWorkspace({
                             border: `1px solid ${msg.sender_role === 'USER' ? '#2563eb' : '#e2e8f0'}`,
                             wordBreak: 'break-word',
                           }}>
-                            {renderMessageContent(msg.content, msg.sender_role === 'USER')}
+                            {editingMessageId === msg.id ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px' }}>
+                                <textarea
+                                  value={editingMessageText}
+                                  onChange={e => setEditingMessageText(e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    minHeight: '60px',
+                                    padding: '6px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #bfdbfe',
+                                    fontSize: '11px',
+                                    color: '#334155',
+                                    outline: 'none',
+                                    fontFamily: 'inherit',
+                                    resize: 'vertical',
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleSaveAndResubmit(msg.id, editingMessageText);
+                                    }
+                                  }}
+                                />
+                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => { setEditingMessageId(null); setEditingMessageText(''); }}
+                                    style={{
+                                      fontSize: '9px',
+                                      fontWeight: 650,
+                                      padding: '3px 8px',
+                                      background: '#f1f5f9',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      color: '#475569',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Hủy
+                                  </button>
+                                  <button
+                                    onClick={() => handleSaveAndResubmit(msg.id, editingMessageText)}
+                                    style={{
+                                      fontSize: '9px',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      background: '#3b82f6',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      color: '#fff',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Lưu & Gửi
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              renderMessageContent(msg.content, msg.sender_role === 'USER')
+                            )}
                           </div>
+                          {msg.sender_role === 'USER' && editingMessageId !== msg.id && (
+                            <button
+                              onClick={() => {
+                                setEditingMessageId(msg.id);
+                                setEditingMessageText(msg.content);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                opacity: 0.35,
+                                fontSize: '10px',
+                                padding: '2px',
+                                transition: 'opacity 0.15s, transform 0.15s',
+                                alignSelf: 'center',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.35'; (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+                              title="Chỉnh sửa câu hỏi này"
+                            >
+                              ✏️
+                            </button>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -1608,29 +1886,58 @@ export default function ChatbotWorkspace({
                       flexShrink: 0,
                     }}>
                       <span style={{ fontSize: '9px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', flexShrink: 0 }}>Gợi ý:</span>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
-                        {suggestedQuestions.slice(0, 2).map((q, i) => (
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', overflowX: 'auto' }}>
+                          {suggestedQuestions.slice(0, 2).map((q, i) => (
+                            <button
+                              key={i}
+                              onClick={() => handleSendMessage(q)}
+                              style={{
+                                fontSize: '9px',
+                                fontWeight: 600,
+                                padding: '4px 8px',
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                color: '#3b82f6',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                transition: 'all 0.15s',
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eff6ff'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                        {activeSession.messages.filter(m => m.sender_role === 'USER').length > 0 && (
                           <button
-                            key={i}
-                            onClick={() => handleSendMessage(q)}
+                            onClick={handleRemakePreviousQuestion}
                             style={{
                               fontSize: '9px',
-                              fontWeight: 600,
+                              fontWeight: 700,
                               padding: '4px 8px',
-                              background: '#f8fafc',
-                              border: '1px solid #e2e8f0',
+                              background: '#fff',
+                              border: '1px solid #bfdbfe',
                               borderRadius: '6px',
                               color: '#3b82f6',
                               cursor: 'pointer',
                               whiteSpace: 'nowrap',
                               transition: 'all 0.15s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              boxShadow: '0 1px 2px rgba(59, 130, 246, 0.05)',
+                              flexShrink: 0,
                             }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eff6ff'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#fff'; }}
+                            title="Làm lại câu hỏi trước đó"
                           >
-                            {q}
+                            🔄 Làm lại câu trước
                           </button>
-                        ))}
+                        )}
                       </div>
                     </div>
                   )}
@@ -1673,26 +1980,52 @@ export default function ChatbotWorkspace({
                       onFocus={e => { (e.target as HTMLElement).style.borderColor = '#3b82f6'; }}
                       onBlur={e => { (e.target as HTMLElement).style.borderColor = '#e2e8f0'; }}
                     />
-                    <button
-                      onClick={() => handleSendMessage()}
-                      disabled={!activeSession || !inputMessage.trim() || sending}
-                      style={{
-                        padding: '8px',
-                        background: (!activeSession || !inputMessage.trim() || sending) ? '#cbd5e1' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                        color: '#fff',
-                        borderRadius: '10px',
-                        border: 'none',
-                        cursor: (!activeSession || !inputMessage.trim() || sending) ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        transition: 'all 0.15s',
-                        boxShadow: (!activeSession || !inputMessage.trim() || sending) ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.3)',
-                      }}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
+                    {sending ? (
+                      <button
+                        onClick={handleStopResponse}
+                        style={{
+                          padding: '8px 12px',
+                          background: '#ef4444',
+                          color: '#fff',
+                          borderRadius: '10px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          transition: 'all 0.15s',
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                          gap: '4px'
+                        }}
+                        title="Dừng câu trả lời"
+                      >
+                        <X className="w-3.5 h-3.5" /> Dừng
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleSendMessage()}
+                        disabled={!activeSession || !inputMessage.trim()}
+                        style={{
+                          padding: '8px',
+                          background: (!activeSession || !inputMessage.trim()) ? '#cbd5e1' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                          color: '#fff',
+                          borderRadius: '10px',
+                          border: 'none',
+                          cursor: (!activeSession || !inputMessage.trim()) ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.15s',
+                          boxShadow: (!activeSession || !inputMessage.trim()) ? 'none' : '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        }}
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
