@@ -1588,6 +1588,9 @@ class SystemSettingAPIView(APIView):
                 "chunk_size": 1000,
                 "chunk_overlap": 200
             }
+        from django.conf import settings
+        if "use_ai_rag" not in config:
+            config["use_ai_rag"] = getattr(settings, 'USE_AI_RAG', True)
         return Response(config, status=status.HTTP_200_OK)
 
     def post(self, request):

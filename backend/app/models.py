@@ -167,6 +167,18 @@ def index_lesson_plan_chunks(sender, instance, created, **kwargs):
     """
     Tự động đẩy giáo án vào hàng chờ xử lý RAG & Obsidian chạy ngầm.
     """
+    # Kiểm tra cấu hình bật/tắt AI RAG toàn cục từ cơ sở dữ liệu (do Admin chỉnh trực tiếp trên giao diện)
+    try:
+        config = SystemSetting.objects.get(key="chunking_config").value
+        use_ai_rag = config.get("use_ai_rag", True)
+    except Exception:
+        use_ai_rag = True
+
+    if not use_ai_rag:
+        if instance.ai_processing_status != 'COMPLETED':
+            sender.objects.filter(id=instance.id).update(ai_processing_status='COMPLETED')
+        return
+
     # Không xếp hàng lại nếu đã hoàn thành xử lý
     if instance.ai_processing_status == 'COMPLETED':
         return

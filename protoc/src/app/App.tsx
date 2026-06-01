@@ -904,6 +904,22 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [showDevOptions, setShowDevOptions] = useState<boolean>(false);
+  const [useAiRag, setUseAiRag] = useState<boolean>(true);
+
+  // Tải cấu hình hệ thống về bật/tắt AI RAG từ Backend
+  useEffect(() => {
+    const fetchSystemSettings = async () => {
+      try {
+        const res = await axios.get('/api/system-settings/');
+        if (res.data && typeof res.data.use_ai_rag === 'boolean') {
+          setUseAiRag(res.data.use_ai_rag);
+        }
+      } catch (err) {
+        console.error('Lỗi tải cấu hình hệ thống:', err);
+      }
+    };
+    fetchSystemSettings();
+  }, []);
 
   // Keycloak simulated portal states
   const [showKeycloakMockModal, setShowKeycloakMockModal] = useState<boolean>(false);
@@ -3176,17 +3192,19 @@ export default function App() {
                             <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFocusLessonIdForChat(lesson.id);
-                              }}
-                              className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
-                              title="Hỏi Trợ lý AI về bài học này"
-                            >
-                              ✨ Hỏi AI
-                            </button>
+                            {useAiRag && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFocusLessonIdForChat(lesson.id);
+                                }}
+                                className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
+                                title="Hỏi Trợ lý AI về bài học này"
+                              >
+                                ✨ Hỏi AI
+                              </button>
+                            )}
                             {lesson.file_path || lesson.file_url ? (
                               <a 
                                 href={getLessonFileUrl(lesson)} 
@@ -3398,13 +3416,15 @@ export default function App() {
                             >
                               ↗ Xem chi tiết
                             </button>
-                            <button
-                              onClick={() => setFocusLessonIdForChat(lesson.id)}
-                              className="px-4 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors flex items-center gap-1 hover:scale-105 active:scale-95 duration-100"
-                              title="Hỏi Trợ lý AI về bài học này"
-                            >
-                              ✨ Hỏi AI
-                            </button>
+                            {useAiRag && (
+                              <button
+                                onClick={() => setFocusLessonIdForChat(lesson.id)}
+                                className="px-4 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors flex items-center gap-1 hover:scale-105 active:scale-95 duration-100"
+                                title="Hỏi Trợ lý AI về bài học này"
+                              >
+                                ✨ Hỏi AI
+                              </button>
+                            )}
                             {/* Resubmit button for rejected lessons */}
                             {lesson.status === 'REJECTED' && (
                               <button
@@ -3714,17 +3734,19 @@ export default function App() {
                                 <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
                               </div>
                               <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFocusLessonIdForChat(lesson.id);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
-                                  title="Hỏi Trợ lý AI về bài học này"
-                                >
-                                  ✨ Hỏi AI
-                                </button>
+                                {useAiRag && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFocusLessonIdForChat(lesson.id);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
+                                    title="Hỏi Trợ lý AI về bài học này"
+                                  >
+                                    ✨ Hỏi AI
+                                  </button>
+                                )}
                                 {lesson.file_path || lesson.file_url ? (
                                   <a
                                     href={getLessonFileUrl(lesson)}
@@ -5350,6 +5372,7 @@ export default function App() {
 
       {currentUser && (
         <ChatbotWorkspace
+          useAiRag={useAiRag}
           directories={directories}
           currentUser={currentUser}
           onBack={() => {}}

@@ -164,6 +164,9 @@ USE_KEYCLOAK = os.environ.get('USE_KEYCLOAK', 'True').lower() in ('true', '1')
 KEYCLOAK_SERVER_URL = os.environ.get('KEYCLOAK_SERVER_URL', 'http://localhost:8080/realms/kms_realm')
 KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'kms-web-client')
 
+# CẤU HÌNH BẬT/TẮT TÍNH NĂNG AI RAG (Thích ứng cấu hình Server yếu)
+USE_AI_RAG = os.environ.get('USE_AI_RAG', 'True').lower() in ('true', '1')
+
 # Cấu hình các Authentication Backends cho Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

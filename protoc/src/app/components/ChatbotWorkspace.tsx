@@ -2313,6 +2313,37 @@ export default function ChatbotWorkspace({
                         </div>
                       )}
 
+                      {/* Bật tắt AI RAG toàn hệ thống dành cho Admin */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 8px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        marginTop: '2px'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', textAlign: 'left' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 800, color: '#1e293b' }}>🧠 Kích hoạt AI RAG</span>
+                          <span style={{ fontSize: '7px', color: '#64748b' }}>Tắt AI nếu Server yếu để chạy tối ưu</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={chunkingConfig.use_ai_rag !== false}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            setChunkingConfig((prev: any) => ({ ...prev, use_ai_rag: val }));
+                          }}
+                          style={{
+                            width: '14px',
+                            height: '14px',
+                            cursor: 'pointer',
+                            accentColor: '#6366f1'
+                          }}
+                        />
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleSaveChunkingConfig(chunkingConfig)}
