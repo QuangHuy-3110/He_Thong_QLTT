@@ -5771,6 +5771,7 @@ export default function App() {
             setLessonHighlightQuery(highlightQuery || '');
             setCurrentView('home');
           }}
+          isDetailOpen={!!selectedLessonForDetail}
         />
       )}
 

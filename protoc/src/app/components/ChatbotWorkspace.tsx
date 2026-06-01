@@ -55,6 +55,7 @@ interface ChatbotWorkspaceProps {
   focusLessonId?: number | null;
   setFocusLessonId?: (id: number | null) => void;
   onViewLessonDetail?: (lesson: any, highlightQuery?: string) => void;
+  isDetailOpen?: boolean;
 }
 
 export default function ChatbotWorkspace({
@@ -66,7 +67,8 @@ export default function ChatbotWorkspace({
   lessonPlans,
   focusLessonId: initialFocusLessonId = null,
   setFocusLessonId,
-  onViewLessonDetail
+  onViewLessonDetail,
+  isDetailOpen = false
 }: ChatbotWorkspaceProps) {
   // --- STATES & REFS ---
   const [isOpen, setIsOpen] = useState(false);
@@ -106,6 +108,15 @@ export default function ChatbotWorkspace({
     return parseInt(localStorage.getItem('kms_rag_depth') || '2');
   });
   const [showHistorySidebar, setShowHistorySidebar] = useState(true);
+  const [historySidebarWidth, setHistorySidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('kms_history_sidebar_width');
+    return saved ? parseInt(saved, 10) : 180;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kms_history_sidebar_width', String(historySidebarWidth));
+  }, [historySidebarWidth]);
+
 
   // --- BACKGROUND PROCESS & SETTINGS STATES ---
   const [bgTasksStatus, setBgTasksStatus] = useState<any>(null);
@@ -190,6 +201,35 @@ export default function ChatbotWorkspace({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [widgetSize]);
+
+  // --- SIDEBAR RESIZE HANDLER ---
+  const isSidebarResizing = useRef(false);
+  const sidebarResizeStart = useRef({ x: 0, w: 0 });
+
+  const handleSidebarResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isSidebarResizing.current = true;
+    sidebarResizeStart.current = { x: e.clientX, w: historySidebarWidth };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isSidebarResizing.current) return;
+      const dx = ev.clientX - sidebarResizeStart.current.x;
+      const maxW = Math.floor(widgetSize.width * 0.6);
+      const newW = Math.min(Math.max(sidebarResizeStart.current.w + dx, 100), Math.max(maxW, 150));
+      setHistorySidebarWidth(newW);
+    };
+
+    const handleMouseUp = () => {
+      isSidebarResizing.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [historySidebarWidth, widgetSize]);
+
 
   // --- API CALLS ---
   // 1. Fetch Sessions
@@ -1024,7 +1064,7 @@ export default function ChatbotWorkspace({
           onClick={() => setIsOpen(true)}
           style={{
             position: 'fixed',
-            bottom: '24px',
+            bottom: isDetailOpen ? '96px' : '24px',
             right: '24px',
             zIndex: 9999,
             width: '52px',
@@ -1143,26 +1183,6 @@ export default function ChatbotWorkspace({
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {activeTab === 'chat' && (
-                <button
-                  onClick={() => setShowHistorySidebar(!showHistorySidebar)}
-                  style={{
-                    padding: '4px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: showHistorySidebar ? 'rgba(255,255,255,0.25)' : 'transparent',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background 0.15s',
-                  }}
-                  title={showHistorySidebar ? "Ẩn lịch sử" : "Hiện lịch sử"}
-                >
-                  <Layers className="w-4 h-4" />
-                </button>
-              )}
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
@@ -1278,18 +1298,20 @@ export default function ChatbotWorkspace({
                 {/* Session History Sidebar */}
                 {showHistorySidebar && (
                   <div style={{
-                    width: '35%',
+                    width: `${historySidebarWidth}px`,
+                    minWidth: '100px',
                     borderRight: '1px solid #e2e8f0',
                     background: '#f8fafc',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
+                    flexShrink: 0,
                   }}>
-                    <div style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+                    <div style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', flexShrink: 0, display: 'flex', gap: '6px' }}>
                       <button
                         onClick={() => handleCreateSession()}
                         style={{
-                          width: '100%',
+                          flexGrow: 1,
                           padding: '6px',
                           background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
                           color: '#fff',
@@ -1306,6 +1328,24 @@ export default function ChatbotWorkspace({
                         }}
                       >
                         <Plus className="w-3 h-3" /> Tạo mới
+                      </button>
+                      <button
+                        onClick={() => setShowHistorySidebar(false)}
+                        style={{
+                          padding: '6px',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'background 0.15s',
+                        }}
+                        title="Ẩn lịch sử"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-slate-500" />
                       </button>
                     </div>
                     <div style={{ flexGrow: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -1381,15 +1421,62 @@ export default function ChatbotWorkspace({
                   </div>
                 )}
 
+                {/* Sidebar Resizer drag handle */}
+                {showHistorySidebar && (
+                  <div
+                    onMouseDown={handleSidebarResizeMouseDown}
+                    style={{
+                      width: '5px',
+                      cursor: 'col-resize',
+                      background: '#f1f5f9',
+                      alignSelf: 'stretch',
+                      position: 'relative',
+                      zIndex: 10,
+                      transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#3b82f6'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
+                  />
+                )}
+
                 {/* Chat Messages Area */}
                 <div style={{
-                  width: showHistorySidebar ? '65%' : '100%',
+                  width: showHistorySidebar ? `calc(100% - ${historySidebarWidth}px - 5px)` : '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   minWidth: 0,
                   height: '100%',
                   overflow: 'hidden',
+                  position: 'relative',
                 }}>
+                  {!showHistorySidebar && (
+                    <button
+                      onClick={() => setShowHistorySidebar(true)}
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        zIndex: 20,
+                        width: '14px',
+                        height: '48px',
+                        borderRadius: '0 8px 8px 0',
+                        background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '2px 0 8px rgba(99,102,241,0.2)',
+                        padding: 0,
+                        fontSize: '9px',
+                      }}
+                      title="Hiện lịch sử"
+                    >
+                      ▶
+                    </button>
+                  )}
                   <div style={{ flexGrow: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {activeSession && activeSession.messages && activeSession.messages.length > 0 ? (
                       activeSession.messages.map(msg => (
