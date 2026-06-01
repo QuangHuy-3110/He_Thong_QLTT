@@ -156,3 +156,21 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Phục vụ file upload
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ==============================================================================
+# CẤU HÌNH TÍCH HỢP HỆ THỐNG QUẢN LÝ DANH TÍNH TẬP TRUNG KEYCLOAK (IAM SSO)
+# ==============================================================================
+USE_KEYCLOAK = os.environ.get('USE_KEYCLOAK', 'True').lower() in ('true', '1')
+KEYCLOAK_SERVER_URL = os.environ.get('KEYCLOAK_SERVER_URL', 'http://localhost:8080/realms/kms_realm')
+KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'kms-web-client')
+
+# Cấu hình các Authentication Backends cho Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+}
+
+if USE_KEYCLOAK:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].insert(0, 'app.keycloak_auth.KeycloakJWTAuthentication')

@@ -1240,6 +1240,169 @@ class AIChatSessionDetailAPIView(APIView):
             return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
 
 
+class KeycloakMockLoginAPIView(APIView):
+    """
+    API giả lập xác thực Keycloak (OIDC SSO Portal Simulation).
+    Dành riêng cho việc kiểm thử và trình diễn trước Hội đồng chấm điểm khi không có máy chủ Keycloak thật.
+    Tự động đồng bộ và trả về JWT Token cùng User dữ liệu đồng bộ.
+    """
+    def post(self, request):
+        username = request.data.get('username')
+        email = request.data.get('email', '')
+        full_name = request.data.get('full_name', '')
+        role = request.data.get('role', 'USER') # 'ADMIN', 'TEACHER', 'USER'
+
+        if not username:
+            return Response({'error': 'Vui lòng cung cấp username Keycloak.'}, status=400)
+
+        # Đồng bộ hoặc tạo User trong CSDL cục bộ như luồng Keycloak thật
+        try:
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': email,
+                    'full_name': full_name,
+                    'role': role,
+                    'is_active': True
+                }
+            )
+            if not created:
+                user.role = role
+                user.full_name = full_name
+                user.save(update_fields=['role', 'full_name'])
+                
+            serializer = UserSerializer(user)
+            
+            # Tạo JWT Token giả lập có chữ ký (để frontend có thể dùng nếu cần)
+            import jwt
+            from django.conf import settings
+            mock_payload = {
+                "sub": user.username,
+                "preferred_username": user.username,
+                "email": user.email,
+                "name": user.full_name,
+                "iss": "http://localhost:8080/realms/kms_realm",
+                "aud": "kms-web-client",
+                "resource_access": {
+                    "kms-web-client": {
+                        "roles": [f"KMS_{role}", role.lower()]
+                    }
+                }
+            }
+            # Ký tạm bằng chuỗi mã hóa đơn giản để phục vụ mock
+            jwt_token = jwt.encode(mock_payload, 'mock-secret-key-1234', algorithm='HS256')
+            
+            return Response({
+                'message': 'Đăng nhập giả lập OIDC Keycloak thành công!',
+                'user': serializer.data,
+                'token': jwt_token,
+                'is_simulated': True
+            }, status=200)
+        except Exception as e:
+            return Response({'error': f'Lỗi đồng bộ Keycloak: {str(e)}'}, status=500)
+
+
+class KeycloakLoginAPIView(APIView):
+    """
+    API xác thực Keycloak thực tế (Authorization Code Exchange).
+    Nhận 'code' từ Frontend React, gửi yêu cầu đổi lấy Access Token từ máy chủ Keycloak,
+    xác thực chữ ký JWT, đồng bộ người dùng và đăng nhập.
+    """
+    def post(self, request):
+        code = request.data.get('code')
+        redirect_uri = request.data.get('redirect_uri', 'http://localhost:5173/')
+        if not code:
+            return Response({'error': 'Vui lòng cung cấp authorization code từ Keycloak.'}, status=400)
+
+        from django.conf import settings
+        import requests
+        import jwt
+        
+        try:
+            # 1. Gửi yêu cầu đổi code lấy tokens lên Keycloak (Server-to-Server)
+            token_url = f"{settings.KEYCLOAK_SERVER_URL}/protocol/openid-connect/token"
+            data = {
+                'grant_type': 'authorization_code',
+                'client_id': settings.KEYCLOAK_CLIENT_ID,
+                'code': code,
+                'redirect_uri': redirect_uri
+            }
+            # Lấy chứng chỉ certs không an toàn cho localhost trong dev
+            token_res = requests.post(token_url, data=data, timeout=10)
+            if token_res.status_code != 200:
+                return Response({
+                    'error': f"Keycloak Server từ chối đổi token (Mã lỗi: {token_res.status_code})",
+                    'details': token_res.text
+                }, status=400)
+                
+            token_data = token_res.json()
+            access_token = token_data.get('access_token')
+            
+            # 2. Giải mã và xác thực chữ ký JWT (JWKS offline)
+            jwks_url = f"{settings.KEYCLOAK_SERVER_URL}/protocol/openid-connect/certs"
+            jwks = requests.get(jwks_url, timeout=10).json()
+            
+            unverified_header = jwt.get_unverified_header(access_token)
+            kid = unverified_header.get('kid')
+            
+            public_key = None
+            for key in jwks['keys']:
+                if key['kid'] == kid:
+                    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                    break
+                    
+            if not public_key:
+                return Response({'error': 'Chữ ký JWT của Keycloak không hợp lệ.'}, status=400)
+
+            # Giải mã JWT payload (Bỏ qua xác minh aud để tránh lỗi Keycloak Access Token mặc định)
+            payload = jwt.decode(
+                access_token,
+                public_key,
+                algorithms=['RS256'],
+                options={"verify_signature": True, "verify_aud": False}
+            )
+            
+            # 3. Đồng bộ User (Auto-provisioning)
+            username = payload.get('preferred_username') or payload.get('sub')
+            email = payload.get('email', '')
+            full_name = payload.get('name', '')
+            
+            roles = []
+            resource_access = payload.get('resource_access', {})
+            client_access = resource_access.get(settings.KEYCLOAK_CLIENT_ID, {})
+            roles = client_access.get('roles', [])
+            
+            resolved_role = 'USER'
+            if 'admin' in roles or 'KMS_ADMIN' in roles:
+                resolved_role = 'ADMIN'
+            elif 'teacher' in roles or 'KMS_TEACHER' in roles:
+                resolved_role = 'TEACHER'
+                
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    'email': email,
+                    'full_name': full_name,
+                    'role': resolved_role,
+                    'is_active': True
+                }
+            )
+            if not created:
+                user.role = resolved_role
+                user.full_name = full_name
+                user.save(update_fields=['role', 'full_name'])
+                
+            serializer = UserSerializer(user)
+            return Response({
+                'message': 'Đăng nhập Keycloak SSO thực tế thành công!',
+                'user': serializer.data,
+                'token': access_token
+            }, status=200)
+            
+        except Exception as e:
+            return Response({'error': f"Lỗi trong quá trình đổi token: {str(e)}"}, status=500)
+
+
 class AIChatSendMessageAPIView(APIView):
     """
     API View xử lý việc gửi tin nhắn từ người dùng, thực thi Graph RAG truy xuất

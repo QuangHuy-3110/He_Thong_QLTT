@@ -850,6 +850,39 @@ function renderSnippet(content: string | undefined | null, query: string): React
 
 export default function App() {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([]);
+  
+  // Capture Keycloak SSO Redirect Callback (Production Flow via Backend Proxy to prevent CORS 403)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+      // Clear query string from URL for clean interface
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      const exchangeCodeForToken = async () => {
+        try {
+          // Gửi mã authorization code lên Backend Django để đổi token
+          const response = await axios.post('/api/keycloak-login/', {
+            code: code,
+            redirect_uri: 'http://localhost:5173/'
+          });
+
+          const { user, token } = response.data;
+
+          sessionStorage.setItem('currentUser', JSON.stringify(user));
+          sessionStorage.setItem('keycloakToken', token);
+          sessionStorage.setItem('isMockLogin', 'false');
+          setCurrentUser(user);
+          alert(`🎉 Xác thực thành công qua Máy chủ Keycloak SSO!\nChào mừng ${user.full_name} (${user.username})\nVai trò: ${user.role} (Đã đồng bộ thành công)`);
+        } catch (err: any) {
+          console.error("SSO Token Exchange Error:", err);
+          alert("Lỗi xác thực Keycloak SSO thực tế: " + (err.response?.data?.error || err.message));
+        }
+      };
+      exchangeCodeForToken();
+    }
+  }, []);
+
   const [directories, setDirectories] = useState<Directory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -870,6 +903,37 @@ export default function App() {
   });
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  const [showDevOptions, setShowDevOptions] = useState<boolean>(false);
+
+  // Keycloak simulated portal states
+  const [showKeycloakMockModal, setShowKeycloakMockModal] = useState<boolean>(false);
+  const [kcUsername, setKcUsername] = useState<string>('gv_nguyenvana');
+  const [kcFullName, setKcFullName] = useState<string>('Nguyễn Văn A');
+  const [kcEmail, setKcEmail] = useState<string>('nguyenvana@school.edu.vn');
+  const [kcRole, setKcRole] = useState<'ADMIN' | 'TEACHER' | 'USER'>('TEACHER');
+
+  const handleKeycloakMockLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('/api/keycloak-mock-login/', {
+        username: kcUsername,
+        full_name: kcFullName,
+        email: kcEmail,
+        role: kcRole
+      });
+      sessionStorage.setItem('currentUser', JSON.stringify(response.data.user));
+      sessionStorage.setItem('keycloakToken', response.data.token);
+      sessionStorage.setItem('isMockLogin', 'true');
+      setCurrentUser(response.data.user);
+      setShowKeycloakMockModal(false);
+      setShowAuthModal(false);
+      setAuthError(null);
+      alert(`🎉 Đăng nhập thành công qua Keycloak SSO!\nTài khoản: ${response.data.user.full_name} (${response.data.user.username})\nVai trò: ${response.data.user.role} (Đã đồng bộ CSDL thành công)`);
+    } catch (err: any) {
+      alert('Đăng nhập giả lập Keycloak thất bại: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
 
   // Admin user management and folder permission states
   const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
@@ -1481,11 +1545,19 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const isMock = sessionStorage.getItem('isMockLogin') === 'true';
     sessionStorage.removeItem('currentUser');
+    sessionStorage.removeItem('keycloakToken');
+    sessionStorage.removeItem('isMockLogin');
     setCurrentUser(null);
     setSearchQuery('');
     setSelectedDirs([]);
     setHomeTab('library');
+
+    // Nếu là phiên đăng nhập thật, chuyển hướng sang cổng logout của Keycloak
+    if (!isMock) {
+      window.location.href = 'http://localhost:8080/realms/kms_realm/protocol/openid-connect/logout?client_id=kms-web-client&post_logout_redirect_uri=http://localhost:5173/';
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -3685,26 +3757,215 @@ export default function App() {
       {/* Modals from before */}
       {/* Auth Modal */}
       {showAuthModal && !currentUser && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
-            <div className="p-6">
-              <h3 className="text-xl font-bold text-gray-900 text-center mb-6">
-                {authMode === 'LOGIN' ? 'Đăng nhập hệ thống' : 'Đăng ký tài khoản'}
-              </h3>
-              {authError && <div className={`mb-4 p-3 rounded-md text-sm ${authError.includes('thành công') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{authError}</div>}
-              <form className="space-y-4" onSubmit={authMode === 'LOGIN' ? handleLogin : handleRegister}>
-                {authMode === 'REGISTER' && (
-                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label><input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500" /></div>
-                )}
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập</label><input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label><input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500" /></div>
-                <div className="pt-2">
-                  <button type="submit" className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-white text-sm font-medium hover:bg-blue-700">{authMode === 'LOGIN' ? 'Đăng nhập' : 'Tạo tài khoản'}</button>
-                  <button type="button" onClick={() => { setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setAuthError(null); }} className="w-full text-blue-600 text-sm font-medium hover:text-blue-700 mt-3">{authMode === 'LOGIN' ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}</button>
-                  <button type="button" onClick={() => setShowAuthModal(false)} className="w-full text-gray-500 text-sm font-medium hover:text-gray-700 mt-2">Đóng</button>
-                </div>
-              </form>
+        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-100 transition-all duration-300">
+            {/* Upper brand styling */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-center text-white">
+              <span className="text-3xl block mb-2">🔐</span>
+              <h3 className="text-lg font-bold">Xác thực hệ thống KMS</h3>
+              <p className="text-xs text-blue-100/80 mt-1">Hệ thống Đăng nhập Tập trung một lần (SSO)</p>
             </div>
+            
+            <div className="p-6">
+              {authError && <div className={`mb-4 p-3 rounded-xl text-sm ${authError.includes('thành công') ? 'bg-green-50 text-green-800 border border-green-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>{authError}</div>}
+              
+              <div className="space-y-4">
+                {/* Primary Keycloak SSO Section */}
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = 'http://localhost:8080/realms/kms_realm/protocol/openid-connect/auth?client_id=kms-web-client&redirect_uri=http://localhost:5173/&response_type=code&scope=openid';
+                    }}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-blue-500/10 transition-all duration-200 transform hover:scale-[1.01]"
+                  >
+                    <span>🌐</span> Đăng nhập qua Keycloak SSO
+                  </button>
+                  <p className="text-[11px] text-gray-500 text-center leading-relaxed">
+                    Khuyên dùng cho Giáo viên & Quản trị viên sử dụng tài khoản ID do Nhà trường cấp.
+                  </p>
+                </div>
+
+                {/* Divider for dev options */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDevOptions(!showDevOptions)}
+                    className="w-full flex items-center justify-between py-2 px-1 text-xs font-semibold text-slate-500 hover:text-slate-700 border-t border-slate-100 transition-colors"
+                  >
+                    <span>🛠️ Tùy chọn nhà phát triển / Đăng nhập cũ</span>
+                    <span>{showDevOptions ? '▲' : '▼'}</span>
+                  </button>
+
+                  {/* Dev options collapsible section */}
+                  {showDevOptions && (
+                    <div className="mt-3 space-y-4 pt-2 border-t border-dashed border-slate-100 animate-slideDown">
+                      {/* Keycloak Mock/Demo option */}
+                      <div className="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/50 space-y-2">
+                        <span className="text-[10px] font-bold text-indigo-700 block uppercase tracking-wider">Trình giả lập Keycloak (Offline)</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowKeycloakMockModal(true);
+                            setShowAuthModal(false);
+                          }}
+                          className="w-full py-2 px-3 text-xs font-semibold text-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
+                        >
+                          🧪 Mở Cổng giả lập Keycloak
+                        </button>
+                      </div>
+
+                      {/* Traditional username/password credential fallback */}
+                      <form className="space-y-3" onSubmit={authMode === 'LOGIN' ? handleLogin : handleRegister}>
+                        <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Tài khoản nội bộ hệ thống</span>
+                        {authMode === 'REGISTER' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Họ và tên</label>
+                            <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên đăng nhập</label>
+                          <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Mật khẩu</label>
+                          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                        </div>
+                        <div className="pt-1">
+                          <button type="submit" className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white text-xs font-semibold hover:bg-slate-900 transition-colors">{authMode === 'LOGIN' ? 'Đăng nhập' : 'Tạo tài khoản'}</button>
+                          <button type="button" onClick={() => { setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setAuthError(null); }} className="w-full text-blue-600 text-xs font-semibold hover:text-blue-700 mt-2 text-center">{authMode === 'LOGIN' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}</button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <button type="button" onClick={() => { setShowAuthModal(false); setShowDevOptions(false); }} className="w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors py-1">Đóng</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keycloak Mock Portal Modal */}
+      {showKeycloakMockModal && (
+        <div className="fixed z-[100] inset-0 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+          <div className="bg-slate-950 text-slate-100 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-800 transition-all duration-300">
+            {/* Header branding */}
+            <div className="bg-gradient-to-r from-blue-800 via-indigo-900 to-slate-900 p-6 text-center relative">
+              <div className="absolute top-4 right-4">
+                <button
+                  type="button"
+                  onClick={() => setShowKeycloakMockModal(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="w-16 h-16 bg-blue-600/30 border border-blue-500/50 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-blue-500/20">
+                <span className="text-3xl">🔐</span>
+              </div>
+              <h3 className="text-xl font-extrabold tracking-tight text-white">
+                Keycloak Identity Server
+              </h3>
+              <p className="text-xs text-slate-300 mt-1 font-mono">
+                Unified SSO Portal • Simulation Mode
+              </p>
+            </div>
+
+            {/* Form */}
+            <form className="p-6 space-y-4" onSubmit={handleKeycloakMockLogin}>
+              <div className="bg-blue-950/40 border border-blue-800/30 p-3 rounded-lg text-xs text-blue-300">
+                💡 <strong>Trình mô phỏng SSO:</strong> Bạn có thể tự chọn thông tin tài khoản và vai trò để mô phỏng quá trình xác thực & đồng bộ tức thì vào CSDL.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  Tên đăng nhập (Username)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={kcUsername}
+                  onChange={(e) => setKcUsername(e.target.value)}
+                  placeholder="Ví dụ: gv_nguyenvana"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  Họ và tên
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={kcFullName}
+                  onChange={(e) => setKcFullName(e.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  Email nhà trường
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={kcEmail}
+                  onChange={(e) => setKcEmail(e.target.value)}
+                  placeholder="nguyenvana@school.edu.vn"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                  Vai trò hệ thống (SSO Claims Mapping)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'TEACHER', label: '👨‍🏫 Giáo viên', color: 'border-amber-500 text-amber-400 bg-amber-500/10' },
+                    { id: 'ADMIN', label: '⚡ Quản trị', color: 'border-red-500 text-red-400 bg-red-500/10' },
+                    { id: 'USER', label: '👤 Người dùng', color: 'border-blue-500 text-blue-400 bg-blue-500/10' }
+                  ].map((roleOption) => (
+                    <button
+                      key={roleOption.id}
+                      type="button"
+                      onClick={() => setKcRole(roleOption.id as any)}
+                      className={`py-2 px-1 text-xs font-medium rounded-lg border text-center transition-all ${
+                        kcRole === roleOption.id
+                          ? `${roleOption.color} ring-2 ring-offset-2 ring-offset-slate-950 ring-blue-500`
+                          : 'border-slate-800 text-slate-400 bg-slate-900/50 hover:bg-slate-900 hover:text-slate-200'
+                      }`}
+                    >
+                      {roleOption.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowKeycloakMockModal(false)}
+                  className="w-1/3 py-2.5 rounded-lg border border-slate-800 text-xs font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-all"
+                >
+                  Quay lại
+                </button>
+                <button
+                  type="submit"
+                  className="w-2/3 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-lg shadow-blue-500/20 transform hover:scale-[1.01] transition-all"
+                >
+                  Xác thực & Kết nối
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    LessonPlanListAPIView, RegisterAPIView, LoginAPIView, 
+    LessonPlanListAPIView, RegisterAPIView, LoginAPIView, KeycloakMockLoginAPIView, KeycloakLoginAPIView,
     DirectoryListCreateAPIView, DirectoryDetailAPIView, 
     LessonPlanUploadAPIView, ApprovalRequestListCreateAPIView, 
     ApprovalRequestDetailAPIView, LessonPlanDetailAPIView, 
@@ -30,6 +30,8 @@ urlpatterns = [
     path('approval-requests/<int:pk>/', ApprovalRequestDetailAPIView.as_view(), name='approval-request-detail'),
     path('register/', RegisterAPIView.as_view(), name='register'),
     path('login/', LoginAPIView.as_view(), name='login'),
+    path('keycloak-mock-login/', KeycloakMockLoginAPIView.as_view(), name='keycloak-mock-login'),
+    path('keycloak-login/', KeycloakLoginAPIView.as_view(), name='keycloak-login'),
     path('admin/users/', AdminUserListAPIView.as_view(), name='admin-user-list'),
     path('admin/users/<int:pk>/', AdminUserDetailAPIView.as_view(), name='admin-user-detail'),
     path('admin/users/<int:pk>/permissions/', AdminAssignPermissionAPIView.as_view(), name='admin-assign-permissions'),
