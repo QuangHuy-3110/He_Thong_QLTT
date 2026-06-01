@@ -1,0 +1,2297 @@
+
+=========================================
+FILE: llm_client.py
+=========================================
+  0           0 RESUME                   0
+
+  1           2 LOAD_CONST               0 (0)
+              4 LOAD_CONST               1 (None)
+              6 IMPORT_NAME              0 (os)
+              8 STORE_NAME               0 (os)
+
+  2          10 LOAD_CONST               0 (0)
+             12 LOAD_CONST               1 (None)
+             14 IMPORT_NAME              1 (re)
+             16 STORE_NAME               1 (re)
+
+  3          18 LOAD_CONST               0 (0)
+             20 LOAD_CONST               1 (None)
+             22 IMPORT_NAME              2 (json)
+             24 STORE_NAME               2 (json)
+
+  5          26 LOAD_CONST               2 (<code object get_llm_client at 0x70acb4b8b0c0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 5>)
+             28 MAKE_FUNCTION            0
+             30 STORE_NAME               3 (get_llm_client)
+
+ 18          32 LOAD_CONST               3 ('title')
+             34 LOAD_NAME                4 (str)
+             36 LOAD_CONST               4 ('markdown_content')
+             38 LOAD_NAME                4 (str)
+             40 LOAD_CONST               5 ('return')
+             42 LOAD_NAME                5 (dict)
+             44 BUILD_TUPLE              6
+             46 LOAD_CONST               6 (<code object generate_mindmap_via_llm at 0x3acb0250, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 18>)
+             48 MAKE_FUNCTION            4 (annotations)
+             50 STORE_NAME               6 (generate_mindmap_via_llm)
+
+ 89          52 LOAD_CONST               3 ('title')
+             54 LOAD_NAME                4 (str)
+             56 LOAD_CONST               4 ('markdown_content')
+             58 LOAD_NAME                4 (str)
+             60 LOAD_CONST               5 ('return')
+             62 LOAD_NAME                5 (dict)
+             64 BUILD_TUPLE              6
+             66 LOAD_CONST               7 (<code object build_mindmap_structurally at 0x3ac8f170, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 89>)
+             68 MAKE_FUNCTION            4 (annotations)
+             70 STORE_NAME               7 (build_mindmap_structurally)
+             72 RETURN_CONST             1 (None)
+
+Disassembly of <code object get_llm_client at 0x70acb4b8b0c0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 5>:
+  5           0 RESUME                   0
+
+  9           2 LOAD_GLOBAL              0 (os)
+             12 LOAD_ATTR                2 (environ)
+             32 LOAD_ATTR                5 (NULL|self + get)
+             52 LOAD_CONST               1 ('OPENAI_API_KEY')
+             54 CALL                     1
+             62 STORE_FAST               0 (openai_key)
+
+ 10          64 LOAD_FAST                0 (openai_key)
+             66 POP_JUMP_IF_FALSE       16 (to 100)
+
+ 11          68 NOP
+
+ 12          70 LOAD_CONST               2 (0)
+             72 LOAD_CONST               3 (('OpenAI',))
+             74 IMPORT_NAME              3 (openai)
+             76 IMPORT_FROM              4 (OpenAI)
+             78 STORE_FAST               1 (OpenAI)
+             80 POP_TOP
+
+ 13          82 PUSH_NULL
+             84 LOAD_FAST                1 (OpenAI)
+             86 LOAD_FAST                0 (openai_key)
+             88 KW_NAMES                 4 (('api_key',))
+             90 CALL                     1
+             98 RETURN_VALUE
+
+ 16     >>  100 RETURN_CONST             5 (None)
+        >>  102 PUSH_EXC_INFO
+
+ 14         104 LOAD_GLOBAL             10 (Exception)
+            114 CHECK_EXC_MATCH
+            116 POP_JUMP_IF_FALSE        3 (to 124)
+            118 POP_TOP
+
+ 15         120 POP_EXCEPT
+
+ 16         122 RETURN_CONST             5 (None)
+
+ 14     >>  124 RERAISE                  0
+        >>  126 COPY                     3
+            128 POP_EXCEPT
+            130 RERAISE                  1
+ExceptionTable:
+  70 to 96 -> 102 [0]
+  102 to 118 -> 126 [1] lasti
+  124 to 124 -> 126 [1] lasti
+
+Disassembly of <code object generate_mindmap_via_llm at 0x3acb0250, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 18>:
+ 18           0 RESUME                   0
+
+ 24           2 LOAD_GLOBAL              0 (os)
+             12 LOAD_ATTR                2 (environ)
+             32 LOAD_ATTR                5 (NULL|self + get)
+             52 LOAD_CONST               1 ('OPENAI_API_KEY')
+             54 CALL                     1
+             62 STORE_FAST               2 (api_key)
+
+ 27          64 LOAD_FAST                2 (api_key)
+             66 POP_JUMP_IF_FALSE      224 (to 516)
+
+ 28          68 NOP
+
+ 29          70 LOAD_CONST               2 (0)
+             72 LOAD_CONST               3 (('OpenAI',))
+             74 IMPORT_NAME              3 (openai)
+             76 IMPORT_FROM              4 (OpenAI)
+             78 STORE_FAST               3 (OpenAI)
+             80 POP_TOP
+
+ 30          82 PUSH_NULL
+             84 LOAD_FAST                3 (OpenAI)
+             86 LOAD_FAST                2 (api_key)
+             88 KW_NAMES                 4 (('api_key',))
+             90 CALL                     1
+             98 STORE_FAST               4 (client)
+
+ 32         100 LOAD_CONST               5 ('\n            ### NHIỆM VỤ:\n            Phân tích bài giáo án dưới đây và trích xuất cấu trúc Mindmap hoàn chỉnh dưới dạng JSON.\n            \n            ### CẤU TRÚC JSON YÊU CẦU:\n            {\n                "title": "')
+
+ 38         102 LOAD_FAST                0 (title)
+            104 FORMAT_VALUE             0
+            106 LOAD_CONST               6 ('",\n                "children": [\n                    {\n                        "title": "Tên chương / mục lớn 1",\n                        "children": [\n                            {"title": "Ý chính A"},\n                            {"title": "Ý chính B"}\n                        ]\n                    },\n                    {\n                        "title": "Tên chương / mục lớn 2",\n                        "children": [\n                            {"title": "Ý chính C"},\n                            {"title": "Ý chính D"}\n                        ]\n                    }\n                ]\n            }\n\n            ### YÊU CẦU CHI TIẾT:\n            1. Trích xuất đúng cấu trúc phân cấp từ giáo án (Mục tiêu, Chuẩn bị, Các hoạt động chính).\n            2. Mỗi mục con (children) chỉ chứa các mệnh đề cực kỳ ngắn gọn, súc tích (dưới 15 từ).\n            3. Trả về DUY NHẤT một chuỗi JSON hợp lệ. Không bao gồm markdown fence (như ```json) hay giải thích dông dài.\n\n            ### GIÁO ÁN:\n            ')
+
+ 63         108 LOAD_FAST                1 (markdown_content)
+            110 LOAD_CONST               7 (None)
+            112 LOAD_CONST               8 (8000)
+            114 BINARY_SLICE
+            116 FORMAT_VALUE             0
+            118 LOAD_CONST               9 ('\n            ')
+
+ 32         120 BUILD_STRING             5
+            122 STORE_FAST               5 (prompt)
+
+ 66         124 LOAD_FAST                4 (client)
+            126 LOAD_ATTR               10 (chat)
+            146 LOAD_ATTR               12 (completions)
+            166 LOAD_ATTR               15 (NULL|self + create)
+
+ 67         186 LOAD_CONST              10 ('gpt-4o-mini')
+
+ 69         188 LOAD_CONST              11 ('system')
+            190 LOAD_CONST              12 ('Bạn là chuyên gia thiết kế sơ đồ tư duy giáo dục học đường. Bạn luôn trả về chuỗi JSON chính xác.')
+            192 LOAD_CONST              13 (('role', 'content'))
+            194 BUILD_CONST_KEY_MAP      2
+
+ 70         196 LOAD_CONST              14 ('user')
+            198 LOAD_FAST                5 (prompt)
+            200 LOAD_CONST              13 (('role', 'content'))
+            202 BUILD_CONST_KEY_MAP      2
+
+ 68         204 BUILD_LIST               2
+
+ 72         206 LOAD_CONST              15 (0.2)
+
+ 73         208 LOAD_CONST              16 (2048)
+
+ 66         210 KW_NAMES                17 (('model', 'messages', 'temperature', 'max_tokens'))
+            212 CALL                     4
+            220 STORE_FAST               6 (response)
+
+ 76         222 LOAD_FAST                6 (response)
+            224 LOAD_ATTR               16 (choices)
+            244 LOAD_CONST               2 (0)
+            246 BINARY_SUBSCR
+            250 LOAD_ATTR               18 (message)
+            270 LOAD_ATTR               20 (content)
+            290 LOAD_ATTR               23 (NULL|self + strip)
+            310 CALL                     0
+            318 STORE_FAST               7 (result_text)
+
+ 78         320 LOAD_FAST                7 (result_text)
+            322 LOAD_ATTR               25 (NULL|self + startswith)
+            342 LOAD_CONST              18 ('```')
+            344 CALL                     1
+            352 POP_JUMP_IF_FALSE       46 (to 446)
+
+ 79         354 LOAD_GLOBAL             27 (NULL + re)
+            364 LOAD_ATTR               28 (sub)
+            384 LOAD_CONST              19 ('^```[a-zA-Z]*\\n')
+            386 LOAD_CONST              20 ('')
+            388 LOAD_FAST                7 (result_text)
+            390 CALL                     3
+            398 STORE_FAST               7 (result_text)
+
+ 80         400 LOAD_GLOBAL             27 (NULL + re)
+            410 LOAD_ATTR               28 (sub)
+            430 LOAD_CONST              21 ('\\n```$')
+            432 LOAD_CONST              20 ('')
+            434 LOAD_FAST                7 (result_text)
+            436 CALL                     3
+            444 STORE_FAST               7 (result_text)
+
+ 82     >>  446 LOAD_GLOBAL             31 (NULL + json)
+            456 LOAD_ATTR               32 (loads)
+            476 LOAD_FAST                7 (result_text)
+            478 LOAD_ATTR               23 (NULL|self + strip)
+            498 CALL                     0
+            506 CALL                     1
+            514 RETURN_VALUE
+
+ 87     >>  516 LOAD_GLOBAL             39 (NULL + build_mindmap_structurally)
+            526 LOAD_FAST                0 (title)
+            528 LOAD_FAST                1 (markdown_content)
+            530 CALL                     2
+            538 RETURN_VALUE
+        >>  540 PUSH_EXC_INFO
+
+ 83         542 LOAD_GLOBAL             34 (Exception)
+            552 CHECK_EXC_MATCH
+            554 POP_JUMP_IF_FALSE       25 (to 606)
+            556 STORE_FAST               8 (e)
+
+ 84         558 LOAD_GLOBAL             37 (NULL + print)
+            568 LOAD_CONST              22 ('[LLM Client] LLM mindmap generation failed: ')
+            570 LOAD_FAST                8 (e)
+            572 FORMAT_VALUE             0
+            574 LOAD_CONST              23 ('. Falling back to structural parser.')
+            576 BUILD_STRING             3
+            578 CALL                     1
+            586 POP_TOP
+            588 POP_EXCEPT
+            590 LOAD_CONST               7 (None)
+            592 STORE_FAST               8 (e)
+            594 DELETE_FAST              8 (e)
+            596 JUMP_BACKWARD           41 (to 516)
+        >>  598 LOAD_CONST               7 (None)
+            600 STORE_FAST               8 (e)
+            602 DELETE_FAST              8 (e)
+            604 RERAISE                  1
+
+ 83     >>  606 RERAISE                  0
+        >>  608 COPY                     3
+            610 POP_EXCEPT
+            612 RERAISE                  1
+ExceptionTable:
+  70 to 512 -> 540 [0]
+  540 to 556 -> 608 [1] lasti
+  558 to 586 -> 598 [1] lasti
+  598 to 606 -> 608 [1] lasti
+
+Disassembly of <code object build_mindmap_structurally at 0x3ac8f170, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/llm_client.py", line 89>:
+ 89           0 RESUME                   0
+
+ 94           2 LOAD_FAST                1 (markdown_content)
+              4 LOAD_ATTR                1 (NULL|self + split)
+             24 LOAD_CONST               1 ('\n')
+             26 CALL                     1
+             34 GET_ITER
+             36 LOAD_FAST_AND_CLEAR      2 (line)
+             38 SWAP                     2
+             40 BUILD_LIST               0
+             42 SWAP                     2
+        >>   44 FOR_ITER                18 (to 84)
+             48 STORE_FAST               2 (line)
+             50 LOAD_FAST                2 (line)
+             52 LOAD_ATTR                3 (NULL|self + strip)
+             72 CALL                     0
+             80 LIST_APPEND              2
+             82 JUMP_BACKWARD           20 (to 44)
+        >>   84 END_FOR
+             86 STORE_FAST               3 (lines)
+             88 STORE_FAST               2 (line)
+
+ 96          90 LOAD_CONST               2 (None)
+             92 STORE_FAST               4 (current_section)
+
+ 97          94 BUILD_LIST               0
+             96 STORE_FAST               5 (sections)
+
+100          98 LOAD_FAST                3 (lines)
+            100 GET_ITER
+        >>  102 EXTENDED_ARG             1
+            104 FOR_ITER               321 (to 750)
+            108 STORE_FAST               2 (line)
+
+101         110 LOAD_FAST                2 (line)
+            112 POP_JUMP_IF_TRUE         1 (to 116)
+
+102         114 JUMP_BACKWARD            7 (to 102)
+
+105     >>  116 LOAD_GLOBAL              5 (NULL + re)
+            126 LOAD_ATTR                6 (match)
+            146 LOAD_CONST               3 ('^(#{2,3})\\s+(.*)')
+            148 LOAD_FAST                2 (line)
+            150 CALL                     2
+            158 STORE_FAST               6 (h_match)
+
+106         160 LOAD_FAST                6 (h_match)
+            162 POP_JUMP_IF_FALSE      101 (to 366)
+
+107         164 LOAD_FAST                6 (h_match)
+            166 LOAD_ATTR                9 (NULL|self + group)
+            186 LOAD_CONST               4 (2)
+            188 CALL                     1
+            196 LOAD_ATTR                3 (NULL|self + strip)
+            216 CALL                     0
+            224 LOAD_ATTR               11 (NULL|self + replace)
+            244 LOAD_CONST               5 ('**')
+            246 LOAD_CONST               6 ('')
+            248 CALL                     2
+            256 LOAD_ATTR               11 (NULL|self + replace)
+            276 LOAD_CONST               7 ('*')
+            278 LOAD_CONST               6 ('')
+            280 CALL                     2
+            288 STORE_FAST               7 (sec_title)
+
+109         290 LOAD_GLOBAL             13 (NULL + len)
+            300 LOAD_FAST                7 (sec_title)
+            302 CALL                     1
+            310 LOAD_CONST               4 (2)
+            312 COMPARE_OP               2 (<)
+            316 POP_JUMP_IF_FALSE        1 (to 320)
+
+110         318 JUMP_BACKWARD          109 (to 102)
+
+112     >>  320 LOAD_FAST                7 (sec_title)
+
+113         322 BUILD_LIST               0
+
+111         324 LOAD_CONST               8 (('title', 'children'))
+            326 BUILD_CONST_KEY_MAP      2
+            328 STORE_FAST               4 (current_section)
+
+115         330 LOAD_FAST                5 (sections)
+            332 LOAD_ATTR               15 (NULL|self + append)
+            352 LOAD_FAST                4 (current_section)
+            354 CALL                     1
+            362 POP_TOP
+            364 JUMP_BACKWARD          132 (to 102)
+
+118     >>  366 LOAD_FAST                2 (line)
+            368 LOAD_ATTR               17 (NULL|self + startswith)
+            388 LOAD_CONST               9 ('-')
+            390 CALL                     1
+            398 POP_JUMP_IF_TRUE        35 (to 470)
+            400 LOAD_FAST                2 (line)
+            402 LOAD_ATTR               17 (NULL|self + startswith)
+            422 LOAD_CONST               7 ('*')
+            424 CALL                     1
+            432 POP_JUMP_IF_TRUE        18 (to 470)
+            434 LOAD_FAST                2 (line)
+            436 LOAD_ATTR               17 (NULL|self + startswith)
+            456 LOAD_CONST              10 ('•')
+            458 CALL                     1
+            466 POP_JUMP_IF_TRUE         1 (to 470)
+            468 JUMP_BACKWARD          184 (to 102)
+
+119     >>  470 LOAD_GLOBAL              5 (NULL + re)
+            480 LOAD_ATTR               18 (sub)
+            500 LOAD_CONST              11 ('^[-*•]\\s*')
+            502 LOAD_CONST               6 ('')
+            504 LOAD_FAST                2 (line)
+            506 CALL                     3
+            514 LOAD_ATTR                3 (NULL|self + strip)
+            534 CALL                     0
+            542 LOAD_ATTR               11 (NULL|self + replace)
+            562 LOAD_CONST               5 ('**')
+            564 LOAD_CONST               6 ('')
+            566 CALL                     2
+            574 LOAD_ATTR               11 (NULL|self + replace)
+            594 LOAD_CONST               7 ('*')
+            596 LOAD_CONST               6 ('')
+            598 CALL                     2
+            606 STORE_FAST               8 (item_text)
+
+121         608 LOAD_GLOBAL              5 (NULL + re)
+            618 LOAD_ATTR               18 (sub)
+            638 LOAD_CONST              12 ('[:\\-\\s]+$')
+            640 LOAD_CONST               6 ('')
+            642 LOAD_FAST                8 (item_text)
+            644 CALL                     3
+            652 STORE_FAST               8 (item_text)
+
+122         654 LOAD_FAST                4 (current_section)
+            656 POP_JUMP_IF_NOT_NONE     2 (to 662)
+            658 EXTENDED_ARG             1
+            660 JUMP_BACKWARD          280 (to 102)
+        >>  662 LOAD_FAST                8 (item_text)
+            664 POP_JUMP_IF_TRUE         2 (to 670)
+            666 EXTENDED_ARG             1
+            668 JUMP_BACKWARD          284 (to 102)
+        >>  670 LOAD_GLOBAL             13 (NULL + len)
+            680 LOAD_FAST                8 (item_text)
+            682 CALL                     1
+            690 LOAD_CONST              13 (150)
+            692 COMPARE_OP               2 (<)
+            696 POP_JUMP_IF_TRUE         2 (to 702)
+            698 EXTENDED_ARG             1
+            700 JUMP_BACKWARD          300 (to 102)
+
+124     >>  702 LOAD_FAST                4 (current_section)
+            704 LOAD_CONST              14 ('children')
+            706 BINARY_SUBSCR
+            710 LOAD_ATTR               15 (NULL|self + append)
+            730 LOAD_CONST              15 ('title')
+            732 LOAD_FAST                8 (item_text)
+            734 BUILD_MAP                1
+            736 CALL                     1
+            744 POP_TOP
+            746 EXTENDED_ARG             1
+            748 JUMP_BACKWARD          324 (to 102)
+
+100     >>  750 END_FOR
+
+127         752 LOAD_FAST                5 (sections)
+            754 POP_JUMP_IF_TRUE       120 (to 996)
+
+128         756 LOAD_CONST              16 ('Nội dung chính')
+            758 BUILD_LIST               0
+            760 LOAD_CONST               8 (('title', 'children'))
+            762 BUILD_CONST_KEY_MAP      2
+            764 STORE_FAST               4 (current_section)
+
+129         766 LOAD_FAST                5 (sections)
+            768 LOAD_ATTR               15 (NULL|self + append)
+            788 LOAD_FAST                4 (current_section)
+            790 CALL                     1
+            798 POP_TOP
+
+130         800 LOAD_FAST                3 (lines)
+            802 LOAD_CONST               2 (None)
+            804 LOAD_CONST              17 (40)
+            806 BINARY_SLICE
+            808 GET_ITER
+        >>  810 FOR_ITER                90 (to 994)
+            814 STORE_FAST               2 (line)
+
+131         816 LOAD_GLOBAL             13 (NULL + len)
+            826 LOAD_FAST                2 (line)
+            828 CALL                     1
+            836 LOAD_CONST              18 (10)
+            838 COMPARE_OP              68 (>)
+            842 POP_JUMP_IF_TRUE         1 (to 846)
+            844 JUMP_BACKWARD           18 (to 810)
+        >>  846 LOAD_GLOBAL             13 (NULL + len)
+            856 LOAD_FAST                2 (line)
+            858 CALL                     1
+            866 LOAD_CONST              19 (120)
+            868 COMPARE_OP               2 (<)
+            872 POP_JUMP_IF_TRUE         1 (to 876)
+            874 JUMP_BACKWARD           33 (to 810)
+        >>  876 LOAD_FAST                2 (line)
+            878 LOAD_ATTR               17 (NULL|self + startswith)
+            898 LOAD_CONST              20 ('|')
+            900 CALL                     1
+            908 POP_JUMP_IF_FALSE        1 (to 912)
+            910 JUMP_BACKWARD           51 (to 810)
+        >>  912 LOAD_FAST                2 (line)
+            914 LOAD_ATTR               17 (NULL|self + startswith)
+            934 LOAD_CONST              21 ('#')
+            936 CALL                     1
+            944 POP_JUMP_IF_FALSE        1 (to 948)
+            946 JUMP_BACKWARD           69 (to 810)
+
+132     >>  948 LOAD_FAST                4 (current_section)
+            950 LOAD_CONST              14 ('children')
+            952 BINARY_SUBSCR
+            956 LOAD_ATTR               15 (NULL|self + append)
+            976 LOAD_CONST              15 ('title')
+            978 LOAD_FAST                2 (line)
+            980 BUILD_MAP                1
+            982 CALL                     1
+            990 POP_TOP
+            992 JUMP_BACKWARD           92 (to 810)
+
+130     >>  994 END_FOR
+
+135     >>  996 BUILD_LIST               0
+            998 STORE_FAST               9 (cleaned_sections)
+
+136        1000 LOAD_FAST                5 (sections)
+           1002 GET_ITER
+        >> 1004 FOR_ITER               153 (to 1314)
+           1008 STORE_FAST              10 (sec)
+
+137        1010 LOAD_FAST               10 (sec)
+           1012 LOAD_CONST              14 ('children')
+           1014 BINARY_SUBSCR
+           1018 POP_JUMP_IF_TRUE         1 (to 1022)
+
+138        1020 JUMP_BACKWARD            9 (to 1004)
+
+140     >> 1022 LOAD_GLOBAL             21 (NULL + set)
+           1032 CALL                     0
+           1040 STORE_FAST              11 (seen_titles)
+
+141        1042 BUILD_LIST               0
+           1044 STORE_FAST              12 (dedup_children)
+
+142        1046 LOAD_FAST               10 (sec)
+           1048 LOAD_CONST              14 ('children')
+           1050 BINARY_SUBSCR
+           1054 GET_ITER
+        >> 1056 FOR_ITER               100 (to 1260)
+           1060 STORE_FAST              13 (child)
+
+143        1062 LOAD_FAST               13 (child)
+           1064 LOAD_CONST              15 ('title')
+           1066 BINARY_SUBSCR
+           1070 STORE_FAST              14 (t)
+
+144        1072 LOAD_FAST               14 (t)
+           1074 LOAD_ATTR               23 (NULL|self + lower)
+           1094 CALL                     0
+           1102 LOAD_FAST               11 (seen_titles)
+           1104 CONTAINS_OP              1
+           1106 POP_JUMP_IF_TRUE         1 (to 1110)
+           1108 JUMP_BACKWARD           27 (to 1056)
+
+145     >> 1110 LOAD_FAST               11 (seen_titles)
+           1112 LOAD_ATTR               25 (NULL|self + add)
+           1132 LOAD_FAST               14 (t)
+           1134 LOAD_ATTR               23 (NULL|self + lower)
+           1154 CALL                     0
+           1162 CALL                     1
+           1170 POP_TOP
+
+147        1172 LOAD_GLOBAL             13 (NULL + len)
+           1182 LOAD_FAST               14 (t)
+           1184 CALL                     1
+           1192 LOAD_CONST              22 (45)
+           1194 COMPARE_OP               2 (<)
+           1198 POP_JUMP_IF_FALSE        2 (to 1204)
+           1200 LOAD_FAST               14 (t)
+           1202 JUMP_FORWARD             7 (to 1218)
+        >> 1204 LOAD_FAST               14 (t)
+           1206 LOAD_CONST               2 (None)
+           1208 LOAD_CONST              23 (42)
+           1210 BINARY_SLICE
+           1212 LOAD_CONST              24 ('...')
+           1214 BINARY_OP                0 (+)
+        >> 1218 STORE_FAST              15 (short_title)
+
+148        1220 LOAD_FAST               12 (dedup_children)
+           1222 LOAD_ATTR               15 (NULL|self + append)
+           1242 LOAD_CONST              15 ('title')
+           1244 LOAD_FAST               15 (short_title)
+           1246 BUILD_MAP                1
+           1248 CALL                     1
+           1256 POP_TOP
+           1258 JUMP_BACKWARD          102 (to 1056)
+
+142     >> 1260 END_FOR
+
+150        1262 LOAD_FAST               12 (dedup_children)
+           1264 LOAD_CONST               2 (None)
+           1266 LOAD_CONST              25 (6)
+           1268 BINARY_SLICE
+           1270 LOAD_FAST               10 (sec)
+           1272 LOAD_CONST              14 ('children')
+           1274 STORE_SUBSCR
+
+151        1278 LOAD_FAST                9 (cleaned_sections)
+           1280 LOAD_ATTR               15 (NULL|self + append)
+           1300 LOAD_FAST               10 (sec)
+           1302 CALL                     1
+           1310 POP_TOP
+           1312 JUMP_BACKWARD          155 (to 1004)
+
+136     >> 1314 END_FOR
+
+154        1316 LOAD_FAST                9 (cleaned_sections)
+           1318 POP_JUMP_IF_FALSE       20 (to 1360)
+           1320 LOAD_GLOBAL             13 (NULL + len)
+           1330 LOAD_FAST                9 (cleaned_sections)
+           1332 LOAD_CONST              26 (0)
+           1334 BINARY_SUBSCR
+           1338 LOAD_CONST              14 ('children')
+           1340 BINARY_SUBSCR
+           1344 CALL                     1
+           1352 LOAD_CONST              26 (0)
+           1354 COMPARE_OP              40 (==)
+           1358 POP_JUMP_IF_FALSE       28 (to 1416)
+
+157     >> 1360 LOAD_CONST              27 ('Mục tiêu bài học')
+
+159        1362 LOAD_CONST              15 ('title')
+           1364 LOAD_CONST              28 ('Kiến thức trọng tâm')
+           1366 BUILD_MAP                1
+
+160        1368 LOAD_CONST              15 ('title')
+           1370 LOAD_CONST              29 ('Kỹ năng cần đạt')
+           1372 BUILD_MAP                1
+
+161        1374 LOAD_CONST              15 ('title')
+           1376 LOAD_CONST              30 ('Phát triển năng lực')
+           1378 BUILD_MAP                1
+
+158        1380 BUILD_LIST               3
+
+156        1382 LOAD_CONST               8 (('title', 'children'))
+           1384 BUILD_CONST_KEY_MAP      2
+
+165        1386 LOAD_CONST              31 ('Tiến trình dạy học')
+
+167        1388 LOAD_CONST              15 ('title')
+           1390 LOAD_CONST              32 ('Khởi động & kết nối')
+           1392 BUILD_MAP                1
+
+168        1394 LOAD_CONST              15 ('title')
+           1396 LOAD_CONST              33 ('Hình thành kiến thức mới')
+           1398 BUILD_MAP                1
+
+169        1400 LOAD_CONST              15 ('title')
+           1402 LOAD_CONST              34 ('Luyện tập & vận dụng')
+           1404 BUILD_MAP                1
+
+166        1406 BUILD_LIST               3
+
+164        1408 LOAD_CONST               8 (('title', 'children'))
+           1410 BUILD_CONST_KEY_MAP      2
+
+155        1412 BUILD_LIST               2
+           1414 STORE_FAST               9 (cleaned_sections)
+
+175     >> 1416 LOAD_FAST                0 (title)
+           1418 COPY                     1
+           1420 POP_JUMP_IF_TRUE         2 (to 1426)
+           1422 POP_TOP
+           1424 LOAD_CONST              35 ('Sơ đồ tư duy bài giảng')
+
+176     >> 1426 LOAD_FAST                9 (cleaned_sections)
+           1428 LOAD_CONST               2 (None)
+           1430 LOAD_CONST              25 (6)
+           1432 BINARY_SLICE
+
+174        1434 LOAD_CONST               8 (('title', 'children'))
+           1436 BUILD_CONST_KEY_MAP      2
+           1438 RETURN_VALUE
+        >> 1440 SWAP                     2
+           1442 POP_TOP
+
+ 94        1444 SWAP                     2
+           1446 STORE_FAST               2 (line)
+           1448 RERAISE                  0
+ExceptionTable:
+  40 to 84 -> 1440 [2]
+
+=========================================
+FILE: embedding_engine.py
+=========================================
+  0           0 RESUME                   0
+
+  1           2 LOAD_CONST               0 (0)
+              4 LOAD_CONST               1 (None)
+              6 IMPORT_NAME              0 (os)
+              8 STORE_NAME               0 (os)
+
+  2          10 LOAD_CONST               0 (0)
+             12 LOAD_CONST               1 (None)
+             14 IMPORT_NAME              1 (numpy)
+             16 STORE_NAME               2 (np)
+
+  5          18 LOAD_CONST               1 (None)
+             20 STORE_GLOBAL             3 (_transformer_model)
+
+  7          22 LOAD_CONST               2 ('text')
+             24 LOAD_NAME                4 (str)
+             26 LOAD_CONST               3 ('return')
+             28 LOAD_NAME                5 (list)
+             30 BUILD_TUPLE              4
+             32 LOAD_CONST               4 (<code object get_embedding at 0x3acfae00, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/embedding_engine.py", line 7>)
+             34 MAKE_FUNCTION            4 (annotations)
+             36 STORE_NAME               6 (get_embedding)
+             38 RETURN_CONST             1 (None)
+
+Disassembly of <code object get_embedding at 0x3acfae00, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/embedding_engine.py", line 7>:
+  7           0 RESUME                   0
+
+ 15           2 LOAD_FAST                0 (text)
+              4 POP_JUMP_IF_FALSE       16 (to 38)
+              6 LOAD_FAST                0 (text)
+              8 LOAD_ATTR                1 (NULL|self + strip)
+             28 CALL                     0
+             36 POP_JUMP_IF_TRUE         6 (to 50)
+
+ 16     >>   38 LOAD_CONST               1 (0.0)
+             40 BUILD_LIST               1
+             42 LOAD_CONST               2 (1536)
+             44 BINARY_OP                5 (*)
+             48 RETURN_VALUE
+
+ 18     >>   50 LOAD_GLOBAL              2 (os)
+             60 LOAD_ATTR                4 (environ)
+             80 LOAD_ATTR                7 (NULL|self + get)
+            100 LOAD_CONST               3 ('OPENAI_API_KEY')
+            102 CALL                     1
+            110 STORE_FAST               1 (api_key)
+
+ 19         112 LOAD_FAST                1 (api_key)
+            114 POP_JUMP_IF_FALSE       70 (to 256)
+
+ 20         116 NOP
+
+ 21         118 LOAD_CONST               4 (0)
+            120 LOAD_CONST               5 (('OpenAI',))
+            122 IMPORT_NAME              4 (openai)
+            124 IMPORT_FROM              5 (OpenAI)
+            126 STORE_FAST               2 (OpenAI)
+            128 POP_TOP
+
+ 22         130 PUSH_NULL
+            132 LOAD_FAST                2 (OpenAI)
+            134 LOAD_FAST                1 (api_key)
+            136 KW_NAMES                 6 (('api_key',))
+            138 CALL                     1
+            146 STORE_FAST               3 (client)
+
+ 23         148 LOAD_FAST                3 (client)
+            150 LOAD_ATTR               12 (embeddings)
+            170 LOAD_ATTR               15 (NULL|self + create)
+
+ 24         190 LOAD_FAST                0 (text)
+
+ 25         192 LOAD_CONST               7 ('text-embedding-3-small')
+
+ 23         194 KW_NAMES                 8 (('input', 'model'))
+            196 CALL                     2
+            204 STORE_FAST               4 (response)
+
+ 27         206 LOAD_FAST                4 (response)
+            208 LOAD_ATTR               16 (data)
+            228 LOAD_CONST               4 (0)
+            230 BINARY_SUBSCR
+            234 LOAD_ATTR               18 (embedding)
+            254 RETURN_VALUE
+
+ 32     >>  256 NOP
+
+ 33         258 LOAD_GLOBAL             24 (_transformer_model)
+            268 POP_JUMP_IF_NOT_NONE    25 (to 320)
+
+ 34         270 LOAD_CONST               4 (0)
+            272 LOAD_CONST              12 (('SentenceTransformer',))
+            274 IMPORT_NAME             13 (sentence_transformers)
+            276 IMPORT_FROM             14 (SentenceTransformer)
+            278 STORE_FAST               6 (SentenceTransformer)
+            280 POP_TOP
+
+ 35         282 LOAD_GLOBAL             23 (NULL + print)
+            292 LOAD_CONST              13 ('[Embedding Engine] Loading local sentence-transformer model (paraphrase-multilingual-MiniLM-L12-v2)...')
+            294 CALL                     1
+            302 POP_TOP
+
+ 36         304 PUSH_NULL
+            306 LOAD_FAST                6 (SentenceTransformer)
+            308 LOAD_CONST              14 ('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+            310 CALL                     1
+            318 STORE_GLOBAL            12 (_transformer_model)
+
+ 39     >>  320 LOAD_GLOBAL             24 (_transformer_model)
+            330 LOAD_ATTR               31 (NULL|self + encode)
+            350 LOAD_FAST                0 (text)
+            352 CALL                     1
+            360 LOAD_ATTR               33 (NULL|self + tolist)
+            380 CALL                     0
+            388 STORE_FAST               7 (local_vector)
+
+ 42         390 LOAD_FAST                7 (local_vector)
+            392 LOAD_CONST               1 (0.0)
+            394 BUILD_LIST               1
+            396 LOAD_CONST               2 (1536)
+            398 LOAD_GLOBAL             35 (NULL + len)
+            408 LOAD_FAST                7 (local_vector)
+            410 CALL                     1
+            418 BINARY_OP               10 (-)
+            422 BINARY_OP                5 (*)
+            426 BINARY_OP                0 (+)
+            430 STORE_FAST               8 (padded_vector)
+
+ 43         432 LOAD_FAST                8 (padded_vector)
+            434 RETURN_VALUE
+        >>  436 PUSH_EXC_INFO
+
+ 28         438 LOAD_GLOBAL             20 (Exception)
+            448 CHECK_EXC_MATCH
+            450 POP_JUMP_IF_FALSE       25 (to 502)
+            452 STORE_FAST               5 (e)
+
+ 29         454 LOAD_GLOBAL             23 (NULL + print)
+            464 LOAD_CONST               9 ('[Embedding Engine] OpenAI Embedding Error: ')
+            466 LOAD_FAST                5 (e)
+            468 FORMAT_VALUE             0
+            470 LOAD_CONST              10 ('. Falling back to local model.')
+            472 BUILD_STRING             3
+            474 CALL                     1
+            482 POP_TOP
+            484 POP_EXCEPT
+            486 LOAD_CONST              11 (None)
+            488 STORE_FAST               5 (e)
+            490 DELETE_FAST              5 (e)
+            492 JUMP_BACKWARD          119 (to 256)
+        >>  494 LOAD_CONST              11 (None)
+            496 STORE_FAST               5 (e)
+            498 DELETE_FAST              5 (e)
+            500 RERAISE                  1
+
+ 28     >>  502 RERAISE                  0
+        >>  504 COPY                     3
+            506 POP_EXCEPT
+            508 RERAISE                  1
+        >>  510 PUSH_EXC_INFO
+
+ 44         512 LOAD_GLOBAL             20 (Exception)
+            522 CHECK_EXC_MATCH
+            524 POP_JUMP_IF_FALSE       30 (to 586)
+            526 STORE_FAST               5 (e)
+
+ 45         528 LOAD_GLOBAL             23 (NULL + print)
+            538 LOAD_CONST              15 ('[Embedding Engine] Local Embedding Error: ')
+            540 LOAD_FAST                5 (e)
+            542 FORMAT_VALUE             0
+            544 BUILD_STRING             2
+            546 CALL                     1
+            554 POP_TOP
+
+ 47         556 LOAD_CONST               1 (0.0)
+            558 BUILD_LIST               1
+            560 LOAD_CONST               2 (1536)
+            562 BINARY_OP                5 (*)
+            566 SWAP                     2
+            568 POP_EXCEPT
+            570 LOAD_CONST              11 (None)
+            572 STORE_FAST               5 (e)
+            574 DELETE_FAST              5 (e)
+            576 RETURN_VALUE
+        >>  578 LOAD_CONST              11 (None)
+            580 STORE_FAST               5 (e)
+            582 DELETE_FAST              5 (e)
+            584 RERAISE                  1
+
+ 44     >>  586 RERAISE                  0
+        >>  588 COPY                     3
+            590 POP_EXCEPT
+            592 RERAISE                  1
+ExceptionTable:
+  118 to 252 -> 436 [0]
+  258 to 432 -> 510 [0]
+  436 to 452 -> 504 [1] lasti
+  454 to 482 -> 494 [1] lasti
+  494 to 502 -> 504 [1] lasti
+  510 to 526 -> 588 [1] lasti
+  528 to 564 -> 578 [1] lasti
+  566 to 566 -> 588 [1] lasti
+  578 to 586 -> 588 [1] lasti
+
+=========================================
+FILE: md_parser.py
+=========================================
+  0           0 RESUME                   0
+
+  1           2 LOAD_CONST               0 (0)
+              4 LOAD_CONST               1 (None)
+              6 IMPORT_NAME              0 (os)
+              8 STORE_NAME               0 (os)
+
+  2          10 LOAD_CONST               0 (0)
+             12 LOAD_CONST               1 (None)
+             14 IMPORT_NAME              1 (re)
+             16 STORE_NAME               1 (re)
+
+  4          18 LOAD_CONST               2 (<code object parse_md_lesson_plan at 0x3ac93150, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 4>)
+             20 MAKE_FUNCTION            0
+             22 STORE_NAME               2 (parse_md_lesson_plan)
+             24 RETURN_CONST             1 (None)
+
+Disassembly of <code object parse_md_lesson_plan at 0x3ac93150, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 4>:
+              0 MAKE_CELL               41 (combined_text_lower)
+
+  4           2 RESUME                   0
+
+ 16           4 LOAD_GLOBAL              0 (os)
+             14 LOAD_ATTR                2 (path)
+             34 LOAD_ATTR                5 (NULL|self + exists)
+             54 LOAD_FAST                0 (file_path)
+             56 CALL                     1
+             64 POP_JUMP_IF_TRUE        14 (to 94)
+
+ 17          66 LOAD_GLOBAL              7 (NULL + FileNotFoundError)
+             76 LOAD_CONST               1 ('File not found at ')
+             78 LOAD_FAST                0 (file_path)
+             80 FORMAT_VALUE             0
+             82 BUILD_STRING             2
+             84 CALL                     1
+             92 RAISE_VARARGS            1
+
+ 19     >>   94 LOAD_GLOBAL              9 (NULL + open)
+            104 LOAD_FAST                0 (file_path)
+            106 LOAD_CONST               2 ('r')
+            108 LOAD_CONST               3 ('utf-8')
+            110 KW_NAMES                 4 (('encoding',))
+            112 CALL                     3
+            120 BEFORE_WITH
+            122 STORE_FAST               1 (f)
+
+ 20         124 LOAD_FAST                1 (f)
+            126 LOAD_ATTR               11 (NULL|self + read)
+            146 CALL                     0
+            154 STORE_FAST               2 (content)
+
+ 19         156 LOAD_CONST               5 (None)
+            158 LOAD_CONST               5 (None)
+            160 LOAD_CONST               5 (None)
+            162 CALL                     2
+            170 POP_TOP
+
+ 22     >>  172 LOAD_FAST_CHECK          2 (content)
+            174 LOAD_ATTR               13 (NULL|self + split)
+            194 LOAD_CONST               6 ('\n')
+            196 CALL                     1
+            204 GET_ITER
+            206 LOAD_FAST_AND_CLEAR      3 (line)
+            208 SWAP                     2
+            210 BUILD_LIST               0
+            212 SWAP                     2
+        >>  214 FOR_ITER                18 (to 254)
+            218 STORE_FAST               3 (line)
+            220 LOAD_FAST                3 (line)
+            222 LOAD_ATTR               15 (NULL|self + strip)
+            242 CALL                     0
+            250 LIST_APPEND              2
+            252 JUMP_BACKWARD           20 (to 214)
+        >>  254 END_FOR
+            256 STORE_FAST               4 (lines)
+            258 STORE_FAST               3 (line)
+
+ 23         260 LOAD_FAST                4 (lines)
+            262 GET_ITER
+            264 LOAD_FAST_AND_CLEAR      5 (l)
+            266 SWAP                     2
+            268 BUILD_LIST               0
+            270 SWAP                     2
+        >>  272 FOR_ITER                 7 (to 290)
+            276 STORE_FAST               5 (l)
+            278 LOAD_FAST                5 (l)
+            280 POP_JUMP_IF_TRUE         1 (to 284)
+            282 JUMP_BACKWARD            6 (to 272)
+        >>  284 LOAD_FAST                5 (l)
+            286 LIST_APPEND              2
+            288 JUMP_BACKWARD            9 (to 272)
+        >>  290 END_FOR
+            292 STORE_FAST               6 (non_empty_lines)
+            294 STORE_FAST               5 (l)
+
+ 24         296 LOAD_FAST                2 (content)
+            298 LOAD_ATTR               17 (NULL|self + lower)
+            318 CALL                     0
+            326 STORE_DEREF             41 (combined_text_lower)
+
+ 27         328 LOAD_CONST               7 ('')
+            330 STORE_FAST               7 (title)
+
+ 29         332 LOAD_FAST                4 (lines)
+            334 GET_ITER
+        >>  336 FOR_ITER                72 (to 484)
+            340 STORE_FAST               3 (line)
+
+ 30         342 LOAD_FAST                3 (line)
+            344 LOAD_ATTR               19 (NULL|self + startswith)
+            364 LOAD_CONST               8 ('# ')
+            366 CALL                     1
+            374 POP_JUMP_IF_TRUE         1 (to 378)
+            376 JUMP_BACKWARD           21 (to 336)
+
+ 31     >>  378 LOAD_FAST                3 (line)
+            380 LOAD_CONST               9 (2)
+            382 LOAD_CONST               5 (None)
+            384 BINARY_SLICE
+            386 LOAD_ATTR               15 (NULL|self + strip)
+            406 CALL                     0
+            414 LOAD_ATTR               21 (NULL|self + replace)
+            434 LOAD_CONST              10 ('**')
+            436 LOAD_CONST               7 ('')
+            438 CALL                     2
+            446 LOAD_ATTR               21 (NULL|self + replace)
+            466 LOAD_CONST              11 ('*')
+            468 LOAD_CONST               7 ('')
+            470 CALL                     2
+            478 STORE_FAST               7 (title)
+
+ 32         480 POP_TOP
+            482 JUMP_FORWARD             1 (to 486)
+
+ 29     >>  484 END_FOR
+
+ 33     >>  486 LOAD_FAST                7 (title)
+            488 POP_JUMP_IF_TRUE        39 (to 568)
+            490 LOAD_FAST                6 (non_empty_lines)
+            492 POP_JUMP_IF_FALSE       37 (to 568)
+
+ 34         494 LOAD_FAST                6 (non_empty_lines)
+            496 LOAD_CONST              12 (0)
+            498 BINARY_SUBSCR
+            502 LOAD_ATTR               21 (NULL|self + replace)
+            522 LOAD_CONST              10 ('**')
+            524 LOAD_CONST               7 ('')
+            526 CALL                     2
+            534 LOAD_ATTR               21 (NULL|self + replace)
+            554 LOAD_CONST              11 ('*')
+            556 LOAD_CONST               7 ('')
+            558 CALL                     2
+            566 STORE_FAST               7 (title)
+
+ 37     >>  568 LOAD_CONST               7 ('')
+            570 STORE_FAST               8 (subject)
+
+ 38         572 LOAD_FAST                4 (lines)
+            574 GET_ITER
+        >>  576 FOR_ITER               106 (to 792)
+            580 STORE_FAST               3 (line)
+
+ 39         582 LOAD_GLOBAL             23 (NULL + re)
+            592 LOAD_ATTR               24 (search)
+            612 LOAD_CONST              13 ('môn\\s*:\\s*([^;,\\n]+)')
+            614 LOAD_FAST                3 (line)
+            616 LOAD_GLOBAL             22 (re)
+            626 LOAD_ATTR               26 (IGNORECASE)
+            646 CALL                     3
+            654 STORE_FAST               9 (match)
+
+ 40         656 LOAD_FAST                9 (match)
+            658 POP_JUMP_IF_TRUE         1 (to 662)
+            660 JUMP_BACKWARD           43 (to 576)
+
+ 41     >>  662 LOAD_FAST                9 (match)
+            664 LOAD_ATTR               29 (NULL|self + group)
+            684 LOAD_CONST              14 (1)
+            686 CALL                     1
+            694 LOAD_ATTR               15 (NULL|self + strip)
+            714 CALL                     0
+            722 LOAD_ATTR               21 (NULL|self + replace)
+            742 LOAD_CONST              10 ('**')
+            744 LOAD_CONST               7 ('')
+            746 CALL                     2
+            754 LOAD_ATTR               21 (NULL|self + replace)
+            774 LOAD_CONST              11 ('*')
+            776 LOAD_CONST               7 ('')
+            778 CALL                     2
+            786 STORE_FAST               8 (subject)
+
+ 42         788 POP_TOP
+            790 JUMP_FORWARD             1 (to 794)
+
+ 38     >>  792 END_FOR
+
+ 45     >>  794 LOAD_CONST               7 ('')
+            796 STORE_FAST              10 (grade)
+
+ 46         798 LOAD_FAST                4 (lines)
+            800 GET_ITER
+        >>  802 FOR_ITER               106 (to 1018)
+            806 STORE_FAST               3 (line)
+
+ 47         808 LOAD_GLOBAL             23 (NULL + re)
+            818 LOAD_ATTR               24 (search)
+            838 LOAD_CONST              15 ('lớp\\s*:\\s*([^;,\\n]+)')
+            840 LOAD_FAST                3 (line)
+            842 LOAD_GLOBAL             22 (re)
+            852 LOAD_ATTR               26 (IGNORECASE)
+            872 CALL                     3
+            880 STORE_FAST               9 (match)
+
+ 48         882 LOAD_FAST                9 (match)
+            884 POP_JUMP_IF_TRUE         1 (to 888)
+            886 JUMP_BACKWARD           43 (to 802)
+
+ 49     >>  888 LOAD_FAST                9 (match)
+            890 LOAD_ATTR               29 (NULL|self + group)
+            910 LOAD_CONST              14 (1)
+            912 CALL                     1
+            920 LOAD_ATTR               15 (NULL|self + strip)
+            940 CALL                     0
+            948 LOAD_ATTR               21 (NULL|self + replace)
+            968 LOAD_CONST              10 ('**')
+            970 LOAD_CONST               7 ('')
+            972 CALL                     2
+            980 LOAD_ATTR               21 (NULL|self + replace)
+           1000 LOAD_CONST              11 ('*')
+           1002 LOAD_CONST               7 ('')
+           1004 CALL                     2
+           1012 STORE_FAST              10 (grade)
+
+ 50        1014 POP_TOP
+           1016 JUMP_FORWARD             1 (to 1020)
+
+ 46     >> 1018 END_FOR
+
+ 53     >> 1020 LOAD_CONST               7 ('')
+           1022 STORE_FAST              11 (duration)
+
+ 54        1024 LOAD_FAST                4 (lines)
+           1026 GET_ITER
+        >> 1028 FOR_ITER               106 (to 1244)
+           1032 STORE_FAST               3 (line)
+
+ 55        1034 LOAD_GLOBAL             23 (NULL + re)
+           1044 LOAD_ATTR               24 (search)
+           1064 LOAD_CONST              16 ('thời gian thực hiện[^:]*:\\s*([^;\\n]+)')
+           1066 LOAD_FAST                3 (line)
+           1068 LOAD_GLOBAL             22 (re)
+           1078 LOAD_ATTR               26 (IGNORECASE)
+           1098 CALL                     3
+           1106 STORE_FAST               9 (match)
+
+ 56        1108 LOAD_FAST                9 (match)
+           1110 POP_JUMP_IF_TRUE         1 (to 1114)
+           1112 JUMP_BACKWARD           43 (to 1028)
+
+ 57     >> 1114 LOAD_FAST                9 (match)
+           1116 LOAD_ATTR               29 (NULL|self + group)
+           1136 LOAD_CONST              14 (1)
+           1138 CALL                     1
+           1146 LOAD_ATTR               15 (NULL|self + strip)
+           1166 CALL                     0
+           1174 LOAD_ATTR               21 (NULL|self + replace)
+           1194 LOAD_CONST              10 ('**')
+           1196 LOAD_CONST               7 ('')
+           1198 CALL                     2
+           1206 LOAD_ATTR               21 (NULL|self + replace)
+           1226 LOAD_CONST              11 ('*')
+           1228 LOAD_CONST               7 ('')
+           1230 CALL                     2
+           1238 STORE_FAST              11 (duration)
+
+ 58        1240 POP_TOP
+           1242 JUMP_FORWARD             1 (to 1246)
+
+ 54     >> 1244 END_FOR
+
+ 61     >> 1246 BUILD_LIST               0
+           1248 STORE_FAST              12 (target_students)
+
+ 62        1250 BUILD_LIST               0
+           1252 LOAD_CONST              17 (('thành thị', 'đô thị', 'phố', 'siêu thị', 'trà sữa', 'đồ ăn nhanh', 'fast food', 'sức khỏe học đường', 'ít vận động'))
+           1254 LIST_EXTEND              1
+           1256 STORE_FAST              13 (urban_keywords)
+
+ 63        1258 BUILD_LIST               0
+           1260 LOAD_CONST              18 (('nông thôn', 'làng', 'bản', 'ruộng', 'vườn', 'nông nghiệp'))
+           1262 LIST_EXTEND              1
+           1264 STORE_FAST              14 (rural_keywords)
+
+ 65        1266 LOAD_GLOBAL             31 (NULL + any)
+           1276 LOAD_CLOSURE            41 (combined_text_lower)
+           1278 BUILD_TUPLE              1
+           1280 LOAD_CONST              19 (<code object <genexpr> at 0x70acb47755c0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 65>)
+           1282 MAKE_FUNCTION            8 (closure)
+           1284 LOAD_FAST               13 (urban_keywords)
+           1286 GET_ITER
+           1288 CALL                     0
+           1296 CALL                     1
+           1304 POP_JUMP_IF_FALSE       17 (to 1340)
+
+ 66        1306 LOAD_FAST               12 (target_students)
+           1308 LOAD_ATTR               33 (NULL|self + append)
+           1328 LOAD_CONST              20 ('Học sinh thành thị')
+           1330 CALL                     1
+           1338 POP_TOP
+
+ 67     >> 1340 LOAD_GLOBAL             31 (NULL + any)
+           1350 LOAD_CLOSURE            41 (combined_text_lower)
+           1352 BUILD_TUPLE              1
+           1354 LOAD_CONST              21 (<code object <genexpr> at 0x70acb47753e0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 67>)
+           1356 MAKE_FUNCTION            8 (closure)
+           1358 LOAD_FAST               14 (rural_keywords)
+           1360 GET_ITER
+           1362 CALL                     0
+           1370 CALL                     1
+           1378 POP_JUMP_IF_FALSE       17 (to 1414)
+
+ 68        1380 LOAD_FAST               12 (target_students)
+           1382 LOAD_ATTR               33 (NULL|self + append)
+           1402 LOAD_CONST              22 ('Học sinh nông thôn')
+           1404 CALL                     1
+           1412 POP_TOP
+
+ 71     >> 1414 LOAD_CONST               7 ('')
+           1416 STORE_FAST              15 (lesson_type)
+
+ 72        1418 LOAD_CONST              23 ('lý thuyết')
+           1420 LOAD_DEREF              41 (combined_text_lower)
+           1422 CONTAINS_OP              0
+           1424 POP_JUMP_IF_FALSE        3 (to 1432)
+
+ 73        1426 LOAD_CONST              24 ('Lý thuyết')
+           1428 STORE_FAST              15 (lesson_type)
+           1430 JUMP_FORWARD            24 (to 1480)
+
+ 74     >> 1432 LOAD_CONST              25 ('ôn tập')
+           1434 LOAD_DEREF              41 (combined_text_lower)
+           1436 CONTAINS_OP              0
+           1438 POP_JUMP_IF_FALSE        3 (to 1446)
+
+ 75        1440 LOAD_CONST              26 ('Ôn tập')
+           1442 STORE_FAST              15 (lesson_type)
+           1444 JUMP_FORWARD            17 (to 1480)
+
+ 76     >> 1446 LOAD_CONST              27 ('kiểm tra')
+           1448 LOAD_DEREF              41 (combined_text_lower)
+           1450 CONTAINS_OP              0
+           1452 POP_JUMP_IF_FALSE        3 (to 1460)
+
+ 77        1454 LOAD_CONST              28 ('Kiểm tra')
+           1456 STORE_FAST              15 (lesson_type)
+           1458 JUMP_FORWARD            10 (to 1480)
+
+ 78     >> 1460 LOAD_CONST              29 ('thực hành')
+           1462 LOAD_DEREF              41 (combined_text_lower)
+           1464 CONTAINS_OP              0
+           1466 POP_JUMP_IF_TRUE         4 (to 1476)
+           1468 LOAD_CONST              30 ('trải nghiệm')
+           1470 LOAD_DEREF              41 (combined_text_lower)
+           1472 CONTAINS_OP              0
+           1474 POP_JUMP_IF_FALSE        2 (to 1480)
+
+ 79     >> 1476 LOAD_CONST              31 ('Thực hành')
+           1478 STORE_FAST              15 (lesson_type)
+
+ 82     >> 1480 BUILD_LIST               0
+           1482 STORE_FAST              16 (activities)
+
+ 86        1484 BUILD_LIST               0
+           1486 STORE_FAST              17 (table_rows)
+
+ 87        1488 LOAD_FAST                4 (lines)
+           1490 GET_ITER
+        >> 1492 FOR_ITER               105 (to 1706)
+           1496 STORE_FAST               3 (line)
+
+ 88        1498 LOAD_FAST                3 (line)
+           1500 LOAD_ATTR               19 (NULL|self + startswith)
+           1520 LOAD_CONST              32 ('|')
+           1522 CALL                     1
+           1530 POP_JUMP_IF_TRUE         1 (to 1534)
+           1532 JUMP_BACKWARD           21 (to 1492)
+        >> 1534 LOAD_FAST                3 (line)
+           1536 LOAD_ATTR               35 (NULL|self + endswith)
+           1556 LOAD_CONST              32 ('|')
+           1558 CALL                     1
+           1566 POP_JUMP_IF_TRUE         1 (to 1570)
+           1568 JUMP_BACKWARD           39 (to 1492)
+
+ 89     >> 1570 LOAD_FAST                3 (line)
+           1572 LOAD_ATTR               13 (NULL|self + split)
+           1592 LOAD_CONST              32 ('|')
+           1594 CALL                     1
+           1602 LOAD_CONST              14 (1)
+           1604 LOAD_CONST              33 (-1)
+           1606 BINARY_SLICE
+           1608 GET_ITER
+           1610 LOAD_FAST_AND_CLEAR     18 (c)
+           1612 SWAP                     2
+           1614 BUILD_LIST               0
+           1616 SWAP                     2
+        >> 1618 FOR_ITER                18 (to 1658)
+           1622 STORE_FAST              18 (c)
+           1624 LOAD_FAST               18 (c)
+           1626 LOAD_ATTR               15 (NULL|self + strip)
+           1646 CALL                     0
+           1654 LIST_APPEND              2
+           1656 JUMP_BACKWARD           20 (to 1618)
+        >> 1658 END_FOR
+           1660 STORE_FAST              19 (cells)
+           1662 STORE_FAST              18 (c)
+
+ 90        1664 LOAD_FAST               19 (cells)
+           1666 POP_JUMP_IF_TRUE         1 (to 1670)
+           1668 JUMP_BACKWARD           89 (to 1492)
+
+ 91     >> 1670 LOAD_FAST               17 (table_rows)
+           1672 LOAD_ATTR               33 (NULL|self + append)
+           1692 LOAD_FAST               19 (cells)
+           1694 CALL                     1
+           1702 POP_TOP
+           1704 JUMP_BACKWARD          107 (to 1492)
+
+ 87     >> 1706 END_FOR
+
+ 93        1708 LOAD_CONST              34 (False)
+           1710 STORE_FAST              20 (timeline_table_found)
+
+ 94        1712 LOAD_GLOBAL             37 (NULL + enumerate)
+           1722 LOAD_FAST               17 (table_rows)
+           1724 CALL                     1
+           1732 GET_ITER
+        >> 1734 EXTENDED_ARG             1
+           1736 FOR_ITER               455 (to 2650)
+           1740 UNPACK_SEQUENCE          2
+           1744 STORE_FAST              21 (idx)
+           1746 STORE_FAST              22 (row)
+
+ 95        1748 LOAD_FAST               21 (idx)
+           1750 LOAD_CONST              12 (0)
+           1752 COMPARE_OP              40 (==)
+           1756 POP_JUMP_IF_FALSE       52 (to 1862)
+
+ 97        1758 LOAD_FAST               22 (row)
+           1760 GET_ITER
+           1762 LOAD_FAST_AND_CLEAR     18 (c)
+           1764 SWAP                     2
+           1766 BUILD_LIST               0
+           1768 SWAP                     2
+        >> 1770 FOR_ITER                18 (to 1810)
+           1774 STORE_FAST              18 (c)
+           1776 LOAD_FAST               18 (c)
+           1778 LOAD_ATTR               17 (NULL|self + lower)
+           1798 CALL                     0
+           1806 LIST_APPEND              2
+           1808 JUMP_BACKWARD           20 (to 1770)
+        >> 1810 END_FOR
+           1812 STORE_FAST              23 (headers_lower)
+           1814 STORE_FAST              18 (c)
+
+ 98        1816 LOAD_GLOBAL             31 (NULL + any)
+           1826 LOAD_CONST              35 (<code object <genexpr> at 0x70acb4b3e830, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 98>)
+           1828 MAKE_FUNCTION            0
+           1830 LOAD_FAST               23 (headers_lower)
+           1832 GET_ITER
+           1834 CALL                     0
+           1842 CALL                     1
+           1850 STORE_FAST              24 (is_timeline)
+
+ 99        1852 LOAD_FAST               24 (is_timeline)
+           1854 POP_JUMP_IF_FALSE        3 (to 1862)
+
+100        1856 LOAD_CONST              36 (True)
+           1858 STORE_FAST              20 (timeline_table_found)
+
+101        1860 JUMP_BACKWARD           64 (to 1734)
+
+102     >> 1862 LOAD_FAST               20 (timeline_table_found)
+           1864 POP_JUMP_IF_TRUE         1 (to 1868)
+           1866 JUMP_BACKWARD           67 (to 1734)
+        >> 1868 LOAD_GLOBAL             39 (NULL + len)
+           1878 LOAD_FAST               22 (row)
+           1880 CALL                     1
+           1888 LOAD_CONST               9 (2)
+           1890 COMPARE_OP              92 (>=)
+           1894 POP_JUMP_IF_TRUE         1 (to 1898)
+           1896 JUMP_BACKWARD           82 (to 1734)
+
+103     >> 1898 LOAD_FAST               22 (row)
+           1900 LOAD_CONST              12 (0)
+           1902 BINARY_SUBSCR
+           1906 STORE_FAST              25 (raw_name)
+
+104        1908 LOAD_GLOBAL             39 (NULL + len)
+           1918 LOAD_FAST               22 (row)
+           1920 CALL                     1
+           1928 LOAD_CONST              14 (1)
+           1930 COMPARE_OP              68 (>)
+           1934 POP_JUMP_IF_FALSE        5 (to 1946)
+           1936 LOAD_FAST               22 (row)
+           1938 LOAD_CONST              14 (1)
+           1940 BINARY_SUBSCR
+           1944 JUMP_FORWARD             1 (to 1948)
+        >> 1946 LOAD_CONST               7 ('')
+        >> 1948 STORE_FAST              26 (act_desc)
+
+107        1950 LOAD_CONST              37 ('---')
+           1952 LOAD_FAST               25 (raw_name)
+           1954 CONTAINS_OP              0
+           1956 POP_JUMP_IF_TRUE         4 (to 1966)
+           1958 LOAD_CONST              37 ('---')
+           1960 LOAD_FAST               26 (act_desc)
+           1962 CONTAINS_OP              0
+           1964 POP_JUMP_IF_FALSE        1 (to 1968)
+
+108     >> 1966 JUMP_BACKWARD          117 (to 1734)
+
+111     >> 1968 LOAD_GLOBAL             23 (NULL + re)
+           1978 LOAD_ATTR               24 (search)
+           1998 LOAD_CONST              38 ('(\\d+\\s*phút)')
+           2000 LOAD_FAST               25 (raw_name)
+           2002 LOAD_CONST              39 (' ')
+           2004 BINARY_OP                0 (+)
+           2008 LOAD_FAST               26 (act_desc)
+           2010 BINARY_OP                0 (+)
+           2014 LOAD_GLOBAL             22 (re)
+           2024 LOAD_ATTR               26 (IGNORECASE)
+           2044 CALL                     3
+           2052 STORE_FAST              27 (time_match)
+
+112        2054 LOAD_FAST               27 (time_match)
+           2056 POP_JUMP_IF_FALSE       17 (to 2092)
+           2058 LOAD_FAST               27 (time_match)
+           2060 LOAD_ATTR               29 (NULL|self + group)
+           2080 LOAD_CONST              14 (1)
+           2082 CALL                     1
+           2090 JUMP_FORWARD             1 (to 2094)
+        >> 2092 LOAD_CONST              40 ('15 phút')
+        >> 2094 STORE_FAST              28 (act_time)
+
+115        2096 LOAD_GLOBAL             23 (NULL + re)
+           2106 LOAD_ATTR               40 (sub)
+           2126 LOAD_CONST              41 ('\\(\\s*\\d+\\s*phút\\s*\\)')
+           2128 LOAD_CONST               7 ('')
+           2130 LOAD_FAST               25 (raw_name)
+           2132 LOAD_GLOBAL             22 (re)
+           2142 LOAD_ATTR               26 (IGNORECASE)
+           2162 KW_NAMES                42 (('flags',))
+           2164 CALL                     4
+           2172 LOAD_ATTR               15 (NULL|self + strip)
+           2192 CALL                     0
+           2200 STORE_FAST              29 (act_name)
+
+116        2202 LOAD_GLOBAL             23 (NULL + re)
+           2212 LOAD_ATTR               40 (sub)
+           2232 LOAD_CONST              43 ('\\d+\\s*phút')
+           2234 LOAD_CONST               7 ('')
+           2236 LOAD_FAST               29 (act_name)
+           2238 LOAD_GLOBAL             22 (re)
+           2248 LOAD_ATTR               26 (IGNORECASE)
+           2268 KW_NAMES                42 (('flags',))
+           2270 CALL                     4
+           2278 LOAD_ATTR               15 (NULL|self + strip)
+           2298 CALL                     0
+           2306 STORE_FAST              29 (act_name)
+
+117        2308 LOAD_GLOBAL             23 (NULL + re)
+           2318 LOAD_ATTR               40 (sub)
+           2338 LOAD_CONST              44 ('[\\s\\-:]+$')
+           2340 LOAD_CONST               7 ('')
+           2342 LOAD_FAST               29 (act_name)
+           2344 CALL                     3
+           2352 LOAD_ATTR               15 (NULL|self + strip)
+           2372 CALL                     0
+           2380 STORE_FAST              29 (act_name)
+
+118        2382 LOAD_FAST               29 (act_name)
+           2384 POP_JUMP_IF_TRUE         2 (to 2390)
+
+119        2386 LOAD_FAST               25 (raw_name)
+           2388 STORE_FAST              29 (act_name)
+
+122     >> 2390 LOAD_FAST               26 (act_desc)
+           2392 POP_JUMP_IF_FALSE       87 (to 2568)
+
+123        2394 LOAD_FAST               26 (act_desc)
+           2396 LOAD_ATTR               15 (NULL|self + strip)
+           2416 CALL                     0
+           2424 STORE_FAST              30 (act_desc_clean)
+
+124        2426 LOAD_GLOBAL             39 (NULL + len)
+           2436 LOAD_FAST               30 (act_desc_clean)
+           2438 CALL                     1
+           2446 LOAD_CONST              45 (250)
+           2448 COMPARE_OP              68 (>)
+           2452 POP_JUMP_IF_FALSE       59 (to 2572)
+
+125        2454 LOAD_GLOBAL             23 (NULL + re)
+           2464 LOAD_ATTR               12 (split)
+           2484 LOAD_CONST              46 ('(?<=[.!?])\\s+')
+           2486 LOAD_FAST               30 (act_desc_clean)
+           2488 CALL                     2
+           2496 STORE_FAST              31 (sentences)
+
+126        2498 LOAD_CONST              39 (' ')
+           2500 LOAD_ATTR               43 (NULL|self + join)
+           2520 LOAD_FAST               31 (sentences)
+           2522 LOAD_CONST               5 (None)
+           2524 LOAD_CONST               9 (2)
+           2526 BINARY_SLICE
+           2528 CALL                     1
+           2536 LOAD_ATTR               15 (NULL|self + strip)
+           2556 CALL                     0
+           2564 STORE_FAST              30 (act_desc_clean)
+           2566 JUMP_FORWARD             2 (to 2572)
+
+128     >> 2568 LOAD_CONST              47 ('Hoạt động dạy học chi tiết.')
+           2570 STORE_FAST              30 (act_desc_clean)
+
+130     >> 2572 LOAD_FAST               16 (activities)
+           2574 LOAD_ATTR               33 (NULL|self + append)
+
+131        2594 LOAD_FAST               29 (act_name)
+
+132        2596 LOAD_FAST               28 (act_time)
+
+133        2598 LOAD_FAST               30 (act_desc_clean)
+
+130        2600 LOAD_CONST              48 (('ten_hoat_dong', 'thoi_gian', 'tom_tat'))
+           2602 BUILD_CONST_KEY_MAP      3
+           2604 CALL                     1
+           2612 POP_TOP
+
+135        2614 LOAD_GLOBAL             39 (NULL + len)
+           2624 LOAD_FAST               16 (activities)
+           2626 CALL                     1
+           2634 LOAD_CONST              49 (5)
+           2636 COMPARE_OP              92 (>=)
+           2640 POP_JUMP_IF_TRUE         2 (to 2646)
+           2642 EXTENDED_ARG             1
+           2644 JUMP_BACKWARD          456 (to 1734)
+
+136     >> 2646 POP_TOP
+           2648 JUMP_FORWARD             1 (to 2652)
+
+ 94     >> 2650 END_FOR
+
+139     >> 2652 LOAD_FAST               16 (activities)
+           2654 EXTENDED_ARG             1
+           2656 POP_JUMP_IF_TRUE       349 (to 3356)
+
+140        2658 LOAD_GLOBAL             37 (NULL + enumerate)
+           2668 LOAD_FAST                4 (lines)
+           2670 CALL                     1
+           2678 GET_ITER
+        >> 2680 EXTENDED_ARG             1
+           2682 FOR_ITER               334 (to 3354)
+           2686 UNPACK_SEQUENCE          2
+           2690 STORE_FAST              21 (idx)
+           2692 STORE_FAST               3 (line)
+
+142        2694 LOAD_GLOBAL             23 (NULL + re)
+           2704 LOAD_ATTR               44 (match)
+           2724 LOAD_CONST              50 ('^#{2,4}\\s*(Hoạt động\\s+\\d+|HĐ\\s*\\d+|[0-9]+\\.\\s+)(.*)')
+           2726 LOAD_FAST                3 (line)
+           2728 LOAD_GLOBAL             22 (re)
+           2738 LOAD_ATTR               26 (IGNORECASE)
+           2758 CALL                     3
+           2766 STORE_FAST               9 (match)
+
+143        2768 LOAD_FAST                9 (match)
+           2770 POP_JUMP_IF_TRUE         1 (to 2774)
+           2772 JUMP_BACKWARD           47 (to 2680)
+
+144     >> 2774 LOAD_FAST                3 (line)
+           2776 LOAD_ATTR               21 (NULL|self + replace)
+           2796 LOAD_CONST              51 ('#')
+           2798 LOAD_CONST               7 ('')
+           2800 CALL                     2
+           2808 LOAD_ATTR               15 (NULL|self + strip)
+           2828 CALL                     0
+           2836 STORE_FAST              29 (act_name)
+
+145        2838 LOAD_CONST              52 ('10 phút')
+           2840 STORE_FAST              28 (act_time)
+
+146        2842 LOAD_CONST               7 ('')
+           2844 STORE_FAST              26 (act_desc)
+
+149        2846 LOAD_GLOBAL             47 (NULL + range)
+           2856 LOAD_CONST              14 (1)
+           2858 LOAD_CONST              53 (6)
+           2860 CALL                     2
+           2868 GET_ITER
+        >> 2870 FOR_ITER               139 (to 3152)
+           2874 STORE_FAST              32 (j)
+
+150        2876 LOAD_FAST               21 (idx)
+           2878 LOAD_FAST               32 (j)
+           2880 BINARY_OP                0 (+)
+           2884 LOAD_GLOBAL             39 (NULL + len)
+           2894 LOAD_FAST                4 (lines)
+           2896 CALL                     1
+           2904 COMPARE_OP               2 (<)
+           2908 POP_JUMP_IF_TRUE         1 (to 2912)
+           2910 JUMP_BACKWARD           21 (to 2870)
+
+151     >> 2912 LOAD_FAST                4 (lines)
+           2914 LOAD_FAST               21 (idx)
+           2916 LOAD_FAST               32 (j)
+           2918 BINARY_OP                0 (+)
+           2922 BINARY_SUBSCR
+           2926 STORE_FAST              33 (next_line)
+
+152        2928 LOAD_FAST               33 (next_line)
+           2930 POP_JUMP_IF_TRUE         1 (to 2934)
+
+153        2932 JUMP_BACKWARD           32 (to 2870)
+
+154     >> 2934 LOAD_GLOBAL             23 (NULL + re)
+           2944 LOAD_ATTR               24 (search)
+           2964 LOAD_CONST              38 ('(\\d+\\s*phút)')
+           2966 LOAD_FAST               33 (next_line)
+           2968 LOAD_GLOBAL             22 (re)
+           2978 LOAD_ATTR               26 (IGNORECASE)
+           2998 CALL                     3
+           3006 STORE_FAST              27 (time_match)
+
+155        3008 LOAD_FAST               27 (time_match)
+           3010 POP_JUMP_IF_FALSE       31 (to 3074)
+
+156        3012 LOAD_FAST               27 (time_match)
+           3014 LOAD_ATTR               29 (NULL|self + group)
+           3034 LOAD_CONST              14 (1)
+           3036 CALL                     1
+           3044 LOAD_ATTR               15 (NULL|self + strip)
+           3064 CALL                     0
+           3072 STORE_FAST              28 (act_time)
+
+157     >> 3074 LOAD_FAST               26 (act_desc)
+           3076 POP_JUMP_IF_FALSE        1 (to 3080)
+           3078 JUMP_BACKWARD          105 (to 2870)
+        >> 3080 LOAD_GLOBAL             39 (NULL + len)
+           3090 LOAD_FAST               33 (next_line)
+           3092 CALL                     1
+           3100 LOAD_CONST              54 (20)
+           3102 COMPARE_OP              68 (>)
+           3106 POP_JUMP_IF_TRUE         1 (to 3110)
+           3108 JUMP_BACKWARD          120 (to 2870)
+        >> 3110 LOAD_FAST               33 (next_line)
+           3112 LOAD_ATTR               19 (NULL|self + startswith)
+           3132 LOAD_CONST              51 ('#')
+           3134 CALL                     1
+           3142 POP_JUMP_IF_FALSE        1 (to 3146)
+           3144 JUMP_BACKWARD          138 (to 2870)
+
+158     >> 3146 LOAD_FAST               33 (next_line)
+           3148 STORE_FAST              26 (act_desc)
+           3150 JUMP_BACKWARD          141 (to 2870)
+
+149     >> 3152 END_FOR
+
+160        3154 LOAD_FAST               26 (act_desc)
+           3156 POP_JUMP_IF_FALSE       57 (to 3272)
+
+161        3158 LOAD_GLOBAL             23 (NULL + re)
+           3168 LOAD_ATTR               12 (split)
+           3188 LOAD_CONST              46 ('(?<=[.!?])\\s+')
+           3190 LOAD_FAST               26 (act_desc)
+           3192 CALL                     2
+           3200 STORE_FAST              31 (sentences)
+
+162        3202 LOAD_CONST              39 (' ')
+           3204 LOAD_ATTR               43 (NULL|self + join)
+           3224 LOAD_FAST               31 (sentences)
+           3226 LOAD_CONST               5 (None)
+           3228 LOAD_CONST               9 (2)
+           3230 BINARY_SLICE
+           3232 CALL                     1
+           3240 LOAD_ATTR               15 (NULL|self + strip)
+           3260 CALL                     0
+           3268 STORE_FAST              26 (act_desc)
+           3270 JUMP_FORWARD             2 (to 3276)
+
+164     >> 3272 LOAD_CONST              55 ('Tổ chức hoạt động giảng dạy trải nghiệm thực tế.')
+           3274 STORE_FAST              26 (act_desc)
+
+166     >> 3276 LOAD_FAST               16 (activities)
+           3278 LOAD_ATTR               33 (NULL|self + append)
+
+167        3298 LOAD_FAST               29 (act_name)
+
+168        3300 LOAD_FAST               28 (act_time)
+
+169        3302 LOAD_FAST               26 (act_desc)
+
+166        3304 LOAD_CONST              48 (('ten_hoat_dong', 'thoi_gian', 'tom_tat'))
+           3306 BUILD_CONST_KEY_MAP      3
+           3308 CALL                     1
+           3316 POP_TOP
+
+171        3318 LOAD_GLOBAL             39 (NULL + len)
+           3328 LOAD_FAST               16 (activities)
+           3330 CALL                     1
+           3338 LOAD_CONST              49 (5)
+           3340 COMPARE_OP              92 (>=)
+           3344 POP_JUMP_IF_TRUE         2 (to 3350)
+           3346 EXTENDED_ARG             1
+           3348 JUMP_BACKWARD          335 (to 2680)
+
+172     >> 3350 POP_TOP
+           3352 JUMP_FORWARD             1 (to 3356)
+
+140     >> 3354 END_FOR
+
+175     >> 3356 BUILD_LIST               0
+           3358 STORE_FAST              34 (knowledge_tags)
+
+176        3360 BUILD_LIST               0
+           3362 LOAD_CONST              56 (('Dinh dưỡng học đường', 'Thực đơn khỏe mạnh', 'Nhóm chất dinh dưỡng', 'Hoạt động trải nghiệm', 'Sức khỏe học đường', 'Chế độ ăn uống', 'Vận động', 'Thói quen ăn uống', 'Thiết kế thực đơn', 'Trò chơi trải nghiệm'))
+           3364 LIST_EXTEND              1
+           3366 STORE_FAST              35 (common_tags)
+
+181        3368 LOAD_FAST               35 (common_tags)
+           3370 GET_ITER
+        >> 3372 FOR_ITER                38 (to 3452)
+           3376 STORE_FAST              36 (tag)
+
+182        3378 LOAD_FAST               36 (tag)
+           3380 LOAD_ATTR               17 (NULL|self + lower)
+           3400 CALL                     0
+           3408 LOAD_DEREF              41 (combined_text_lower)
+           3410 CONTAINS_OP              0
+           3412 POP_JUMP_IF_TRUE         1 (to 3416)
+           3414 JUMP_BACKWARD           22 (to 3372)
+
+183     >> 3416 LOAD_FAST               34 (knowledge_tags)
+           3418 LOAD_ATTR               33 (NULL|self + append)
+           3438 LOAD_FAST               36 (tag)
+           3440 CALL                     1
+           3448 POP_TOP
+           3450 JUMP_BACKWARD           40 (to 3372)
+
+181     >> 3452 END_FOR
+
+184        3454 LOAD_FAST               34 (knowledge_tags)
+           3456 LOAD_CONST               5 (None)
+           3458 LOAD_CONST              49 (5)
+           3460 BINARY_SLICE
+           3462 STORE_FAST              34 (knowledge_tags)
+
+187        3464 BUILD_LIST               0
+           3466 STORE_FAST              37 (description_parts)
+
+188        3468 LOAD_FAST                8 (subject)
+           3470 POP_JUMP_IF_FALSE       20 (to 3512)
+
+189        3472 LOAD_FAST               37 (description_parts)
+           3474 LOAD_ATTR               33 (NULL|self + append)
+           3494 LOAD_CONST              57 ('Bài giảng môn ')
+           3496 LOAD_FAST                8 (subject)
+           3498 FORMAT_VALUE             0
+           3500 BUILD_STRING             2
+           3502 CALL                     1
+           3510 POP_TOP
+
+190     >> 3512 LOAD_FAST               10 (grade)
+           3514 POP_JUMP_IF_FALSE       20 (to 3556)
+
+191        3516 LOAD_FAST               37 (description_parts)
+           3518 LOAD_ATTR               33 (NULL|self + append)
+           3538 LOAD_CONST              58 ('dành cho ')
+           3540 LOAD_FAST               10 (grade)
+           3542 FORMAT_VALUE             0
+           3544 BUILD_STRING             2
+           3546 CALL                     1
+           3554 POP_TOP
+
+192     >> 3556 LOAD_FAST               11 (duration)
+           3558 POP_JUMP_IF_FALSE       20 (to 3600)
+
+193        3560 LOAD_FAST               37 (description_parts)
+           3562 LOAD_ATTR               33 (NULL|self + append)
+           3582 LOAD_CONST              59 ('Thời gian thực hiện: ')
+           3584 LOAD_FAST               11 (duration)
+           3586 FORMAT_VALUE             0
+           3588 BUILD_STRING             2
+           3590 CALL                     1
+           3598 POP_TOP
+
+195     >> 3600 LOAD_CONST              60 (', ')
+           3602 LOAD_ATTR               43 (NULL|self + join)
+           3622 LOAD_FAST               37 (description_parts)
+           3624 CALL                     1
+           3632 STORE_FAST              38 (description)
+
+196        3634 LOAD_FAST               16 (activities)
+           3636 POP_JUMP_IF_FALSE       53 (to 3744)
+
+197        3638 LOAD_FAST               16 (activities)
+           3640 GET_ITER
+           3642 LOAD_FAST_AND_CLEAR     39 (a)
+           3644 SWAP                     2
+           3646 BUILD_LIST               0
+           3648 SWAP                     2
+        >> 3650 FOR_ITER                15 (to 3684)
+           3654 STORE_FAST              39 (a)
+           3656 LOAD_FAST               39 (a)
+           3658 LOAD_CONST              61 ('ten_hoat_dong')
+           3660 BINARY_SUBSCR
+           3664 FORMAT_VALUE             0
+           3666 LOAD_CONST              62 (': ')
+           3668 LOAD_FAST               39 (a)
+           3670 LOAD_CONST              63 ('tom_tat')
+           3672 BINARY_SUBSCR
+           3676 FORMAT_VALUE             0
+           3678 BUILD_STRING             3
+           3680 LIST_APPEND              2
+           3682 JUMP_BACKWARD           17 (to 3650)
+        >> 3684 END_FOR
+           3686 STORE_FAST              40 (act_details)
+           3688 STORE_FAST              39 (a)
+
+198        3690 LOAD_FAST               38 (description)
+           3692 LOAD_CONST              64 ('. Gồm các hoạt động chính: ')
+           3694 LOAD_CONST              65 ('; ')
+           3696 LOAD_ATTR               43 (NULL|self + join)
+           3716 LOAD_FAST               40 (act_details)
+           3718 CALL                     1
+           3726 BINARY_OP                0 (+)
+           3730 LOAD_CONST              66 ('.')
+           3732 BINARY_OP                0 (+)
+           3736 BINARY_OP               13 (+=)
+           3740 STORE_FAST              38 (description)
+           3742 JUMP_FORWARD             4 (to 3752)
+
+199     >> 3744 LOAD_FAST               38 (description)
+           3746 POP_JUMP_IF_TRUE         2 (to 3752)
+
+200        3748 LOAD_CONST              67 ('Bài giảng dạy học giáo án được tải lên hệ thống từ file Markdown.')
+           3750 STORE_FAST              38 (description)
+
+203     >> 3752 LOAD_FAST                7 (title)
+
+204        3754 LOAD_FAST               38 (description)
+
+205        3756 LOAD_FAST                8 (subject)
+
+206        3758 LOAD_FAST               10 (grade)
+
+207        3760 LOAD_FAST               11 (duration)
+
+208        3762 LOAD_FAST               12 (target_students)
+
+209        3764 LOAD_FAST               15 (lesson_type)
+
+210        3766 LOAD_FAST               16 (activities)
+
+211        3768 LOAD_FAST               34 (knowledge_tags)
+
+202        3770 LOAD_CONST              68 (('title', 'description', 'subject', 'grade', 'duration', 'target_students', 'lesson_type', 'activities', 'knowledge_tags'))
+           3772 BUILD_CONST_KEY_MAP      9
+           3774 RETURN_VALUE
+
+ 19     >> 3776 PUSH_EXC_INFO
+           3778 WITH_EXCEPT_START
+           3780 POP_JUMP_IF_TRUE         1 (to 3784)
+           3782 RERAISE                  2
+        >> 3784 POP_TOP
+           3786 POP_EXCEPT
+           3788 POP_TOP
+           3790 POP_TOP
+           3792 EXTENDED_ARG             7
+           3794 JUMP_BACKWARD         1812 (to 172)
+        >> 3796 COPY                     3
+           3798 POP_EXCEPT
+           3800 RERAISE                  1
+        >> 3802 SWAP                     2
+           3804 POP_TOP
+
+ 22        3806 SWAP                     2
+           3808 STORE_FAST               3 (line)
+           3810 RERAISE                  0
+        >> 3812 SWAP                     2
+           3814 POP_TOP
+
+ 23        3816 SWAP                     2
+           3818 STORE_FAST               5 (l)
+           3820 RERAISE                  0
+        >> 3822 SWAP                     2
+           3824 POP_TOP
+
+ 89        3826 SWAP                     2
+           3828 STORE_FAST              18 (c)
+           3830 RERAISE                  0
+        >> 3832 SWAP                     2
+           3834 POP_TOP
+
+ 97        3836 SWAP                     2
+           3838 STORE_FAST              18 (c)
+           3840 RERAISE                  0
+        >> 3842 SWAP                     2
+           3844 POP_TOP
+
+197        3846 SWAP                     2
+           3848 STORE_FAST              39 (a)
+           3850 RERAISE                  0
+ExceptionTable:
+  122 to 154 -> 3776 [1] lasti
+  210 to 254 -> 3802 [2]
+  268 to 280 -> 3812 [2]
+  284 to 290 -> 3812 [2]
+  1614 to 1658 -> 3822 [3]
+  1766 to 1810 -> 3832 [3]
+  3646 to 3684 -> 3842 [2]
+  3776 to 3784 -> 3796 [3] lasti
+
+Disassembly of <code object <genexpr> at 0x70acb47755c0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 65>:
+              0 COPY_FREE_VARS           1
+
+ 65           2 RETURN_GENERATOR
+              4 POP_TOP
+              6 RESUME                   0
+              8 LOAD_FAST                0 (.0)
+        >>   10 FOR_ITER                 8 (to 30)
+             14 STORE_FAST               1 (kw)
+             16 LOAD_FAST                1 (kw)
+             18 LOAD_DEREF               2 (combined_text_lower)
+             20 CONTAINS_OP              0
+             22 YIELD_VALUE              1
+             24 RESUME                   1
+             26 POP_TOP
+             28 JUMP_BACKWARD           10 (to 10)
+        >>   30 END_FOR
+             32 RETURN_CONST             0 (None)
+        >>   34 CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+             36 RERAISE                  1
+ExceptionTable:
+  6 to 32 -> 34 [0] lasti
+
+Disassembly of <code object <genexpr> at 0x70acb47753e0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 67>:
+              0 COPY_FREE_VARS           1
+
+ 67           2 RETURN_GENERATOR
+              4 POP_TOP
+              6 RESUME                   0
+              8 LOAD_FAST                0 (.0)
+        >>   10 FOR_ITER                 8 (to 30)
+             14 STORE_FAST               1 (kw)
+             16 LOAD_FAST                1 (kw)
+             18 LOAD_DEREF               2 (combined_text_lower)
+             20 CONTAINS_OP              0
+             22 YIELD_VALUE              1
+             24 RESUME                   1
+             26 POP_TOP
+             28 JUMP_BACKWARD           10 (to 10)
+        >>   30 END_FOR
+             32 RETURN_CONST             0 (None)
+        >>   34 CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+             36 RERAISE                  1
+ExceptionTable:
+  6 to 32 -> 34 [0] lasti
+
+Disassembly of <code object <genexpr> at 0x70acb4b3e830, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/md_parser.py", line 98>:
+ 98           0 RETURN_GENERATOR
+              2 POP_TOP
+              4 RESUME                   0
+              6 LOAD_FAST                0 (.0)
+        >>    8 FOR_ITER                20 (to 52)
+             12 STORE_FAST               1 (h)
+             14 LOAD_CONST               0 ('hoạt động')
+             16 LOAD_FAST                1 (h)
+             18 CONTAINS_OP              0
+             20 COPY                     1
+             22 POP_JUMP_IF_TRUE        10 (to 44)
+             24 POP_TOP
+             26 LOAD_CONST               1 ('hđ')
+             28 LOAD_FAST                1 (h)
+             30 CONTAINS_OP              0
+             32 COPY                     1
+             34 POP_JUMP_IF_TRUE         4 (to 44)
+             36 POP_TOP
+             38 LOAD_CONST               2 ('tiến trình')
+             40 LOAD_FAST                1 (h)
+             42 CONTAINS_OP              0
+        >>   44 YIELD_VALUE              1
+             46 RESUME                   1
+             48 POP_TOP
+             50 JUMP_BACKWARD           22 (to 8)
+        >>   52 END_FOR
+             54 RETURN_CONST             3 (None)
+        >>   56 CALL_INTRINSIC_1         3 (INTRINSIC_STOPITERATION_ERROR)
+             58 RERAISE                  1
+ExceptionTable:
+  4 to 54 -> 56 [0] lasti
+
+=========================================
+FILE: ai_processor.py
+=========================================
+  0           0 RESUME                   0
+
+  1           2 LOAD_CONST               0 (0)
+              4 LOAD_CONST               1 (None)
+              6 IMPORT_NAME              0 (re)
+              8 STORE_NAME               0 (re)
+
+  2          10 LOAD_CONST               2 (1)
+             12 LOAD_CONST               3 (('LessonPlan', 'DocumentChunk'))
+             14 IMPORT_NAME              1 (models)
+             16 IMPORT_FROM              2 (LessonPlan)
+             18 STORE_NAME               2 (LessonPlan)
+             20 IMPORT_FROM              3 (DocumentChunk)
+             22 STORE_NAME               3 (DocumentChunk)
+             24 POP_TOP
+
+  3          26 LOAD_CONST               2 (1)
+             28 LOAD_CONST               4 (('get_embedding',))
+             30 IMPORT_NAME              4 (embedding_engine)
+             32 IMPORT_FROM              5 (get_embedding)
+             34 STORE_NAME               5 (get_embedding)
+             36 POP_TOP
+
+  4          38 LOAD_CONST               2 (1)
+             40 LOAD_CONST               5 (('generate_mindmap_via_llm',))
+             42 IMPORT_NAME              6 (llm_client)
+             44 IMPORT_FROM              7 (generate_mindmap_via_llm)
+             46 STORE_NAME               7 (generate_mindmap_via_llm)
+             48 POP_TOP
+
+  6          50 LOAD_CONST              13 ((600, 100))
+             52 LOAD_CONST               6 ('text')
+             54 LOAD_NAME                8 (str)
+             56 LOAD_CONST               7 ('max_chunk_size')
+             58 LOAD_NAME                9 (int)
+             60 LOAD_CONST               8 ('overlap')
+             62 LOAD_NAME                9 (int)
+             64 LOAD_CONST               9 ('return')
+             66 LOAD_NAME               10 (list)
+             68 BUILD_TUPLE              8
+             70 LOAD_CONST              10 (<code object chunk_markdown_content at 0x3acc12b0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/ai_processor.py", line 6>)
+             72 MAKE_FUNCTION            5 (defaults, annotations)
+             74 STORE_NAME              11 (chunk_markdown_content)
+
+ 38          76 LOAD_CONST              11 ('lesson_plan')
+             78 LOAD_NAME                2 (LessonPlan)
+             80 BUILD_TUPLE              2
+             82 LOAD_CONST              12 (<code object process_lesson_plan_ai at 0x3ac94130, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/ai_processor.py", line 38>)
+             84 MAKE_FUNCTION            4 (annotations)
+             86 STORE_NAME              12 (process_lesson_plan_ai)
+             88 RETURN_CONST             1 (None)
+
+Disassembly of <code object chunk_markdown_content at 0x3acc12b0, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/ai_processor.py", line 6>:
+  6           0 RESUME                   0
+
+ 12           2 LOAD_FAST                0 (text)
+              4 POP_JUMP_IF_FALSE       16 (to 38)
+              6 LOAD_FAST                0 (text)
+              8 LOAD_ATTR                1 (NULL|self + strip)
+             28 CALL                     0
+             36 POP_JUMP_IF_TRUE         2 (to 42)
+
+ 13     >>   38 BUILD_LIST               0
+             40 RETURN_VALUE
+
+ 16     >>   42 LOAD_GLOBAL              3 (NULL + re)
+             52 LOAD_ATTR                4 (split)
+             72 LOAD_CONST               1 ('\\n(?=#{1,4}\\s)')
+             74 LOAD_FAST                0 (text)
+             76 CALL                     2
+             84 STORE_FAST               3 (sections)
+
+ 17          86 BUILD_LIST               0
+             88 STORE_FAST               4 (chunks)
+
+ 19          90 LOAD_FAST                3 (sections)
+             92 GET_ITER
+        >>   94 FOR_ITER               120 (to 338)
+             98 STORE_FAST               5 (sec)
+
+ 20         100 LOAD_FAST                5 (sec)
+            102 LOAD_ATTR                1 (NULL|self + strip)
+            122 CALL                     0
+            130 STORE_FAST               5 (sec)
+
+ 21         132 LOAD_FAST                5 (sec)
+            134 POP_JUMP_IF_TRUE         1 (to 138)
+
+ 22         136 JUMP_BACKWARD           22 (to 94)
+
+ 25     >>  138 LOAD_GLOBAL              7 (NULL + len)
+            148 LOAD_FAST                5 (sec)
+            150 CALL                     1
+            158 LOAD_FAST                1 (max_chunk_size)
+            160 COMPARE_OP              26 (<=)
+            164 POP_JUMP_IF_FALSE       18 (to 202)
+
+ 26         166 LOAD_FAST                4 (chunks)
+            168 LOAD_ATTR                9 (NULL|self + append)
+            188 LOAD_FAST                5 (sec)
+            190 CALL                     1
+            198 POP_TOP
+            200 JUMP_BACKWARD           54 (to 94)
+
+ 29     >>  202 LOAD_CONST               2 (0)
+            204 STORE_FAST               6 (start)
+
+ 30         206 LOAD_FAST                6 (start)
+            208 LOAD_GLOBAL              7 (NULL + len)
+            218 LOAD_FAST                5 (sec)
+            220 CALL                     1
+            228 COMPARE_OP               2 (<)
+            232 POP_JUMP_IF_TRUE         1 (to 236)
+            234 JUMP_BACKWARD           71 (to 94)
+
+ 31     >>  236 LOAD_FAST                6 (start)
+            238 LOAD_FAST                1 (max_chunk_size)
+            240 BINARY_OP                0 (+)
+            244 STORE_FAST               7 (end)
+
+ 32         246 LOAD_FAST                5 (sec)
+            248 LOAD_FAST                6 (start)
+            250 LOAD_FAST                7 (end)
+            252 BINARY_SLICE
+            254 STORE_FAST               8 (chunk)
+
+ 33         256 LOAD_FAST                4 (chunks)
+            258 LOAD_ATTR                9 (NULL|self + append)
+            278 LOAD_FAST                8 (chunk)
+            280 CALL                     1
+            288 POP_TOP
+
+ 34         290 LOAD_FAST                6 (start)
+            292 LOAD_FAST                1 (max_chunk_size)
+            294 LOAD_FAST                2 (overlap)
+            296 BINARY_OP               10 (-)
+            300 BINARY_OP               13 (+=)
+            304 STORE_FAST               6 (start)
+
+ 30         306 LOAD_FAST                6 (start)
+            308 LOAD_GLOBAL              7 (NULL + len)
+            318 LOAD_FAST                5 (sec)
+            320 CALL                     1
+            328 COMPARE_OP               2 (<)
+            332 POP_JUMP_IF_FALSE        1 (to 336)
+            334 JUMP_BACKWARD           50 (to 236)
+        >>  336 JUMP_BACKWARD          122 (to 94)
+
+ 19     >>  338 END_FOR
+
+ 36         340 LOAD_FAST                4 (chunks)
+            342 RETURN_VALUE
+
+Disassembly of <code object process_lesson_plan_ai at 0x3ac94130, file "/home/quanghuy/DaiHoc/TTTT/He_Thong_QLTT/backend/app/ai_processor.py", line 38>:
+ 38           0 RESUME                   0
+
+ 47           2 NOP
+
+ 48           4 LOAD_GLOBAL              1 (NULL + print)
+             14 LOAD_CONST               1 ('[AI Processor] Starting AI processing for LessonPlan ID: ')
+             16 LOAD_FAST                0 (lesson_plan)
+             18 LOAD_ATTR                2 (id)
+             38 FORMAT_VALUE             0
+             40 LOAD_CONST               2 (' (')
+             42 LOAD_FAST                0 (lesson_plan)
+             44 LOAD_ATTR                4 (title)
+             64 FORMAT_VALUE             0
+             66 LOAD_CONST               3 (')...')
+             68 BUILD_STRING             5
+             70 CALL                     1
+             78 POP_TOP
+
+ 49          80 LOAD_CONST               4 ('PROCESSING')
+             82 LOAD_FAST                0 (lesson_plan)
+             84 STORE_ATTR               3 (ai_processing_status)
+
+ 50          94 LOAD_FAST                0 (lesson_plan)
+             96 LOAD_ATTR                9 (NULL|self + save)
+            116 LOAD_CONST               5 ('ai_processing_status')
+            118 BUILD_LIST               1
+            120 KW_NAMES                 6 (('update_fields',))
+            122 CALL                     1
+            130 POP_TOP
+
+ 52         132 LOAD_FAST                0 (lesson_plan)
+            134 LOAD_ATTR               10 (content_preview)
+            154 COPY                     1
+            156 POP_JUMP_IF_TRUE         2 (to 162)
+            158 POP_TOP
+            160 LOAD_CONST               7 ('')
+        >>  162 STORE_FAST               1 (content)
+
+ 55         164 LOAD_GLOBAL              1 (NULL + print)
+            174 LOAD_CONST               8 ('[AI Processor] Generating Mind Map...')
+            176 CALL                     1
+            184 POP_TOP
+
+ 56         186 LOAD_GLOBAL             13 (NULL + generate_mindmap_via_llm)
+            196 LOAD_FAST                0 (lesson_plan)
+            198 LOAD_ATTR                4 (title)
+            218 LOAD_FAST                1 (content)
+            220 CALL                     2
+            228 STORE_FAST               2 (mindmap_json)
+
+ 57         230 LOAD_FAST                2 (mindmap_json)
+            232 LOAD_FAST                0 (lesson_plan)
+            234 STORE_ATTR               7 (mindmap)
+
+ 60         244 LOAD_GLOBAL              1 (NULL + print)
+            254 LOAD_CONST               9 ('[AI Processor] Chunking content and generating embeddings...')
+            256 CALL                     1
+            264 POP_TOP
+
+ 62         266 LOAD_FAST                0 (lesson_plan)
+            268 LOAD_ATTR               16 (chunks)
+            288 LOAD_ATTR               19 (NULL|self + all)
+            308 CALL                     0
+            316 LOAD_ATTR               21 (NULL|self + delete)
+            336 CALL                     0
+            344 POP_TOP
+
+ 64         346 LOAD_GLOBAL             23 (NULL + chunk_markdown_content)
+            356 LOAD_FAST                1 (content)
+            358 CALL                     1
+            366 STORE_FAST               3 (chunks)
+
+ 65         368 LOAD_GLOBAL             25 (NULL + enumerate)
+            378 LOAD_FAST                3 (chunks)
+            380 CALL                     1
+            388 GET_ITER
+        >>  390 FOR_ITER                51 (to 496)
+            394 UNPACK_SEQUENCE          2
+            398 STORE_FAST               4 (idx)
+            400 STORE_FAST               5 (chunk_text)
+
+ 66         402 LOAD_GLOBAL             27 (NULL + get_embedding)
+            412 LOAD_FAST                5 (chunk_text)
+            414 CALL                     1
+            422 STORE_FAST               6 (embedding_vector)
+
+ 67         424 LOAD_GLOBAL             28 (DocumentChunk)
+            434 LOAD_ATTR               30 (objects)
+            454 LOAD_ATTR               33 (NULL|self + create)
+
+ 68         474 LOAD_FAST                0 (lesson_plan)
+
+ 69         476 LOAD_FAST                4 (idx)
+
+ 70         478 LOAD_FAST                5 (chunk_text)
+
+ 71         480 LOAD_FAST                6 (embedding_vector)
+
+ 67         482 KW_NAMES                10 (('lesson_plan', 'chunk_index', 'content', 'embedding'))
+            484 CALL                     4
+            492 POP_TOP
+            494 JUMP_BACKWARD           53 (to 390)
+
+ 65     >>  496 END_FOR
+
+ 74         498 LOAD_GLOBAL              1 (NULL + print)
+            508 LOAD_CONST              11 ('[AI Processor] Successfully created ')
+            510 LOAD_GLOBAL             35 (NULL + len)
+            520 LOAD_FAST                3 (chunks)
+            522 CALL                     1
+            530 FORMAT_VALUE             0
+            532 LOAD_CONST              12 (' chunks and embeddings in database.')
+            534 BUILD_STRING             3
+            536 CALL                     1
+            544 POP_TOP
+
+ 77         546 LOAD_CONST              13 ('COMPLETED')
+            548 LOAD_FAST                0 (lesson_plan)
+            550 STORE_ATTR               3 (ai_processing_status)
+
+ 78         560 LOAD_FAST                0 (lesson_plan)
+            562 LOAD_ATTR                9 (NULL|self + save)
+            582 CALL                     0
+            590 POP_TOP
+
+ 79         592 LOAD_GLOBAL              1 (NULL + print)
+            602 LOAD_CONST              14 ('[AI Processor] Processing completed successfully for LessonPlan ID: ')
+            604 LOAD_FAST                0 (lesson_plan)
+            606 LOAD_ATTR                2 (id)
+            626 FORMAT_VALUE             0
+            628 LOAD_CONST              15 ('!')
+            630 BUILD_STRING             3
+            632 CALL                     1
+            640 POP_TOP
+            642 RETURN_CONST            19 (None)
+        >>  644 PUSH_EXC_INFO
+
+ 81         646 LOAD_GLOBAL             36 (Exception)
+            656 CHECK_EXC_MATCH
+            658 POP_JUMP_IF_FALSE       59 (to 778)
+            660 STORE_FAST               7 (e)
+
+ 82         662 LOAD_GLOBAL              1 (NULL + print)
+            672 LOAD_CONST              16 ('[AI Processor] Critical error in AI processing for LessonPlan ')
+            674 LOAD_FAST                0 (lesson_plan)
+            676 LOAD_ATTR                2 (id)
+            696 FORMAT_VALUE             0
+            698 LOAD_CONST              17 (': ')
+            700 LOAD_FAST                7 (e)
+            702 FORMAT_VALUE             0
+            704 BUILD_STRING             4
+            706 CALL                     1
+            714 POP_TOP
+
+ 83         716 LOAD_CONST              18 ('FAILED')
+            718 LOAD_FAST                0 (lesson_plan)
+            720 STORE_ATTR               3 (ai_processing_status)
+
+ 84         730 LOAD_FAST                0 (lesson_plan)
+            732 LOAD_ATTR                9 (NULL|self + save)
+            752 LOAD_CONST               5 ('ai_processing_status')
+            754 BUILD_LIST               1
+            756 KW_NAMES                 6 (('update_fields',))
+            758 CALL                     1
+            766 POP_TOP
+
+ 85         768 RAISE_VARARGS            0
+        >>  770 LOAD_CONST              19 (None)
+            772 STORE_FAST               7 (e)
+            774 DELETE_FAST              7 (e)
+            776 RERAISE                  1
+
+ 81     >>  778 RERAISE                  0
+        >>  780 COPY                     3
+            782 POP_EXCEPT
+            784 RERAISE                  1
+ExceptionTable:
+  4 to 640 -> 644 [0]
+  644 to 660 -> 780 [1] lasti
+  662 to 768 -> 770 [1] lasti
+  770 to 778 -> 780 [1] lasti

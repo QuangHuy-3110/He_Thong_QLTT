@@ -45,6 +45,7 @@ minerU
 - Loại bỏ các bài giảng rác thiếu tệp tin và seed lại 9 bài giảng mẫu chuyên sâu phủ kín 100% tất cả các thư mục con trong hệ thống => xong
 - Tinh giản hiển thị thư mục trong Card bài giảng: dùng thuật toán lọc nút lá, chỉ hiển thị 1 đường dẫn chi tiết duy nhất (ví dụ Vật lý / Sóng dừng) thay vì hiện lặp cả thư mục cha => xong
 - Sửa lỗi đếm trùng lặp (double-counting) số lượng bài giảng trong cây thư mục bằng cơ chế lọc ID độc bản => xong
+- Khắc phục triệt để lỗi hiển thị lặp lại các bài giảng ở cả thư mục cha và thư mục con, tự động ẩn bài giảng ở thư mục cha nếu nó đã được xếp vào các thư mục con cụ thể => xong
 - Thiết kế và tích hợp component LessonActivitiesTimeline hiển thị tiến trình dạy học dạng Vertical Timeline scannable, thoáng mắt dưới phần thông tin tổng quan và trên phần preview tài liệu; tự động ẩn an toàn nếu không có dữ liệu => xong
 - Thắt chặt khử trùng lặp nội dung khi Đăng trực tiếp (Direct Publication/Upload) cho Admin và Giáo viên có quyền => xong
 - Phân chia Phân quyền thư mục thành 2 sub-tab: Thư mục cá nhân (chỉ xem thư mục riêng) và Thư mục public (tích chọn phân quyền cho giáo viên/admin, ẩn đối với thành viên) => xong
@@ -67,6 +68,9 @@ minerU
 - Tạo signal dọn dẹp pre_delete và script quyét dọn vault tự động xóa note mồ côi/liên kết đứt khi xóa tài liệu => xong
 - Tối ưu hóa dung lượng ngữ cảnh Graph RAG (loại bỏ danh mục hệ thống khi ở chế độ FOCUS_QA) giúp loại bỏ triệt để lỗi vượt quá context window 4096 tokens, đảm bảo chạy Qwen 7B GGUF offline cực kỳ mượt mà => xong
 - Thiết kế lại và tổng quát hóa toàn bộ Prompt của AI và các bộ lọc từ khóa chéo chéo (subject-agnostic) để hỗ trợ toàn bộ các môn học và Hoạt động Trải nghiệm & Hướng nghiệp tổng quát, thay vì bị giới hạn hay định kiến cứng về Sinh học => xong
+- Khắc phục lỗi và tự động phân tách tệp tin Word (.docx) ngầm để đồng bộ bản Markdown chi tiết thời gian thực cho các giáo án mẫu cũ phục vụ Sơ đồ tư duy tương tác => xong
+- Nâng cấp bộ giải mã thích ứng (Adaptive Parser) trên Frontend hỗ trợ đa dạng cấu trúc giáo án (dạng bảng và danh sách tự do), tự động đồng bộ chéo nhánh Tiến trình & Hoạt động và bảo đảm 4 nhánh Sơ đồ tư duy luôn hiển thị đầy đủ thông tin thực tế => xong
+- Tích hợp nút điều khiển "🎯 Về giữa" (Center View) cho Sơ đồ tư duy tương tác sử dụng React Flow fitView với hiệu ứng chuyển cảnh mượt mà thời lượng 800ms giúp tự động căn chỉnh sơ đồ cân đối => xong
 - So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.
 
 

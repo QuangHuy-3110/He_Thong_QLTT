@@ -57,7 +57,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         return req.feedback if req else None
 
     def get_content_preview(self, obj):
-        if obj.content_preview:
+        if obj.content_preview and ("## " in obj.content_preview or "# " in obj.content_preview):
             return obj.content_preview
         # Fallback for existing or seeded documents: parse on-the-fly and save back
         if obj.file_path and obj.file_path.name.endswith('.docx'):
@@ -73,7 +73,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
                         return markdown
             except Exception as e:
                 print(f"Error parsing fallback docx: {e}")
-        return ""
+        return obj.content_preview or ""
 
     class Meta:
         model = LessonPlan

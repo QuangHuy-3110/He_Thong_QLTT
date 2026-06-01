@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import MindmapFlow from './components/MindmapFlow';
 import axios from 'axios';
 import UploadPage, { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, BIOLOGY_CONNECTIONS, LOCATIONS } from './UploadPage';
 import ChatbotWorkspace from './components/ChatbotWorkspace';
@@ -113,6 +114,7 @@ interface LessonPlan {
   directory_ids?: number[];
   directory_names?: string[];
   latest_feedback?: string | null;
+  content_preview?: string;
 }
 
 interface Activity {
@@ -141,7 +143,7 @@ const LessonActivitiesTimeline: React.FC<LessonActivitiesTimelineProps> = ({ act
               <span className="absolute -left-[31px] top-1 bg-white border-2 border-blue-500 rounded-full w-4.5 h-4.5 flex items-center justify-center shadow-sm">
                 <span className="bg-blue-500 rounded-full w-2 h-2"></span>
               </span>
-              
+
               {/* Node content */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 justify-between">
                 <h5 className="font-bold text-gray-800 text-sm leading-snug">{act.ten_hoat_dong}</h5>
@@ -155,6 +157,397 @@ const LessonActivitiesTimeline: React.FC<LessonActivitiesTimelineProps> = ({ act
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Dynamic Markdown Parser for Lesson Plans ───────────────────────────────
+function parseMarkdownLessonPlan(markdown?: string, titleFallback?: string) {
+  if (!markdown) return null;
+
+  const mucTieu = {
+    kiến_thức: [] as string[],
+    năng_lực: [] as string[],
+    phẩm_chất: [] as string[]
+  };
+
+  const hocLieu = {
+    giáo_viên: [] as string[],
+    học_sing: [] as string[], // match typo if any, let's keep name clean
+    học_sinh: [] as string[]
+  };
+
+  const tienTrinh: { ten: string; time: string; tom_tat: string }[] = [];
+  const hoatDong: { ten: string; muc_tieu: string; thuc_hien: string }[] = [];
+
+  const lines = markdown.split('\n');
+  let currentSection = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Detect section headers
+    if (line.startsWith('#')) {
+      const cleanHeader = line.replace(/#/g, '').trim().toLowerCase();
+      if (cleanHeader.includes('mục tiêu') || cleanHeader.includes('muc tieu')) {
+        currentSection = 'OBJECTIVES';
+        continue;
+      } else if (cleanHeader.includes('thiết bị') || cleanHeader.includes('học liệu') || cleanHeader.includes('hoc lieu')) {
+        currentSection = 'MATERIALS';
+        continue;
+      } else if (cleanHeader.includes('tiến trình') || cleanHeader.includes('tien trinh')) {
+        if (cleanHeader.includes('chi tiết') || cleanHeader.includes('chi tiet')) {
+          currentSection = 'DETAILS';
+        } else {
+          currentSection = 'TIMELINE';
+        }
+        continue;
+      }
+    }
+
+    // Parse depending on active section
+    if (currentSection === 'OBJECTIVES') {
+      if (line.startsWith('|') && !line.includes('---') && !line.toLowerCase().includes('tiêu chí')) {
+        const parts = line.split('|').map(p => p.trim());
+        const cells = parts.slice(1, -1);
+        if (cells.length >= 2) {
+          const typeStr = cells[0].toLowerCase();
+          const desc = cells[1].replace(/[\[\]]/g, '');
+          const code = cells[2] ? cells[2].replace(/[\[\]]/g, '').trim() : '';
+          const fullLabel = code ? `${code}: ${desc}` : desc;
+
+          if (typeStr.includes('kiến thức') || typeStr.includes('kienthuc')) {
+            mucTieu.kiến_thức.push(fullLabel);
+          } else if (typeStr.includes('năng lực') || typeStr.includes('nang luc')) {
+            mucTieu.năng_lực.push(fullLabel);
+          } else if (typeStr.includes('phẩm chất') || typeStr.includes('pham chat')) {
+            mucTieu.phẩm_chất.push(fullLabel);
+          }
+        }
+      } else {
+        const match = line.match(/^[-*•]\s*(KT|NL|PC)\d+[:\s]+(.*)/i);
+        if (match) {
+          const code = match[1].toUpperCase();
+          const desc = match[2].replace(/[\[\]]/g, '').trim();
+          const fullLabel = `${code}: ${desc}`;
+          if (code.startsWith('KT')) mucTieu.kiến_thức.push(fullLabel);
+          else if (code.startsWith('NL')) mucTieu.năng_lực.push(fullLabel);
+          else if (code.startsWith('PC')) mucTieu.phẩm_chất.push(fullLabel);
+        } else if (line.startsWith('-') || line.startsWith('*') || line.startsWith('•')) {
+          const cleanText = line.replace(/^[-*•]\s*/, '').replace(/[\[\]]/g, '').trim();
+          if (cleanText) {
+            mucTieu.kiến_thức.push(cleanText);
+          }
+        }
+      }
+    } else if (currentSection === 'MATERIALS') {
+      if (line.startsWith('|') && !line.includes('---') && !line.toLowerCase().includes('chuẩn bị') && !line.toLowerCase().includes('giáo viên')) {
+        const parts = line.split('|').map(p => p.trim());
+        const cells = parts.slice(1, -1);
+        if (cells.length >= 3) {
+          const actName = cells[0].replace(/[\[\]]/g, '');
+          const gvMat = cells[1].replace(/[\[\]]/g, '');
+          const hsMat = cells[2].replace(/[\[\]]/g, '');
+
+          if (gvMat && gvMat !== '—' && gvMat !== '-') {
+            hocLieu.giáo_viên.push(`[${actName}] GV: ${gvMat}`);
+          }
+          if (hsMat && hsMat !== '—' && hsMat !== '-') {
+            hocLieu.học_sinh.push(`[${actName}] HS: ${hsMat}`);
+          }
+        }
+      } else if (line && !line.startsWith('#') && !line.startsWith('---') && !line.startsWith('|')) {
+        const cleanText = line.replace(/^[-*•]\s*/, '').replace(/[\[\]]/g, '').trim();
+        if (cleanText) {
+          hocLieu.giáo_viên.push(cleanText);
+        }
+      }
+    } else if (currentSection === 'TIMELINE') {
+      if (line.startsWith('|') && !line.includes('---') && !line.toLowerCase().includes('hoạt động') && !line.toLowerCase().includes('nội dung')) {
+        const parts = line.split('|').map(p => p.trim());
+        const cells = parts.slice(1, -1);
+        if (cells.length >= 2) {
+          const actTime = cells[0].replace(/[\[\]]/g, '');
+          const focus = cells[1].replace(/[\[\]]/g, '');
+          const method = cells[2] ? cells[2].replace(/[\[\]]/g, '') : '';
+          const evalMethod = cells[3] ? cells[3].replace(/[\[\]]/g, '') : '';
+
+          let name = actTime;
+          let time = "10 phút";
+          const match = actTime.match(/(.*?)\((.*?)\)/);
+          if (match) {
+            name = match[1].trim();
+            time = match[2].trim();
+          }
+
+          tienTrinh.push({
+            ten: name,
+            time: time,
+            tom_tat: `• Nội dung trọng tâm: ${focus}\n\n• Phương pháp: ${method || 'Đàm thoại, thực hành nhóm'}\n\n• Đánh giá: ${evalMethod || 'Quan sát, nhận xét của GV'}`
+          });
+        }
+      }
+    }
+  }
+
+  // Parse detailed Activities (Hoạt động chi tiết)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('### Hoạt động') || line.startsWith('### HĐ') || line.startsWith('## Hoạt động')) {
+      const actTitle = line.replace(/#/g, '').replace(/:/g, '').trim();
+
+      const objectivesLines: string[] = [];
+      const executionLines: string[] = [];
+      let captureState = 'EXEC';
+
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j].trim();
+        if (nextLine.startsWith('#')) {
+          if (nextLine.startsWith('### Hoạt động') || nextLine.startsWith('### HĐ') || nextLine.startsWith('## Hoạt động') || nextLine.startsWith('## I') || nextLine.startsWith('## V')) {
+            break;
+          }
+        }
+
+        const lowerLine = nextLine.toLowerCase();
+        if (!nextLine.startsWith('|') && (lowerLine.includes('mục tiêu') || lowerLine.includes('yêu cầu cần đạt'))) {
+          captureState = 'OBJ';
+          continue;
+        } else if (!nextLine.startsWith('|') && (lowerLine.includes('tổ chức thực hiện') || lowerLine.includes('hoạt động giáo viên'))) {
+          captureState = 'EXEC';
+          continue;
+        }
+
+        if (captureState === 'OBJ' && nextLine) {
+          objectivesLines.push(nextLine);
+        } else if (captureState === 'EXEC' && nextLine) {
+          executionLines.push(nextLine);
+        }
+      }
+
+      // Format Objectives & Execution nicely
+      const cleanObj = objectivesLines.length > 0 
+        ? objectivesLines.join('\n').replace(/[\[\]]/g, '').trim()
+        : 'Hình thành và phát triển năng lực tự học, tự chủ cho học sinh.';
+
+      const cleanExec = executionLines.length > 0
+        ? executionLines.join('\n').replace(/[\[\]]/g, '').trim()
+        : 'Tổ chức lớp học thảo luận, phát biểu ý kiến cá nhân và phản biện.';
+
+      hoatDong.push({
+        ten: actTitle,
+        muc_tieu: cleanObj,
+        thuc_hien: cleanExec
+      });
+    }
+  }
+
+  // If absolutely nothing was parsed, return null to use mock fallback
+  if (mucTieu.kiến_thức.length === 0 && mucTieu.năng_lực.length === 0 && tienTrinh.length === 0 && hoatDong.length === 0) {
+    return null; 
+  }
+
+  // Cross-population fallbacks
+  const finalTienTrinh = tienTrinh.length > 0 ? tienTrinh : hoatDong.map((h, idx) => {
+    let time = "15 phút";
+    const timeMatch = h.ten.match(/(\d+\s*phút)/i);
+    if (timeMatch) {
+      time = timeMatch[1];
+    }
+    return {
+      ten: h.ten,
+      time: time,
+      tom_tat: `• Nội dung trọng tâm: ${h.muc_tieu}\n\n• Phương pháp: Đàm thoại, thực hành nhóm\n\n• Đánh giá: Quan sát, nhận xét của GV`
+    };
+  });
+
+  const finalHoatDong = hoatDong.length > 0 ? hoatDong : tienTrinh.map((t, idx) => ({
+    ten: `Hoạt động ${String(idx + 1).padStart(2, '0')}: ${t.ten}`,
+    muc_tieu: 'Kích hoạt hứng thú và rèn luyện tư duy thực tiễn cho học sinh.',
+    thuc_hien: t.tom_tat
+  }));
+
+  return {
+    title: titleFallback || 'Kế hoạch bài dạy chi tiết',
+    mục_tiêu: {
+      kiến_thức: mucTieu.kiến_thức.length > 0 ? mucTieu.kiến_thức : ['Nắm vững kiến thức trọng tâm của bài học.'],
+      năng_lực: mucTieu.năng_lực.length > 0 ? mucTieu.năng_lực : ['Rèn luyện năng lực tự học và làm việc nhóm.'],
+      phẩm_chất: mucTieu.phẩm_chất.length > 0 ? mucTieu.phẩm_chất : ['Tôn trọng ý kiến bạn bè và trung thực.']
+    },
+    học_liệu: {
+      giáo_viên: hocLieu.giáo_viên.length > 0 ? hocLieu.giáo_viên : ['Giáo án chi tiết, slide giảng bài', 'Phiếu đánh giá Rubric'],
+      học_sinh: hocLieu.học_sinh.length > 0 ? hocLieu.học_sinh : ['Vở ghi chép, tài liệu học tập', 'Giấy màu làm việc nhóm']
+    },
+    tiến_trình: finalTienTrinh,
+    hoạt_động: finalHoatDong
+  };
+}
+
+interface InteractiveLessonMindmapProps {
+  lesson: LessonPlan;
+}
+
+const InteractiveLessonMindmap: React.FC<InteractiveLessonMindmapProps> = ({ lesson }) => {
+  // ── Dynamic parser + Fallback pre-authored data ────────────────────────────
+  const parsedData = useMemo(() => {
+    // Try dynamic markdown parser first!
+    const parsed = parseMarkdownLessonPlan(lesson.content_preview, lesson.title);
+    if (parsed) return parsed;
+
+    const norm = lesson.title.toLowerCase();
+
+    if (norm.includes('dinh dưỡng') || norm.includes('dinh duong') || norm.includes('thực đơn')) {
+      return {
+        title: 'Dinh dưỡng học đường',
+        mục_tiêu: {
+          kiến_thức: [
+            'KT1: Phân tích vai trò của 4 nhóm chất dinh dưỡng thiết yếu (Glucid, Protid, Lipid, Vitamin & Khoáng chất).',
+            'KT2: Giải thích nguyên tắc xây dựng thực đơn cân bằng calo và tháp dinh dưỡng.',
+            'KT3: Nhận biết tác hại của đồ ăn nhanh và thức uống có ga.',
+          ],
+          năng_lực: [
+            'NLĐT1: Thiết kế thực đơn 1 ngày cân đối năng lượng dựa trên BMR.',
+            'NLĐT2: Đọc hiểu và phân tích thông số dinh dưỡng trên nhãn thực phẩm.',
+            'NLC1: Hợp tác nhóm xây dựng cẩm nang ăn uống sạch.',
+            'NLC2: Thuyết trình và phản biện giải pháp bữa ăn học đường.',
+          ],
+          phẩm_chất: [
+            'PC1: Ý thức tự giác bảo vệ sức khỏe, thói quen ăn uống lành mạnh.',
+            'PC2: Tinh thần trách nhiệm trong việc giảm thiểu lãng phí thực phẩm.',
+          ],
+        },
+        học_liệu: {
+          giáo_viên: [
+            'Mô hình Tháp dinh dưỡng học đường 3D trực quan.',
+            'Bộ thẻ trò chơi thực phẩm (60 loại nguyên liệu).',
+            "Video ngắn 'Hành trình tiêu hóa và hấp thu chất dinh dưỡng'.",
+          ],
+          học_sinh: [
+            'Bộ bút màu, giấy A1, kéo, hồ dán.',
+            'Mẫu thực phẩm thật (bao bì sữa, đồ ăn vặt để phân tích nhãn).',
+          ],
+        },
+        tiến_trình: [
+          { ten: 'Khởi động: Chiếc giỏ bí mật', time: '10 phút', tom_tat: 'GV giấu các quả củ thật, HS dùng tay chạm đoán tên và phân loại nhóm chất.' },
+          { ten: 'Khám phá: Siêu thị mini nhóm chất', time: '20 phút', tom_tat: 'HS nghiên cứu nhãn dinh dưỡng, phân tích 4 nhóm chất thông qua thảo luận.' },
+          { ten: 'Luyện tập: Đầu bếp học đường', time: '25 phút', tom_tat: 'Thực hành thiết kế poster thực đơn bữa trưa cân đối calo.' },
+          { ten: 'Chia sẻ: Hội chợ ẩm thực xanh', time: '15 phút', tom_tat: 'Trưng bày Poster, thuyết trình và chấm chéo điểm bằng Rubric.' },
+          { ten: 'Vận dụng: Nhật ký 3 ngày khỏe mạnh', time: '10 phút', tom_tat: 'Ghi nhật ký dinh dưỡng gia đình, cam kết bữa sáng cân bằng.' },
+        ],
+        hoạt_động: [
+          { ten: 'HĐ1: Trò chơi đoán thực phẩm', muc_tieu: 'Kích hoạt kiến thức nền', thuc_hien: 'HS bịt mắt sờ và đoán trái cây/rau quả thật, phân chia vào 2 giỏ.' },
+          { ten: 'HĐ2: Trải nghiệm nhãn dinh dưỡng', muc_tieu: 'Nhận diện chất có hại', thuc_hien: 'Đọc hàm lượng đường, chất béo bão hòa trên lon nước ngọt.' },
+          { ten: 'HĐ3: Thiết kế thực đơn', muc_tieu: 'Lập thực đơn đạt chuẩn calo', thuc_hien: 'Tính toán calo bữa ăn 600-700 kcal, vẽ minh họa trên giấy A1.' },
+          { ten: 'HĐ4: Tọa đàm ẩm thực an toàn', muc_tieu: 'Phát triển kỹ năng phản biện', thuc_hien: 'Các nhóm đóng vai nhà dinh dưỡng nhận xét thực đơn nhóm bạn.' },
+          { ten: "HĐ5: Chiến dịch 'Bữa sáng khỏe mạnh'", muc_tieu: 'Hình thành thói quen ăn sáng', thuc_hien: 'Tự tay làm 1 bữa sáng lành mạnh tại nhà, chụp ảnh báo cáo.' },
+        ],
+      };
+    }
+
+    if (norm.includes('cảm xúc') || norm.includes('nhật ký')) {
+      return {
+        title: 'Nhật ký cảm xúc',
+        mục_tiêu: {
+          kiến_thức: [
+            'KT1: Định nghĩa 6 cảm xúc cơ bản của con người.',
+            'KT2: Hiểu cơ chế sinh học phản ứng cảm xúc trên cơ thể.',
+            'KT3: Nhận thức tầm quan trọng của quản lý cảm xúc.',
+          ],
+          năng_lực: [
+            'NLĐT1: Nhận diện và gọi tên cảm xúc cá nhân.',
+            'NLĐT2: Áp dụng phương pháp điều hòa cảm xúc (thở 4-7-8).',
+            'NLC1: Lắng nghe tích cực và thấu cảm với bạn bè.',
+            'NLC2: Giải quyết xung đột từ sự nóng giận.',
+          ],
+          phẩm_chất: [
+            'PC1: Nhân ái, tôn trọng thế giới nội tâm của bản thân.',
+            'PC2: Trung thực khi đối diện với cảm xúc tiêu cực.',
+          ],
+        },
+        học_liệu: {
+          giáo_viên: [
+            "Bộ thẻ cảm xúc 'Emotional Cards'.",
+            'Chuông chánh niệm để thực hành điều hòa nhịp thở.',
+          ],
+          học_sinh: [
+            'Một cuốn sổ trơn (Sổ nhật ký cảm xúc cá nhân).',
+            'Bút màu vẽ, sticker biểu cảm đa dạng.',
+          ],
+        },
+        tiến_trình: [
+          { ten: 'Khởi động: Gương mặt biểu cảm', time: '10 phút', tom_tat: 'GV đóng vai cảm xúc, HS đoán tên cảm xúc và bắt chước.' },
+          { ten: 'Khám phá: Khí tượng học tâm hồn', time: '20 phút', tom_tat: "HS vẽ 'Bản đồ thời tiết cảm xúc' trong ngày." },
+          { ten: 'Luyện tập: Chiếc hộp bình yên', time: '25 phút', tom_tat: 'Thực hành thở bụng và viết trang nhật ký đầu tiên.' },
+          { ten: 'Chia sẻ: Vòng tròn thấu cảm', time: '15 phút', tom_tat: 'Chia sẻ câu chuyện cảm xúc, lắng nghe không phán xét.' },
+          { ten: 'Vận dụng: Hành trình 7 ngày biết ơn', time: '10 phút', tom_tat: 'Ghi nhật ký cảm xúc liên tục 1 tuần, ghi 3 điều tích cực mỗi ngày.' },
+        ],
+        hoạt_động: [
+          { ten: "HĐ1: 'Gương mặt điện ảnh'", muc_tieu: 'Nhận diện biểu cảm tức thì', thuc_hien: 'HS diễn xuất không lời các trạng thái cảm xúc.' },
+          { ten: 'HĐ2: Vẽ bản đồ nội tâm', muc_tieu: 'Liên kết cảm xúc với hình ảnh', thuc_hien: 'Dùng hình ảnh mưa/nắng/bão để mô tả tâm lý cá nhân.' },
+          { ten: 'HĐ3: Kỹ thuật hạ hỏa', muc_tieu: 'Làm chủ cơn giận', thuc_hien: 'GV hướng dẫn thở 4-7-8, nắm chặt tay rồi buông lỏng.' },
+          { ten: 'HĐ4: Hộp thư ẩn danh', muc_tieu: 'Nói ra tâm tư khó nói', thuc_hien: 'Viết giấy note ẩn danh về nỗi sợ, bỏ vào hộp thư.' },
+          { ten: "HĐ5: 'Góc bình yên'", muc_tieu: 'Tạo không gian phục hồi', thuc_hien: 'Thiết kế góc nhỏ có cây xanh, sách để thư giãn.' },
+        ],
+      };
+    }
+
+    // Generic fallback from lesson.attributes
+    const acts = lesson.attributes?.tien_trinh_day_hoc ?? [];
+    const tienTrinh = acts.map((a: any) => ({ ten: a.ten_hoat_dong, time: a.thoi_gian, tom_tat: a.tom_tat }));
+    return {
+      title: lesson.title,
+      mục_tiêu: {
+        kiến_thức: ['KT1: Tìm hiểu sâu khái niệm chuyên đề', 'KT2: Mở rộng kiến thức thực hành'],
+        năng_lực: ['NLĐT1: Vận dụng tư duy thực tiễn', 'NLC1: Tự chủ, hợp tác nhóm'],
+        phẩm_chất: ['PC1: Trung thực, chăm chỉ thực hành', 'PC2: Yêu thiên nhiên, trách nhiệm'],
+      },
+      học_liệu: {
+        giáo_viên: ['Giáo án chi tiết, bài giảng trình chiếu', 'Phiếu đánh giá Rubric'],
+        học_sinh: ['Vở ghi chép, tài liệu học tập', 'Giấy màu làm việc nhóm'],
+      },
+      tiến_trình: tienTrinh.length > 0 ? tienTrinh : [
+        { ten: 'Khởi động', time: '10 phút', tom_tat: 'Kích hoạt năng lượng lớp học.' },
+        { ten: 'Khám phá', time: '25 phút', tom_tat: 'Nghiên cứu lý thuyết kết hợp thực tiễn.' },
+        { ten: 'Thực hành', time: '30 phút', tom_tat: 'Luyện tập kỹ năng qua dự án nhóm.' },
+        { ten: 'Báo cáo', time: '15 phút', tom_tat: 'Thuyết trình kết quả và chấm điểm chéo.' },
+        { ten: 'Vận dụng', time: '10 phút', tom_tat: 'Liên hệ thực tiễn đời sống.' },
+      ],
+      hoạt_động: acts.length > 0
+        ? acts.map((a: any, idx: number) => ({
+            ten: `HĐ${idx + 1}: ${a.ten_hoat_dong}`,
+            muc_tieu: `Phát triển năng lực thực hành pha ${a.ten_hoat_dong}`,
+            thuc_hien: a.tom_tat,
+          }))
+        : [
+            { ten: 'HĐ1: Khởi động', muc_tieu: 'Kích hoạt nền tảng kiến thức', thuc_hien: 'Trò chơi nhỏ liên quan đến chủ đề bài học.' },
+            { ten: 'HĐ2: Thực hành nhóm', muc_tieu: 'Rèn kỹ năng hợp tác', thuc_hien: 'Thảo luận và giải quyết bài toán tình huống.' },
+            { ten: 'HĐ3: Báo cáo sản phẩm', muc_tieu: 'Trình bày kết quả', thuc_hien: 'Thuyết trình trước lớp và nhận phản hồi.' },
+          ],
+    };
+  }, [lesson]);
+
+  return (
+    <div className="mb-8 rounded-3xl border border-gray-200 shadow-lg bg-white" style={{ overflow: 'visible' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-3xl">
+        <div>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-white/20 text-white border border-white/30 mb-1">
+            🧠 Sơ đồ tư duy tương tác
+          </span>
+          <h3 className="text-base font-black text-white">{parsedData.title}</h3>
+          <p className="text-xs text-white/70 mt-0.5">Kéo node • Scroll để zoom • Click nút lá để xem chi tiết sư phạm</p>
+        </div>
+        <div className="flex gap-2 text-white/60 text-xs font-semibold">
+          <span className="px-3 py-1 bg-white/10 rounded-xl border border-white/20">🖱️ Kéo thả</span>
+          <span className="px-3 py-1 bg-white/10 rounded-xl border border-white/20">🔍 Zoom</span>
+          <span className="px-3 py-1 bg-white/10 rounded-xl border border-white/20">👆 Click lá</span>
+        </div>
+      </div>
+
+      {/* Canvas — explicit dimensions so ReactFlow renders correctly */}
+      <div style={{ height: 640, width: '100%', borderRadius: '0 0 1.5rem 1.5rem', overflow: 'hidden', background: '#f8fafc' }}>
+        <MindmapFlow data={parsedData} />
       </div>
     </div>
   );
@@ -191,7 +584,7 @@ function getDirectoryFullPath(dirId: string | number, dirs: Directory[]): string
   while (currentId !== null && currentId !== undefined && currentId !== '') {
     if (visited.has(currentId)) break;
     visited.add(currentId);
-    
+
     const found = dirs.find(d => d.id.toString() === currentId!.toString());
     if (found) {
       path.unshift(found.name);
@@ -212,7 +605,7 @@ interface DirectoryOption {
 }
 
 const getDirectoriesAsTreeOptions = (
-  dirs: Directory[], 
+  dirs: Directory[],
   filterFn?: (d: Directory) => boolean
 ): DirectoryOption[] => {
   const baseDirs = filterFn ? dirs.filter(filterFn) : dirs;
@@ -230,12 +623,12 @@ const getDirectoriesAsTreeOptions = (
   const traverse = (parentId: number | null, depth: number, prefix: string) => {
     const children = childrenMap.get(parentId) || [];
     children.sort((a, b) => a.name.localeCompare(b.name));
-    
+
     children.forEach((child, index) => {
       const isLast = index === children.length - 1;
       const currentPrefix = prefix + (isLast ? '└─ ' : '├─ ');
       const nextPrefix = prefix + (isLast ? '   ' : '│  ');
-      
+
       result.push({
         id: child.id,
         name: child.name,
@@ -243,7 +636,7 @@ const getDirectoriesAsTreeOptions = (
         depth: depth,
         visualPrefix: currentPrefix
       });
-      
+
       traverse(child.id, depth + 1, nextPrefix);
     });
   };
@@ -251,7 +644,7 @@ const getDirectoriesAsTreeOptions = (
   const activeIds = new Set(baseDirs.map(d => d.id));
   const roots = baseDirs.filter(d => !d.parent || !activeIds.has(d.parent));
   roots.sort((a, b) => a.name.localeCompare(b.name));
-  
+
   roots.forEach((root, index) => {
     result.push({
       id: root.id,
@@ -263,6 +656,20 @@ const getDirectoriesAsTreeOptions = (
     traverse(root.id, 1, '');
   });
 
+  return result;
+};
+
+const getDescendantIds = (dirId: string, directories: any[]): string[] => {
+  const result: string[] = [];
+  const findChildren = (id: string) => {
+    directories.forEach((d: any) => {
+      if (d.parent === id) {
+        result.push(d.id);
+        findChildren(d.id);
+      }
+    });
+  };
+  findChildren(dirId);
   return result;
 };
 
@@ -280,8 +687,13 @@ const DirectoryNode = ({
   const [renameVal, setRenameVal] = useState(dir.name);
 
   const dirFiles = useMemo(() => {
-    return (allLessons || []).filter((l: any) => l.directory_ids?.includes(dir.id));
-  }, [dir.id, allLessons]);
+    const descendantIds = getDescendantIds(dir.id, directories);
+    return (allLessons || []).filter((l: any) => {
+      if (!l.directory_ids?.includes(dir.id)) return false;
+      const hasDescendant = l.directory_ids.some((id: string) => descendantIds.includes(id));
+      return !hasDescendant;
+    });
+  }, [dir.id, allLessons, directories]);
 
   const count = useMemo(() => countLessonsInDir(dir.id, directories, allLessons), [dir.id, directories, allLessons]);
 
@@ -295,9 +707,8 @@ const DirectoryNode = ({
   return (
     <div className="mt-0.5">
       <div
-        className={`flex items-center gap-1 py-1.5 px-2 rounded-md transition-colors ${
-          isSelected ? 'bg-blue-50' : 'hover:bg-gray-100'
-        }`}
+        className={`flex items-center gap-1 py-1.5 px-2 rounded-md transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-100'
+          }`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
@@ -384,11 +795,10 @@ const DirectoryNode = ({
                     onTogglePublic(dir.id, dir.is_public);
                   }
                 }}
-                className={`w-5 h-5 flex items-center justify-center rounded text-xs transition-colors ${
-                  dir.is_public
+                className={`w-5 h-5 flex items-center justify-center rounded text-xs transition-colors ${dir.is_public
                     ? 'hover:bg-orange-100 text-orange-500'
                     : 'hover:bg-green-100 text-green-600'
-                }`}
+                  }`}
               >
                 {dir.is_public ? '🔓' : '🌐'}
               </button>
@@ -430,13 +840,12 @@ const DirectoryNode = ({
             >
               <span className="flex-shrink-0 text-sm">📄</span>
               <span className="truncate flex-grow hover:underline hover:text-blue-700 font-semibold text-gray-750">{file.title}</span>
-              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider flex-shrink-0 ${
-                file.status === 'PUBLISHED'
+              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider flex-shrink-0 ${file.status === 'PUBLISHED'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                   : file.status === 'PENDING'
-                  ? 'bg-amber-50 text-amber-700 border-amber-100'
-                  : 'bg-sky-50 text-sky-700 border-sky-100'
-              }`}>
+                    ? 'bg-amber-50 text-amber-700 border-amber-100'
+                    : 'bg-sky-50 text-sky-700 border-sky-100'
+                }`}>
                 {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
               </span>
             </div>
@@ -462,7 +871,7 @@ const DocxPreview: React.FC<{ fileUrl: string }> = ({ fileUrl }) => {
         const response = await fetch(fileUrl);
         if (!response.ok) throw new Error('Không thể tải file tài liệu.');
         const blob = await response.blob();
-        
+
         if (active && containerRef.current) {
           containerRef.current.innerHTML = '';
           // Render docx directly into the div container locally & offline!
@@ -506,8 +915,8 @@ const DocxPreview: React.FC<{ fileUrl: string }> = ({ fileUrl }) => {
           ⚠️ {error}
         </div>
       )}
-      <div 
-        ref={containerRef} 
+      <div
+        ref={containerRef}
         className="flex-grow overflow-auto p-6 bg-gray-50/50 docx-preview-container rounded-xl shadow-inner border border-gray-200/50"
         style={{ minHeight: '500px', maxHeight: '650px' }}
       />
@@ -542,7 +951,7 @@ const PermissionDirTreeNode = ({
 
   return (
     <div style={{ marginLeft: depth * 16 }}>
-      <div className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${ isChecked ? 'bg-purple-50' : 'hover:bg-gray-50' }`}>
+      <div className={`flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${isChecked ? 'bg-purple-50' : 'hover:bg-gray-50'}`}>
         <button
           onClick={() => setExpanded(e => !e)}
           className={`w-4 h-4 flex items-center justify-center text-[10px] text-gray-400 hover:text-gray-600 flex-shrink-0 ${(children.length === 0 && dirFiles.length === 0) ? 'invisible' : ''}`}
@@ -556,7 +965,7 @@ const PermissionDirTreeNode = ({
           className="rounded border-gray-300 text-purple-600 focus:ring-purple-400 w-4 h-4 cursor-pointer flex-shrink-0"
         />
         <span className="text-sm flex-shrink-0">{dir.is_public ? '📂' : '📁'}</span>
-        <span className={`text-sm truncate flex-grow ${ isChecked ? 'font-semibold text-purple-800' : 'text-gray-700' }`}>{dir.name}</span>
+        <span className={`text-sm truncate flex-grow ${isChecked ? 'font-semibold text-purple-800' : 'text-gray-700'}`}>{dir.name}</span>
         {isChecked && descendants.length > 0 && (
           <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">+{descendants.length} con</span>
         )}
@@ -584,13 +993,12 @@ const PermissionDirTreeNode = ({
             >
               <span className="flex-shrink-0 text-sm">📄</span>
               <span className="truncate flex-grow hover:underline hover:text-purple-705 font-semibold text-gray-750">{file.title}</span>
-              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider ${
-                file.status === 'PUBLISHED'
+              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider ${file.status === 'PUBLISHED'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                   : file.status === 'PENDING'
-                  ? 'bg-amber-50 text-amber-700 border-amber-100'
-                  : 'bg-sky-50 text-sky-700 border-sky-100'
-              }`}>
+                    ? 'bg-amber-50 text-amber-700 border-amber-100'
+                    : 'bg-sky-50 text-sky-700 border-sky-100'
+                }`}>
                 {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
               </span>
             </div>
@@ -636,7 +1044,7 @@ const PersonalDirTreeNode = ({
   );
 };
 
-const MarkdownViewer: React.FC<{ markdown: string; highlightQuery?: string }> = ({ markdown, highlightQuery }) => {
+export const MarkdownViewer: React.FC<{ markdown: string; highlightQuery?: string }> = ({ markdown, highlightQuery }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -658,13 +1066,13 @@ const MarkdownViewer: React.FC<{ markdown: string; highlightQuery?: string }> = 
     if (!highlightQuery || !highlightQuery.trim()) {
       return text;
     }
-    
+
     try {
       const queryClean = highlightQuery.trim();
       const regex = new RegExp(`(${escapeRegExp(queryClean)})`, 'gi');
       const parts = text.split(regex);
       if (parts.length > 1) {
-        return parts.map((part, i) => 
+        return parts.map((part, i) =>
           regex.test(part) ? (
             <mark key={i} className="bg-yellow-200 border border-yellow-300 rounded px-1 text-slate-900 font-extrabold shadow-sm animate-pulse mx-0.5">
               {part}
@@ -743,11 +1151,11 @@ const MarkdownViewer: React.FC<{ markdown: string; highlightQuery?: string }> = 
         .split('|')
         .map(c => c.trim())
         .filter((c, i, arr) => i > 0 && i < arr.length - 1);
-      
+
       if (trimmed.includes('---')) {
         return;
       }
-      
+
       if (tableHeaders.length === 0) {
         tableHeaders = cells;
       } else {
@@ -812,15 +1220,15 @@ function escapeRegExp(string: string) {
 
 function renderSnippet(content: string | undefined | null, query: string): React.ReactNode {
   if (!content || !query.trim()) return null;
-  
+
   const queryClean = query.trim().toLowerCase();
   const contentLower = content.toLowerCase();
   const idx = contentLower.indexOf(queryClean);
-  
+
   let snippet = "";
   let startIdx = 0;
   let endIdx = 0;
-  
+
   if (idx !== -1) {
     startIdx = Math.max(0, idx - 40);
     endIdx = Math.min(content.length, idx + queryClean.length + 80);
@@ -832,13 +1240,13 @@ function renderSnippet(content: string | undefined | null, query: string): React
     snippet = content.slice(0, 100);
     if (content.length > 100) snippet += "...";
   }
-  
+
   const parts = snippet.split(new RegExp(`(${escapeRegExp(queryClean)})`, 'gi'));
   return (
     <div className="text-[11px] text-slate-500 bg-amber-50/20 border border-amber-100/50 rounded-xl p-3 my-3 leading-relaxed max-w-none shadow-sm">
       <span className="text-[9px] font-extrabold text-amber-600 block uppercase mb-1 tracking-wider">🎯 Kết quả tìm thấy trong nội dung:</span>
       <p className="line-clamp-2 italic text-gray-650">
-        {parts.map((part, i) => 
+        {parts.map((part, i) =>
           part.toLowerCase() === queryClean
             ? <mark key={i} className="bg-yellow-200 text-yellow-900 font-bold px-1 rounded-sm shadow-sm">{part}</mark>
             : part
@@ -893,7 +1301,7 @@ export default function App() {
   const [lessonHighlightQuery, setLessonHighlightQuery] = useState<string>('');
 
 
-  
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem('currentUser');
     if (saved) {
@@ -1218,7 +1626,7 @@ export default function App() {
       alert(err.response?.data?.error || `Lỗi khi ${actionText} tài khoản.`);
     }
   };
-  
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -1232,14 +1640,14 @@ export default function App() {
   // Personal Library Search & Sort
   const [personalSearchQuery, setPersonalSearchQuery] = useState('');
   const [personalSortBy, setPersonalSortBy] = useState<string>('date_desc');
-  
+
   // States for Proposing to Public
   const [showProposeModal, setShowProposeModal] = useState<boolean>(false);
   const [lessonToPropose, setLessonToPropose] = useState<LessonPlan | null>(null);
   const [targetPublicDirId, setTargetPublicDirId] = useState<string>('');
   const [proposeError, setProposeError] = useState<string | null>(null);
   const [proposeDuplicateId, setProposeDuplicateId] = useState<number | null>(null);
-  
+
   const [selectedTargetStudents, setSelectedTargetStudents] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -1343,7 +1751,7 @@ export default function App() {
       const params = new URLSearchParams();
       if (currentUser) params.append('user_id', currentUser.id.toString());
       if (query.trim()) params.append('q', query.trim());
-      
+
       selectedClasses.forEach(c => params.append('lop', c));
       selectedTypes.forEach(t => params.append('type', t));
       selectedSubjects.forEach(s => {
@@ -1358,10 +1766,10 @@ export default function App() {
       selectedTopics.forEach(tp => params.append('topic', tp));
       selectedBiologies.forEach(b => params.append('biology', b));
       selectedLocations.forEach(loc => params.append('location', loc));
-      
+
       const paramStr = params.toString();
       if (paramStr) url += `?${paramStr}`;
-      
+
       const response = await axios.get(url);
       setAllLessonPlans(response.data);
 
@@ -1438,12 +1846,12 @@ export default function App() {
       });
 
       setProfileSuccess(response.data.message || 'Cập nhật thông tin cá nhân thành công!');
-      
+
       // Update local storage and currentUser state
       const updatedUser = response.data.user;
       setCurrentUser(updatedUser);
       sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      
+
       // Clear password fields
       setProfileCurrentPassword('');
       setProfileNewPassword('');
@@ -1505,6 +1913,21 @@ export default function App() {
       setRatingLoading(true);
       setSelectedStarFilter('all');
       setEditingMyReview(false);
+
+      // Fetch the full lesson detail in the background to ensure we have the complete and latest content_preview
+      axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/?user_id=${currentUser?.id}`)
+        .then(res => {
+          if (res.data && res.data.content_preview !== selectedLessonForDetail.content_preview) {
+            setSelectedLessonForDetail(prev => {
+              if (!prev || prev.id !== res.data.id) return prev;
+              return { ...prev, ...res.data };
+            });
+          }
+        })
+        .catch(err => {
+          console.error("Lỗi khi tải chi tiết giáo án từ API:", err);
+        });
+
       axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
         .then(res => {
           setLessonRatings(res.data.ratings);
@@ -1583,7 +2006,7 @@ export default function App() {
   const handleCreateDir = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return;
-    
+
     try {
       await axios.post('/api/directories/', {
         user_id: currentUser.id,
@@ -1623,7 +2046,7 @@ export default function App() {
     }
   };
 
-  const getBase64 = (file: File): Promise<{name: string, data: string}> => {
+  const getBase64 = (file: File): Promise<{ name: string, data: string }> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -1635,7 +2058,7 @@ export default function App() {
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !upFile) return;
-    
+
     try {
       const formData = new FormData();
       formData.append('user_id', currentUser.id.toString());
@@ -1652,7 +2075,7 @@ export default function App() {
         body: formData
       });
       if (!response.ok) throw new Error('Upload failed with status ' + response.status);
-      
+
       alert('Tải lên thành công (Lưu cục bộ)!');
       setShowUploadModal(false);
       setUpFile(null);
@@ -1732,7 +2155,7 @@ export default function App() {
   const submitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingLesson || !currentUser) return;
-    
+
     try {
       const formData = new FormData();
       // Send user_id so backend can determine role-based approval rules
@@ -1741,7 +2164,7 @@ export default function App() {
       formData.append('description', editDesc);
       formData.append('target_student', editGrade);
       formData.append('directory_id', editDirId);
-      
+
       const attrsObj = JSON.parse(editAttrs || '{}');
       attrsObj['Địa điểm'] = editLocation;
       formData.append('attributes', JSON.stringify(attrsObj));
@@ -1760,7 +2183,7 @@ export default function App() {
             alert(errData.error);
             return;
           }
-        } catch {}
+        } catch { }
         throw new Error('Edit failed with status ' + response.status);
       }
 
@@ -1789,15 +2212,15 @@ export default function App() {
         user_id: currentUser.id,
         status: 'PENDING'
       })
-      .then(res => {
-        if (res.data.is_duplicate) {
-          setProposeError(res.data.error);
-          setProposeDuplicateId(res.data.duplicate_id);
-        }
-      })
-      .catch(err => {
-        console.error("Lỗi kiểm tra trùng lặp tự động:", err);
-      });
+        .then(res => {
+          if (res.data.is_duplicate) {
+            setProposeError(res.data.error);
+            setProposeDuplicateId(res.data.duplicate_id);
+          }
+        })
+        .catch(err => {
+          console.error("Lỗi kiểm tra trùng lặp tự động:", err);
+        });
     }
   };
 
@@ -1875,9 +2298,9 @@ export default function App() {
   // Dynamic subject list from current dir-filtered pool (stable when checking boxes)
   const availableSubjects = useMemo(() => {
     const subjects = new Set<string>();
-    
+
     // Inspect selected directories (or all directories if none selected) for dynamic knowledge tags
-    const targetDirs = selectedDirs.length > 0 
+    const targetDirs = selectedDirs.length > 0
       ? selectedDirs.map(dirId => directories.find(d => d.id === dirId)).filter(Boolean) as Directory[]
       : directories;
 
@@ -1934,12 +2357,12 @@ export default function App() {
   // Sort the filtered plans based on current sort settings
   const sortedLessonPlans = useMemo(() => {
     const list = [...filteredLessonPlans];
-    
+
     // Relevance order is already sorted by SearchRank at PostgreSQL server-side level
     if (sortBy === 'relevance') {
       return list;
     }
-    
+
     list.sort((a, b) => {
       if (sortBy === 'date_desc') {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -2030,8 +2453,8 @@ export default function App() {
 
     // Filter admin users client-side based on search query and role filter
     const filteredAdminUsers = adminUsers.filter((u: any) => {
-      const matchSearch = (u.full_name || '').toLowerCase().includes(adminSearchQuery.toLowerCase()) || 
-                          (u.username || '').toLowerCase().includes(adminSearchQuery.toLowerCase());
+      const matchSearch = (u.full_name || '').toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+        (u.username || '').toLowerCase().includes(adminSearchQuery.toLowerCase());
       const matchRole = adminRoleFilter === 'ALL' || u.role === adminRoleFilter;
       return matchSearch && matchRole;
     });
@@ -2116,11 +2539,10 @@ export default function App() {
                       setShowCreateUserForm(false);
                       setAdminActiveTab('profile');
                     }}
-                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex justify-between items-center relative group ${
-                      isSelected
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex justify-between items-center relative group ${isSelected
                         ? 'border-purple-650 bg-purple-50/50 shadow-sm'
                         : 'border-gray-250 bg-white hover:border-purple-300 hover:bg-purple-50/10'
-                    }`}
+                      }`}
                   >
                     <div className="space-y-1">
                       <p className="font-bold text-sm text-gray-900 leading-tight group-hover:text-purple-600 transition-colors">
@@ -2128,13 +2550,12 @@ export default function App() {
                       </p>
                       <p className="text-[10px] text-gray-400 font-semibold">@{u.username}</p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${
-                          u.role === 'ADMIN'
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${u.role === 'ADMIN'
                             ? 'bg-red-50 text-red-700 border-red-100'
                             : u.role === 'TEACHER'
-                            ? 'bg-blue-50 text-blue-700 border-blue-100'
-                            : 'bg-gray-50 text-gray-600 border-gray-200'
-                        }`}>
+                              ? 'bg-blue-50 text-blue-700 border-blue-100'
+                              : 'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}>
                           {u.role === 'ADMIN' ? 'Admin' : u.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
                         </span>
                         <span className="text-[10px] text-gray-400 font-medium">
@@ -2221,11 +2642,10 @@ export default function App() {
                         <div
                           key={rOption.value}
                           onClick={() => setNewRole(rOption.value as any)}
-                          className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${
-                            newRole === rOption.value
+                          className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${newRole === rOption.value
                               ? 'border-purple-650 bg-purple-50 text-purple-700 font-bold'
                               : 'border-gray-200 bg-white hover:border-gray-300 text-gray-500 hover:text-gray-700'
-                          }`}
+                            }`}
                         >
                           <span className="font-extrabold text-xs">{rOption.label}</span>
                           <span className="text-[9px] text-gray-400 mt-1 leading-tight">{rOption.desc}</span>
@@ -2267,13 +2687,12 @@ export default function App() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-lg font-black text-gray-900">{selectedUserForPerms.full_name || selectedUserForPerms.username}</h2>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${
-                          selectedUserForPerms.role === 'ADMIN'
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${selectedUserForPerms.role === 'ADMIN'
                             ? 'bg-red-50 text-red-700 border-red-100'
                             : selectedUserForPerms.role === 'TEACHER'
-                            ? 'bg-blue-50 text-blue-700 border-blue-100'
-                            : 'bg-gray-50 text-gray-600 border-gray-200'
-                        }`}>
+                              ? 'bg-blue-50 text-blue-700 border-blue-100'
+                              : 'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}>
                           {selectedUserForPerms.role === 'ADMIN' ? 'Admin' : selectedUserForPerms.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
                         </span>
                         {selectedUserForPerms.is_active === false ? (
@@ -2299,11 +2718,10 @@ export default function App() {
                       <>
                         <button
                           onClick={() => handleToggleLockUser(selectedUserForPerms)}
-                          className={`px-4 py-2 border rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
-                            selectedUserForPerms.is_active
+                          className={`px-4 py-2 border rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${selectedUserForPerms.is_active
                               ? 'border-amber-200 hover:bg-amber-50 text-amber-650 hover:text-amber-700'
                               : 'border-emerald-200 hover:bg-emerald-50 text-emerald-650 hover:text-emerald-700'
-                          }`}
+                            }`}
                         >
                           {selectedUserForPerms.is_active ? (
                             <><span>🔒</span> Khóa tài khoản</>
@@ -2326,21 +2744,19 @@ export default function App() {
                 <div className="flex border-b border-gray-200">
                   <button
                     onClick={() => setAdminActiveTab('profile')}
-                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-                      adminActiveTab === 'profile'
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${adminActiveTab === 'profile'
                         ? 'border-purple-600 text-purple-650 font-bold'
                         : 'border-transparent text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                   >
                     <span>👤</span> Hồ sơ & Bảo mật
                   </button>
                   <button
                     onClick={() => setAdminActiveTab('permissions')}
-                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
-                      adminActiveTab === 'permissions'
+                    className={`px-6 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${adminActiveTab === 'permissions'
                         ? 'border-purple-600 text-purple-650 font-bold'
                         : 'border-transparent text-gray-500 hover:text-gray-800'
-                    }`}
+                      }`}
                   >
                     <span>📁</span> Phân quyền thư mục
                   </button>
@@ -2401,11 +2817,10 @@ export default function App() {
                               <div
                                 key={rOption.value}
                                 onClick={() => setEditRole(rOption.value as any)}
-                                className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${
-                                  editRole === rOption.value
+                                className={`p-3 rounded-2xl border cursor-pointer transition-all text-center flex flex-col justify-center items-center ${editRole === rOption.value
                                     ? 'border-purple-650 bg-purple-50 text-purple-700 font-bold'
                                     : 'border-gray-200 bg-white hover:border-gray-300 text-gray-500 hover:text-gray-700'
-                                }`}
+                                  }`}
                               >
                                 <span className="font-extrabold text-xs">{rOption.label}</span>
                                 <span className="text-[9px] text-gray-400 mt-1 leading-tight">{rOption.desc}</span>
@@ -2441,11 +2856,10 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setAdminPermissionSubTab('personal')}
-                          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
-                            adminPermissionSubTab === 'personal'
+                          className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${adminPermissionSubTab === 'personal'
                               ? 'border-purple-650 text-purple-700 font-black'
                               : 'border-transparent text-gray-500 hover:text-gray-850'
-                          }`}
+                            }`}
                         >
                           <span>📁</span> Thư mục cá nhân
                         </button>
@@ -2453,11 +2867,10 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setAdminPermissionSubTab('public')}
-                            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${
-                              adminPermissionSubTab === 'public'
+                            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-1.5 ${adminPermissionSubTab === 'public'
                                 ? 'border-purple-650 text-purple-700 font-black'
                                 : 'border-transparent text-gray-500 hover:text-gray-850'
-                            }`}
+                              }`}
                           >
                             <span>🌐</span> Thư mục public
                           </button>
@@ -2588,226 +3001,220 @@ export default function App() {
         <div className="w-full px-6">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedDirs([]); setHomeTab('library'); }}>
+              <div className="flex-shrink-0 flex items-center gap-2 cursor-pointer" onClick={() => { setCurrentView('home'); setSelectedDirs([]); setHomeTab('library'); }}>
                 <div className="bg-blue-600 rounded text-white p-1 font-bold text-xl leading-none">📚</div>
                 <span className="font-bold text-xl text-gray-900 hidden sm:block">Hệ thống quản lý tri thức</span>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 flex-grow max-w-3xl mx-8 relative">
-               <form onSubmit={handleSearch} className="flex-grow flex items-center pr-1 shadow-sm rounded-full bg-gray-50 border border-gray-200 overflow-hidden">
-                 <div className="pl-4 text-gray-400">🔍</div>
-                 <input
-                   type="text"
-                   value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setPersonalSearchQuery(e.target.value);
-                    }}
-                   className="w-full bg-transparent focus:outline-none text-sm text-gray-700 placeholder-gray-550 py-2 px-2"
-                   placeholder={
-                     homeTab === 'library'
-                       ? "Tìm kiếm tên bài, nội dung giáo án..."
-                       : homeTab === 'personal'
-                       ? "Tìm kiếm tài liệu cá nhân..."
-                       : "Tìm kiếm trong lịch sử đóng góp..."
-                   }
-                 />
-                 
-                 {/* Integrated Filter Icon Trigger */}
-                 <button 
-                   type="button"
-                   onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
-                   className={`p-2 rounded-full transition-all mr-1.5 flex items-center justify-center ${
-                     showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0
-                       ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                       : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
-                   }`}
-                   title="Bộ lọc nâng cao"
-                 >
-                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                   </svg>
-                 </button>
-                 
-                 <button type="submit" className="px-4 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mr-0.5 shadow-sm">
-                   Tìm
-                 </button>
-               </form>
-               
-               {/* Popover Dropdown Panel */}
-               {showAdvancedFilter && (
-                  <div className="absolute right-0 top-full mt-2 w-[420px] bg-white rounded-2xl border border-gray-200 shadow-xl p-5 z-40 animate-in fade-in slide-in-from-top-3 duration-250 max-h-[80vh] overflow-y-auto pr-3">
-                      <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-                        <h4 className="font-extrabold text-sm text-gray-900">🎛️ Bộ lọc nâng cao</h4>
-                        <button 
-                          onClick={() => { 
-                             setSelectedTietDay([]); 
-                             setSelectedSubjects([]); 
-                             setSelectedTracks([]);
-                             setSelectedTopics([]);
-                             setSelectedBiologies([]);
-                             setSelectedLocations([]);
-                             setSelectedTargetStudents([]);
-                             setAdvancedBiologySearch('');
-                          }} 
-                          className="text-xs text-blue-600 hover:text-blue-800 font-bold"
-                        >
-                          Xóa bộ lọc
-                        </button>
-                      </div>
-                      
-                      {/* Filter by Duration / Tiết dạy */}
-                      <div className="mb-4">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Số tiết học (Tiết dạy)</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
-                            const isSelected = selectedTietDay.includes(tiet);
-                            return (
-                              <button
-                                key={tiet}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedTietDay(prev => 
-                                    prev.includes(tiet) ? prev.filter(p => p !== tiet) : [...prev, tiet]
-                                  );
-                                }}
-                                className={`py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${
-                                  isSelected 
-                                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                                }`}
-                              >
-                                {tiet}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      
-                      {/* Filter by Location inside Popover */}
-                      <div className="mb-4">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📍 Địa điểm (Nơi học / Thực hành)</label>
-                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
-                          {LOCATIONS.map(loc => {
-                            const isSelected = selectedLocations.includes(loc);
-                            return (
-                              <button
-                                key={loc}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedLocations(prev => 
-                                    prev.includes(loc) ? prev.filter(p => p !== loc) : [...prev, loc]
-                                  );
-                                }}
-                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
-                                  isSelected
-                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                                title={loc}
-                              >
-                                📍 {loc}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+              <form onSubmit={handleSearch} className="flex-grow flex items-center pr-1 shadow-sm rounded-full bg-gray-50 border border-gray-200 overflow-hidden">
+                <div className="pl-4 text-gray-400">🔍</div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPersonalSearchQuery(e.target.value);
+                  }}
+                  className="w-full bg-transparent focus:outline-none text-sm text-gray-700 placeholder-gray-550 py-2 px-2"
+                  placeholder={
+                    homeTab === 'library'
+                      ? "Tìm kiếm tên bài, nội dung giáo án..."
+                      : homeTab === 'personal'
+                        ? "Tìm kiếm tài liệu cá nhân..."
+                        : "Tìm kiếm trong lịch sử đóng góp..."
+                  }
+                />
 
-                      {/* Filter by Track */}
-                      <div className="mb-4">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🗺️ Mạch kiến thức</label>
-                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
-                          {KNOWLEDGE_TRACKS.map(track => {
-                            const isSelected = selectedTracks.includes(track);
-                            return (
-                              <button
-                                key={track}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedTracks(prev => 
-                                    prev.includes(track) ? prev.filter(p => p !== track) : [...prev, track]
-                                  );
-                                }}
-                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
-                                  isSelected
-                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                                title={track}
-                              >
-                                🗺️ {track}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                {/* Integrated Filter Icon Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+                  className={`p-2 rounded-full transition-all mr-1.5 flex items-center justify-center ${showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0
+                      ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/50'
+                    }`}
+                  title="Bộ lọc nâng cao"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                  </svg>
+                </button>
 
-                      {/* Filter by Topic */}
-                      <div className="mb-4">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📌 Chủ đề con gợi ý</label>
-                        <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
-                          {availableTopics.map(topic => {
-                            const isSelected = selectedTopics.includes(topic);
-                            return (
-                              <button
-                                key={topic}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedTopics(prev => 
-                                    prev.includes(topic) ? prev.filter(p => p !== topic) : [...prev, topic]
-                                  );
-                                }}
-                                className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${
-                                  isSelected
-                                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
-                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
-                                title={topic}
-                              >
-                                📌 {topic}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                <button type="submit" className="px-4 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors mr-0.5 shadow-sm">
+                  Tìm
+                </button>
+              </form>
 
-                      {/* Filter by Biology Connection */}
-                      <div className="mb-2">
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🧬 Kiến thức sinh học liên quan</label>
-                        <input 
-                          type="text"
-                          value={advancedBiologySearch}
-                          onChange={e => setAdvancedBiologySearch(e.target.value)}
-                          placeholder="Tìm kiến thức sinh học..."
-                          className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-                        />
-                        <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin animate-in fade-in duration-200">
-                          {BIOLOGY_CONNECTIONS.filter(b => b.toLowerCase().includes(advancedBiologySearch.toLowerCase())).map(bio => {
-                            const isSelected = selectedBiologies.includes(bio);
-                            return (
-                              <button
-                                key={bio}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedBiologies(prev =>
-                                    prev.includes(bio) ? prev.filter(x => x !== bio) : [...prev, bio]
-                                  );
-                                }}
-                                className={`py-1.5 px-2.5 rounded-lg text-left text-xs transition-all border break-words flex-shrink-0 ${
-                                  isSelected
-                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold shadow-sm'
-                                    : 'bg-white border-gray-150 text-gray-600 hover:bg-gray-50'
-                                }`}
-                              >
-                                🧬 {bio}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+              {/* Popover Dropdown Panel */}
+              {showAdvancedFilter && (
+                <div className="absolute right-0 top-full mt-2 w-[420px] bg-white rounded-2xl border border-gray-200 shadow-xl p-5 z-40 animate-in fade-in slide-in-from-top-3 duration-250 max-h-[80vh] overflow-y-auto pr-3">
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                    <h4 className="font-extrabold text-sm text-gray-900">🎛️ Bộ lọc nâng cao</h4>
+                    <button
+                      onClick={() => {
+                        setSelectedTietDay([]);
+                        setSelectedSubjects([]);
+                        setSelectedTracks([]);
+                        setSelectedTopics([]);
+                        setSelectedBiologies([]);
+                        setSelectedLocations([]);
+                        setSelectedTargetStudents([]);
+                        setAdvancedBiologySearch('');
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-bold"
+                    >
+                      Xóa bộ lọc
+                    </button>
+                  </div>
+
+                  {/* Filter by Duration / Tiết dạy */}
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Số tiết học (Tiết dạy)</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
+                        const isSelected = selectedTietDay.includes(tiet);
+                        return (
+                          <button
+                            key={tiet}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTietDay(prev =>
+                                prev.includes(tiet) ? prev.filter(p => p !== tiet) : [...prev, tiet]
+                              );
+                            }}
+                            className={`py-1.5 px-2 rounded-lg text-xs font-semibold border text-center transition-all ${isSelected
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                              }`}
+                          >
+                            {tiet}
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Filter by Location inside Popover */}
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📍 Địa điểm (Nơi học / Thực hành)</label>
+                    <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                      {LOCATIONS.map(loc => {
+                        const isSelected = selectedLocations.includes(loc);
+                        return (
+                          <button
+                            key={loc}
+                            type="button"
+                            onClick={() => {
+                              setSelectedLocations(prev =>
+                                prev.includes(loc) ? prev.filter(p => p !== loc) : [...prev, loc]
+                              );
+                            }}
+                            className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${isSelected
+                                ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            title={loc}
+                          >
+                            📍 {loc}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter by Track */}
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🗺️ Mạch kiến thức</label>
+                    <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                      {KNOWLEDGE_TRACKS.map(track => {
+                        const isSelected = selectedTracks.includes(track);
+                        return (
+                          <button
+                            key={track}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTracks(prev =>
+                                prev.includes(track) ? prev.filter(p => p !== track) : [...prev, track]
+                              );
+                            }}
+                            className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${isSelected
+                                ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            title={track}
+                          >
+                            🗺️ {track}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter by Topic */}
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">📌 Chủ đề con gợi ý</label>
+                    <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin">
+                      {availableTopics.map(topic => {
+                        const isSelected = selectedTopics.includes(topic);
+                        return (
+                          <button
+                            key={topic}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTopics(prev =>
+                                prev.includes(topic) ? prev.filter(p => p !== topic) : [...prev, topic]
+                              );
+                            }}
+                            className={`py-1.5 px-3 rounded-xl text-left text-xs font-semibold border transition-all truncate flex-shrink-0 ${isSelected
+                                ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold shadow-sm'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
+                            title={topic}
+                          >
+                            📌 {topic}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter by Biology Connection */}
+                  <div className="mb-2">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">🧬 Kiến thức sinh học liên quan</label>
+                    <input
+                      type="text"
+                      value={advancedBiologySearch}
+                      onChange={e => setAdvancedBiologySearch(e.target.value)}
+                      placeholder="Tìm kiến thức sinh học..."
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                    />
+                    <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin animate-in fade-in duration-200">
+                      {BIOLOGY_CONNECTIONS.filter(b => b.toLowerCase().includes(advancedBiologySearch.toLowerCase())).map(bio => {
+                        const isSelected = selectedBiologies.includes(bio);
+                        return (
+                          <button
+                            key={bio}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBiologies(prev =>
+                                prev.includes(bio) ? prev.filter(x => x !== bio) : [...prev, bio]
+                              );
+                            }}
+                            className={`py-1.5 px-2.5 rounded-lg text-left text-xs transition-all border break-words flex-shrink-0 ${isSelected
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold shadow-sm'
+                                : 'bg-white border-gray-150 text-gray-600 hover:bg-gray-50'
+                              }`}
+                          >
+                            🧬 {bio}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center">
@@ -2818,9 +3225,8 @@ export default function App() {
                     {currentUser.role === 'ADMIN' && (
                       <button
                         onClick={() => { setCurrentView('admin'); fetchAdminUsers(); }}
-                        className={`px-3 py-1.5 text-white rounded-md text-sm font-semibold transition-all flex items-center gap-1.5 shadow-sm ${
-                          currentView === 'admin' ? 'bg-purple-800 ring-2 ring-purple-300' : 'bg-purple-600 hover:bg-purple-700'
-                        }`}
+                        className={`px-3 py-1.5 text-white rounded-md text-sm font-semibold transition-all flex items-center gap-1.5 shadow-sm ${currentView === 'admin' ? 'bg-purple-800 ring-2 ring-purple-300' : 'bg-purple-600 hover:bg-purple-700'
+                          }`}
                       >
                         <span>👥</span> Quản lý người dùng
                       </button>
@@ -2842,7 +3248,7 @@ export default function App() {
                       <span>+</span> Đăng bài giảng
                     </button>
                   </div>
-                  <div 
+                  <div
                     onClick={() => setShowProfileModal(true)}
                     className="flex items-center gap-2 cursor-pointer hover:bg-blue-50/80 border border-transparent hover:border-blue-100 p-1.5 px-3 rounded-2xl transition-all select-none group relative"
                     title="Chỉnh sửa thông tin cá nhân"
@@ -2891,11 +3297,11 @@ export default function App() {
         {homeTab === 'library' && (
           <div className="w-[300px] bg-white border-r border-gray-200 p-6 overflow-y-auto flex-shrink-0 hidden md:block">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Bộ lọc</h2>
-            
+
             <div className="mb-8">
               <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Cây thư mục bài giảng</h3>
               <div className="text-sm max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
-                <div 
+                <div
                   className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
                   onClick={() => setSelectedDirs([])}
                 >
@@ -2946,12 +3352,12 @@ export default function App() {
               <div className="flex flex-col gap-2">
                 {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(cls => (
                   <label key={cls} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
-                      checked={selectedClasses.includes(cls)} 
-                      onChange={e => handleFilterChange(setSelectedClasses, cls, e.target.checked)} 
-                    /> 
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={selectedClasses.includes(cls)}
+                      onChange={e => handleFilterChange(setSelectedClasses, cls, e.target.checked)}
+                    />
                     {cls}
                   </label>
                 ))}
@@ -2971,18 +3377,18 @@ export default function App() {
               <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-2 scrollbar-thin">
                 {LOCATIONS.map(loc => (
                   <label key={loc} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
-                      checked={selectedLocations.includes(loc)} 
-                      onChange={e => handleFilterChange(setSelectedLocations, loc, e.target.checked)} 
-                    /> 
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={selectedLocations.includes(loc)}
+                      onChange={e => handleFilterChange(setSelectedLocations, loc, e.target.checked)}
+                    />
                     {loc}
                   </label>
                 ))}
               </div>
             </div>
-            
+
             <div className="mb-8">
               <h3 className="text-sm font-semibold text-gray-800 mb-3 uppercase tracking-wider">Lọc theo Kiến thức</h3>
               {availableSubjects.length === 0 ? (
@@ -3009,11 +3415,10 @@ export default function App() {
               <button
                 id="tab-library"
                 onClick={() => setHomeTab('library')}
-                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${
-                  homeTab === 'library'
+                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${homeTab === 'library'
                     ? 'bg-white text-blue-700 shadow-sm border border-gray-200/50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
-                }`}
+                  }`}
               >
                 <span>📚</span> Thư viện chung
               </button>
@@ -3022,11 +3427,10 @@ export default function App() {
                   <button
                     id="tab-personal"
                     onClick={() => setHomeTab('personal')}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${
-                      homeTab === 'personal'
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${homeTab === 'personal'
                         ? 'bg-white text-sky-700 shadow-sm border border-gray-200/50'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
-                    }`}
+                      }`}
                   >
                     <span>💾</span> Thư viện cá nhân
                     {allLessonPlans.filter(l => l.creator?.id === currentUser.id && (l.status === 'LOCAL')).length > 0 && (
@@ -3038,11 +3442,10 @@ export default function App() {
                   <button
                     id="tab-history"
                     onClick={() => setHomeTab('history')}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${
-                      homeTab === 'history'
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${homeTab === 'history'
                         ? 'bg-white text-emerald-700 shadow-sm border border-gray-200/50'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
-                    }`}
+                      }`}
                   >
                     <span>📋</span> Lịch sử đóng góp
                     {allLessonPlans.filter(l => l.creator?.id === currentUser.id && l.status !== 'LOCAL').length > 0 && (
@@ -3121,8 +3524,8 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {paginatedLessonPlans.map((lesson) => (
-                      <div 
-                        key={lesson.id} 
+                      <div
+                        key={lesson.id}
                         onClick={() => setSelectedLessonForDetail(lesson)}
                         className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer relative group"
                       >
@@ -3176,7 +3579,7 @@ export default function App() {
                         {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
                         <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 text-xs text-gray-400">
                           <div className="flex items-center gap-2">
-                            <span 
+                            <span
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (lesson.creator) {
@@ -3206,10 +3609,10 @@ export default function App() {
                               </button>
                             )}
                             {lesson.file_path || lesson.file_url ? (
-                              <a 
-                                href={getLessonFileUrl(lesson)} 
-                                download={getFileName(lesson.file_url || lesson.file_path)} 
-                                target="_blank" 
+                              <a
+                                href={getLessonFileUrl(lesson)}
+                                download={getFileName(lesson.file_url || lesson.file_path)}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
@@ -3233,18 +3636,16 @@ export default function App() {
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${
-                          currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                       >
                         Trước
                       </button>
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredLessonPlans.length / pageSize)))}
                         disabled={currentPage === Math.ceil(filteredLessonPlans.length / pageSize)}
-                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${
-                          currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-semibold rounded-xl bg-white text-gray-700 hover:bg-gray-50 transition-colors ${currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
                       >
                         Sau
                       </button>
@@ -3264,13 +3665,12 @@ export default function App() {
                           <button
                             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                             disabled={currentPage === 1}
-                            className={`relative inline-flex items-center px-3 py-2 rounded-l-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${
-                              currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
+                            className={`relative inline-flex items-center px-3 py-2 rounded-l-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
                           >
                             <span>◀</span>
                           </button>
-                          
+
                           {/* Render page numbers */}
                           {(() => {
                             const totalPages = Math.ceil(filteredLessonPlans.length / pageSize);
@@ -3287,7 +3687,7 @@ export default function App() {
                               }
                             }
                             const cleanPages = pageNumbers.filter((v, idx, arr) => v !== '...' || arr[idx - 1] !== '...');
-                            
+
                             return cleanPages.map((pageNum, idx) => {
                               if (pageNum === '...') {
                                 return (
@@ -3300,24 +3700,22 @@ export default function App() {
                                 <button
                                   key={`page-${pageNum}`}
                                   onClick={() => setCurrentPage(Number(pageNum))}
-                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-bold transition-all ${
-                                    currentPage === pageNum
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-bold transition-all ${currentPage === pageNum
                                       ? 'z-10 bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-100'
                                       : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-blue-600'
-                                  }`}
+                                    }`}
                                 >
                                   {pageNum}
                                 </button>
-                               );
+                              );
                             });
                           })()}
 
                           <button
                             onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredLessonPlans.length / pageSize)))}
                             disabled={currentPage === Math.ceil(filteredLessonPlans.length / pageSize)}
-                            className={`relative inline-flex items-center px-3 py-2 rounded-r-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${
-                              currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
+                            className={`relative inline-flex items-center px-3 py-2 rounded-r-xl border border-gray-200 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all ${currentPage === Math.ceil(filteredLessonPlans.length / pageSize) ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
                           >
                             <span>▶</span>
                           </button>
@@ -3369,16 +3767,15 @@ export default function App() {
                   ) : (
                     <div className="space-y-4">
                       {myLessons.map(lesson => (
-                        <div key={lesson.id} className={`bg-white rounded-2xl border p-5 shadow-sm transition-all ${
-                          lesson.status === 'REJECTED' ? 'border-rose-200 bg-rose-50/20' :
-                          lesson.status === 'PENDING'  ? 'border-amber-200 bg-amber-50/20' :
-                          lesson.status === 'PUBLISHED' ? 'border-emerald-200' : 'border-gray-200'
-                        }`}>
+                        <div key={lesson.id} className={`bg-white rounded-2xl border p-5 shadow-sm transition-all ${lesson.status === 'REJECTED' ? 'border-rose-200 bg-rose-50/20' :
+                            lesson.status === 'PENDING' ? 'border-amber-200 bg-amber-50/20' :
+                              lesson.status === 'PUBLISHED' ? 'border-emerald-200' : 'border-gray-200'
+                          }`}>
                           {/* Card Header */}
                           <div className="flex items-start justify-between gap-4 mb-3">
                             <div className="flex-grow min-w-0">
                               <h3 className="font-bold text-gray-900 text-base leading-snug">{lesson.title}</h3>
-                              <p className="text-xs text-gray-500 mt-1">📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+                              <p className="text-xs text-gray-500 mt-1">📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
                             <div className="flex-shrink-0">
                               {lesson.status === 'PUBLISHED' && (
@@ -3482,7 +3879,7 @@ export default function App() {
             {/* ══ PERSONAL LIBRARY TAB ══ */}
             {homeTab === 'personal' && currentUser && (() => {
               const personalRootDirs = directories.filter(d => !d.is_public && !d.parent && d.user === currentUser.id);
-              
+
               // Filter personal lessons
               // 1. Must be created by current user
               // 2. If LOCAL, or belongs to a personal directory
@@ -3497,11 +3894,11 @@ export default function App() {
               });
 
               // Filter by selected personal directories
-              const dirFilteredPersonalLessons = selectedPersonalDirs.length === 0 
-                ? myPersonalLessons 
-                : myPersonalLessons.filter(l => 
-                    l.directory_ids?.some(dirId => selectedPersonalDirs.includes(dirId))
-                  );
+              const dirFilteredPersonalLessons = selectedPersonalDirs.length === 0
+                ? myPersonalLessons
+                : myPersonalLessons.filter(l =>
+                  l.directory_ids?.some(dirId => selectedPersonalDirs.includes(dirId))
+                );
 
               // Apply search query filter
               const searchedPersonalLessons = (() => {
@@ -3538,7 +3935,7 @@ export default function App() {
                   <div className="w-full lg:w-[260px] border-r border-gray-100 lg:pr-6 flex-shrink-0">
                     <h3 className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider font-bold">Cây thư mục cá nhân</h3>
                     <div className="text-sm mt-2 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
-                      <div 
+                      <div
                         className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${selectedPersonalDirs.length === 0 ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}`}
                         onClick={() => setSelectedPersonalDirs([])}
                       >
@@ -3547,7 +3944,7 @@ export default function App() {
                         <span className="flex-grow truncate">Tất cả tài liệu cá nhân</span>
                         <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{myPersonalLessons.length}</span>
                       </div>
-                      
+
                       {personalRootDirs.map(dir => (
                         <DirectoryNode
                           key={dir.id}
@@ -3568,14 +3965,14 @@ export default function App() {
                         />
                       ))}
                     </div>
-                    
+
                     <button
-                      onClick={() => { 
-                        setDirParentId(''); 
-                        setDirName(''); 
-                        setDirAttrs('{}'); 
+                      onClick={() => {
+                        setDirParentId('');
+                        setDirName('');
+                        setDirAttrs('{}');
                         setDirIsPublic(false); // Force private for personal folder
-                        setShowDirModal(true); 
+                        setShowDirModal(true);
                       }}
                       className="mt-3 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
                     >
@@ -3606,9 +4003,9 @@ export default function App() {
                             <option value="title_desc">🔤 Tên Z→A</option>
                           </select>
                         </div>
-                        
+
                         <span className="text-xs bg-sky-50 text-sky-700 border border-sky-100 px-3 py-2 rounded-xl font-bold whitespace-nowrap">{sortedPersonalLessons.length} tài liệu</span>
-                        <button 
+                        <button
                           onClick={() => {
                             setUploadMode('personal');
                             if (selectedPersonalDirs.length > 0) {
@@ -3617,7 +4014,7 @@ export default function App() {
                               setUpDirId('');
                             }
                             setCurrentView('upload');
-                          }} 
+                          }}
                           className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-colors whitespace-nowrap shadow-sm hover:shadow"
                         >
                           + Thêm mới
@@ -3638,7 +4035,7 @@ export default function App() {
                         <p className="text-gray-500 font-medium">{personalSearchQuery ? 'Không tìm thấy tài liệu phù hợp.' : 'Không tìm thấy tài liệu nào.'}</p>
                         <p className="text-sm text-gray-400 mt-1">{personalSearchQuery ? 'Thử từ khóa khác hoặc xóa bộ lọc.' : 'Hãy tải tệp lên hoặc tạo thư mục cá nhân để bắt đầu quản lý.'}</p>
                         {!personalSearchQuery && (
-                          <button 
+                          <button
                             onClick={() => {
                               setUploadMode('personal');
                               if (selectedPersonalDirs.length > 0) {
@@ -3647,7 +4044,7 @@ export default function App() {
                                 setUpDirId('');
                               }
                               setCurrentView('upload');
-                            }} 
+                            }}
                             className="mt-4 px-5 py-2 bg-sky-600 text-white rounded-xl text-sm font-semibold hover:bg-sky-700"
                           >
                             + Tải tài liệu lên
@@ -3657,8 +4054,8 @@ export default function App() {
                     ) : (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                         {sortedPersonalLessons.map(lesson => (
-                          <div 
-                            key={lesson.id} 
+                          <div
+                            key={lesson.id}
                             onClick={() => setSelectedLessonForDetail(lesson)}
                             className="bg-white rounded-2xl border border-sky-100/60 p-5 shadow-sm hover:shadow-md hover:border-sky-300 transition-all cursor-pointer flex flex-col relative group"
                           >
@@ -3731,7 +4128,7 @@ export default function App() {
                             {/* Footer: date + download */}
                             <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-50 text-xs text-gray-400">
                               <div className="flex items-center gap-2">
-                                <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
+                                <span>📅 {new Date(lesson.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                               </div>
                               <div className="flex items-center gap-3">
                                 {useAiRag && (
@@ -3998,10 +4395,10 @@ export default function App() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Tạo Thư Mục Mới</h3>
             <form onSubmit={handleCreateDir} className="space-y-4">
-              <div><label className="block text-sm mb-1">Tên thư mục</label><input type="text" required value={dirName} onChange={e=>setDirName(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div><label className="block text-sm mb-1">Tên thư mục</label><input type="text" required value={dirName} onChange={e => setDirName(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div>
                 <label className="block text-sm mb-1">Thư mục cha</label>
-                <select value={dirParentId} onChange={e=>setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
+                <select value={dirParentId} onChange={e => setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Cấp cao nhất --</option>
                   {getDirectoriesAsTreeOptions(directories).map(d => (
                     <option key={d.id} value={d.id}>
@@ -4012,12 +4409,12 @@ export default function App() {
               </div>
               {currentUser.role === 'ADMIN' && (
                 <div className="flex items-center gap-2 bg-red-50 p-3 rounded-lg border border-red-100">
-                  <input type="checkbox" checked={dirIsPublic} onChange={e=>setDirIsPublic(e.target.checked)} id="isPub" className="rounded text-red-600 focus:ring-red-500" />
+                  <input type="checkbox" checked={dirIsPublic} onChange={e => setDirIsPublic(e.target.checked)} id="isPub" className="rounded text-red-600 focus:ring-red-500" />
                   <label htmlFor="isPub" className="text-sm font-medium text-red-700">Thư mục dùng chung (Public)</label>
                 </div>
               )}
               <div className="flex gap-2 justify-end mt-6">
-                <button type="button" onClick={()=>setShowDirModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Hủy</button>
+                <button type="button" onClick={() => setShowDirModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Hủy</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Tạo mới</button>
               </div>
             </form>
@@ -4031,12 +4428,12 @@ export default function App() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Tải lên Bài Giảng (Lưu Cục Bộ)</h3>
             <form onSubmit={handleUpload} className="space-y-4">
-              <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={upTitle} onChange={e=>setUpTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
-              <div><label className="block text-sm mb-1">Mô tả</label><textarea value={upDesc} onChange={e=>setUpDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
-              <div><label className="block text-sm mb-1">Khối lớp / Đối tượng</label><input type="text" value={upGrade} onChange={e=>setUpGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={upTitle} onChange={e => setUpTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div><label className="block text-sm mb-1">Mô tả</label><textarea value={upDesc} onChange={e => setUpDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
+              <div><label className="block text-sm mb-1">Khối lớp / Đối tượng</label><input type="text" value={upGrade} onChange={e => setUpGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div>
                 <label className="block text-sm mb-1">Lưu vào thư mục</label>
-                <select value={upDirId} onChange={e=>setUpDirId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
+                <select value={upDirId} onChange={e => setUpDirId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Không chọn --</option>
                   {getDirectoriesAsTreeOptions(directories).map(d => (
                     <option key={d.id} value={d.id}>
@@ -4045,10 +4442,10 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              <div><label className="block text-sm mb-1">File tài liệu (.docx, .pdf)</label><input type="file" required onChange={e=> e.target.files && setUpFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" /></div>
-              
+              <div><label className="block text-sm mb-1">File tài liệu (.docx, .pdf)</label><input type="file" required onChange={e => e.target.files && setUpFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" /></div>
+
               <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-gray-100">
-                <button type="button" onClick={()=>setShowUploadModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Hủy</button>
+                <button type="button" onClick={() => setShowUploadModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Hủy</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Tải lên</button>
               </div>
             </form>
@@ -4115,9 +4512,9 @@ export default function App() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Chọn thư mục công khai muốn đưa tài liệu vào:
                   </label>
-                  <select 
+                  <select
                     required
-                    value={targetPublicDirId} 
+                    value={targetPublicDirId}
                     onChange={e => setTargetPublicDirId(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm font-mono focus:ring-2 focus:ring-blue-500"
                   >
@@ -4130,15 +4527,15 @@ export default function App() {
                   </select>
                 </div>
                 <div className="flex gap-2 justify-end mt-6 pt-4 border-t border-gray-100">
-                  <button 
-                    type="button" 
-                    onClick={() => { setShowProposeModal(false); setLessonToPropose(null); }} 
+                  <button
+                    type="button"
+                    onClick={() => { setShowProposeModal(false); setLessonToPropose(null); }}
                     className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700"
                   >
                     Hủy
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     disabled={!targetPublicDirId}
                     className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
                   >
@@ -4148,9 +4545,9 @@ export default function App() {
               </form>
             ) : (
               <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowProposeModal(false); setLessonToPropose(null); setProposeError(null); setProposeDuplicateId(null); }} 
+                <button
+                  type="button"
+                  onClick={() => { setShowProposeModal(false); setLessonToPropose(null); setProposeError(null); setProposeDuplicateId(null); }}
                   className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-750 rounded-lg text-sm font-bold shadow-sm transition-colors"
                 >
                   Đóng cửa sổ
@@ -4167,14 +4564,14 @@ export default function App() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Chỉnh sửa Tài liệu</h3>
             <form onSubmit={submitEdit} className="space-y-4">
-              <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={editTitle} onChange={e=>setEditTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
-              <div><label className="block text-sm mb-1">Mô tả</label><textarea value={editDesc} onChange={e=>setEditDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
-              <div><label className="block text-sm mb-1">Khối lớp</label><input type="text" value={editGrade} onChange={e=>setEditGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div><label className="block text-sm mb-1">Mô tả</label><textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
+              <div><label className="block text-sm mb-1">Khối lớp</label><input type="text" value={editGrade} onChange={e => setEditGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div>
                 <label className="block text-sm mb-1 font-semibold text-gray-700">Lưu vào thư mục</label>
-                <select 
-                  value={editDirId} 
-                  onChange={e => setEditDirId(e.target.value)} 
+                <select
+                  value={editDirId}
+                  onChange={e => setEditDirId(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg p-2 text-sm font-mono focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">-- Giữ nguyên / Chưa phân thư mục --</option>
@@ -4238,11 +4635,11 @@ export default function App() {
               <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
                 <label className="block text-sm mb-1 font-medium text-yellow-800">Thay thế tài liệu đính kèm</label>
                 <p className="text-xs text-yellow-600 mb-2">Bỏ trống nếu muốn giữ nguyên file cũ</p>
-                <input type="file" onChange={e=> e.target.files && setEditFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200" />
+                <input type="file" onChange={e => e.target.files && setEditFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200" />
               </div>
-              
+
               <div className="flex gap-2 justify-end mt-6">
-                <button type="button" onClick={()=>setEditingLesson(null)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Hủy</button>
+                <button type="button" onClick={() => setEditingLesson(null)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Hủy</button>
                 <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600">Lưu thay đổi</button>
               </div>
             </form>
@@ -4256,609 +4653,601 @@ export default function App() {
           <div className="bg-white w-screen h-screen flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
-               <div>
-                 <div className="flex items-center gap-2 mb-1">
-                   <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-100/50">
-                     Chi tiết bài giảng
-                   </span>
-                   {selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0 && (
-                     <span className="text-xs font-semibold text-gray-400 truncate max-w-xs sm:max-w-md block" title={getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}>
-                       / {getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}
-                     </span>
-                   )}
-                 </div>
-                 <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
-               </div>
-               <button 
-                 onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }} 
-                 className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
-                 title="Đóng cửa sổ"
-               >
-                 <span className="text-xl">✕</span>
-               </button>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-100/50">
+                    Chi tiết bài giảng
+                  </span>
+                  {selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0 && (
+                    <span className="text-xs font-semibold text-gray-400 truncate max-w-xs sm:max-w-md block" title={getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}>
+                      / {getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
+              </div>
+              <button
+                onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
+                className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
+                title="Đóng cửa sổ"
+              >
+                <span className="text-xl">✕</span>
+              </button>
             </div>
 
             {/* Split Content */}
             <div className="flex-grow flex flex-col lg:flex-row overflow-hidden min-h-0 bg-slate-50/20">
-               {/* Left Column - Lesson & Info */}
-               <div className={`w-full flex flex-col h-full overflow-y-auto p-6 scrollbar-thin ${
-                 selectedLessonForDetail.status === 'LOCAL'
-                   ? 'w-full'
-                   : 'lg:w-[60%] border-b lg:border-b-0 lg:border-r border-gray-200/80'
-               }`}>
-                 {/* Creator and general info banner */}
-                 <div className="bg-white border border-gray-150 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                   <div className="flex items-center gap-3">
-                     <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shadow-blue-500/10">
-                       {(selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'A')[0].toUpperCase()}
-                     </div>
-                     <div>
-                       <span className="block text-xs text-gray-400 font-medium">Người đăng tải</span>
-                       <span 
-                         onClick={() => {
-                           if (selectedLessonForDetail.creator) {
-                             setSelectedCreatorForProfile(selectedLessonForDetail.creator);
-                           }
-                         }} 
-                         className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors" 
-                         title="Xem thông tin người đăng"
-                       >
-                         {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}
-                       </span>
-                     </div>
-                   </div>
-                   <div className="flex items-center gap-4 text-sm text-gray-500">
-                     <div className="bg-slate-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
-                       <span>📅</span>
-                       <span className="font-semibold text-gray-700">{new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
-                     </div>
-                   </div>
-                 </div>
-
-                 {/* Description */}
-                 <div className="mb-6">
-                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
-                   <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
-                     {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
+              {/* Left Column - Lesson & Info */}
+              <div className={`w-full flex flex-col h-full overflow-y-auto p-6 scrollbar-thin ${selectedLessonForDetail.status === 'LOCAL'
+                  ? 'w-full'
+                  : 'lg:w-[60%] border-b lg:border-b-0 lg:border-r border-gray-200/80'
+                }`}>
+                {/* Creator and general info banner */}
+                <div className="bg-white border border-gray-150 rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shadow-blue-500/10">
+                      {(selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'A')[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="block text-xs text-gray-400 font-medium">Người đăng tải</span>
+                      <span
+                        onClick={() => {
+                          if (selectedLessonForDetail.creator) {
+                            setSelectedCreatorForProfile(selectedLessonForDetail.creator);
+                          }
+                        }}
+                        className="font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                        title="Xem thông tin người đăng"
+                      >
+                        {selectedLessonForDetail.creator?.full_name || selectedLessonForDetail.creator?.username || 'Không xác định'}
+                      </span>
                     </div>
                   </div>
-                 {/* Key Metadata Cards */}
-                 <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-                      <div className="text-2xl">🎓</div>
-                      <div>
-                        <span className="block text-[11px] text-gray-400 font-bold uppercase">Đối tượng / Lớp</span>
-                        <span className="font-bold text-gray-800 text-sm">{selectedLessonForDetail.target_student || 'Chung'}</span>
-                      </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="bg-slate-100 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                      <span>📅</span>
+                      <span className="font-semibold text-gray-700">{new Date(selectedLessonForDetail.created_at).toLocaleDateString('vi-VN')}</span>
                     </div>
-                    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-                      <div className="text-2xl">🌍</div>
-                      <div>
-                        <span className="block text-[11px] text-gray-400 font-bold uppercase">Trạng thái phát hành</span>
-                        <span className={`font-extrabold text-sm flex items-center gap-1 ${
-                          selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' :
-                          selectedLessonForDetail.status === 'PENDING' ? 'text-amber-600 animate-pulse' :
-                          selectedLessonForDetail.status === 'REJECTED' ? 'text-red-600' : 'text-sky-600'
-                        }`}>
-                          {selectedLessonForDetail.status === 'PUBLISHED' ? 'Đã xuất bản (Public)' :
-                           selectedLessonForDetail.status === 'PENDING' ? 'Chờ phê duyệt' :
-                           selectedLessonForDetail.status === 'REJECTED' ? 'Bị từ chối' : 'Nội bộ (Local)'}
-                        </span>
-                      </div>
-                    </div>
-                 </div>
+                  </div>
+                </div>
 
-                 {/* Additional attributes */}
-                  {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).filter(k => k !== 'tien_trinh_day_hoc' && k !== 'knowledge_tags').length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
-                      <div className="flex flex-wrap gap-2 bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-                        {Object.entries(selectedLessonForDetail.attributes)
-                          .filter(([key]) => key !== 'tien_trinh_day_hoc' && key !== 'knowledge_tags')
-                          .map(([key, val]) => (
-                            <span key={key} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold border border-blue-100/50">
-                              {key}: {String(val)}
-                            </span>
-                          ))
-                        }
+                {/* Description */}
+                <div className="mb-6">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
+                  <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
+                    {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
+                  </div>
+                </div>
+                {/* Key Metadata Cards */}
+                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                    <div className="text-2xl">🎓</div>
+                    <div>
+                      <span className="block text-[11px] text-gray-400 font-bold uppercase">Đối tượng / Lớp</span>
+                      <span className="font-bold text-gray-800 text-sm">{selectedLessonForDetail.target_student || 'Chung'}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
+                    <div className="text-2xl">🌍</div>
+                    <div>
+                      <span className="block text-[11px] text-gray-400 font-bold uppercase">Trạng thái phát hành</span>
+                      <span className={`font-extrabold text-sm flex items-center gap-1 ${selectedLessonForDetail.status === 'PUBLISHED' ? 'text-green-600' :
+                          selectedLessonForDetail.status === 'PENDING' ? 'text-amber-600 animate-pulse' :
+                            selectedLessonForDetail.status === 'REJECTED' ? 'text-red-600' : 'text-sky-600'
+                        }`}>
+                        {selectedLessonForDetail.status === 'PUBLISHED' ? 'Đã xuất bản (Public)' :
+                          selectedLessonForDetail.status === 'PENDING' ? 'Chờ phê duyệt' :
+                            selectedLessonForDetail.status === 'REJECTED' ? 'Bị từ chối' : 'Nội bộ (Local)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional attributes */}
+                {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).filter(k => k !== 'tien_trinh_day_hoc' && k !== 'knowledge_tags').length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Thông tin bổ sung</h4>
+                    <div className="flex flex-wrap gap-2 bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+                      {Object.entries(selectedLessonForDetail.attributes)
+                        .filter(([key]) => key !== 'tien_trinh_day_hoc' && key !== 'knowledge_tags')
+                        .map(([key, val]) => (
+                          <span key={key} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-xl text-sm font-semibold border border-blue-100/50">
+                            {key}: {String(val)}
+                          </span>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {/* Render activities timeline if exists */}
+                <LessonActivitiesTimeline activities={selectedLessonForDetail.attributes?.tien_trinh_day_hoc} />
+
+                {/* Sơ đồ tư duy 4 nhánh tương tác mới */}
+                <InteractiveLessonMindmap lesson={selectedLessonForDetail} />
+
+                {/* Document Preview & Attachment */}
+                {((selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) || selectedLessonForDetail.content_preview) && (() => {
+                  const fileUrl = getLessonFileUrl(selectedLessonForDetail);
+                  const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
+                  const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
+
+                  if (isPdfFile) {
+                    return (
+                      <div className="mt-2 border-t border-gray-100 pt-6">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem tài liệu trực tuyến</h4>
+                        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm h-[600px] transition-all hover:shadow-md">
+                          <iframe
+                            src={fileUrl}
+                            className="w-full h-full border-0"
+                            title="PDF Preview"
+                          />
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!selectedLessonForDetail.content_preview;
+                    const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
+                    if (isMd) {
+                      return (
+                        <div className="mt-2 border-t border-gray-100 pt-6">
+                          <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Nội dung tài liệu Markdown</h4>
+                          <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                        </div>
+                      );
+                    } else if (isDocx) {
+                      return (
+                        <div className="mt-2 border-t border-gray-100 pt-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 sm:gap-6 mb-4">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Xem chi tiết tài liệu</h4>
+                            <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewMode('docx')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'docx'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900'
+                                  }`}
+                              >
+                                📝 Bản Word gốc (Offline)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewMode('markdown')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${previewMode === 'markdown'
+                                    ? 'bg-white text-blue-600 shadow-sm'
+                                    : 'text-gray-500 hover:text-gray-900'
+                                  }`}
+                              >
+                                ⚡ Bản trích xuất Markdown
+                              </button>
+                            </div>
+                          </div>
+
+                          {previewMode === 'docx' ? (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
+                              <DocxPreview fileUrl={fileUrl} />
+                            </div>
+                          ) : (
+                            <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                          )}
+                        </div>
+                      );
+                    }
+
+                    const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
+                    const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
+                    const fileIcon = isPptx ? '📊' : '📄';
+
+                    return (
+                      <div className="mt-2 border-t border-gray-100 pt-6">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tài liệu đính kèm</h4>
+                        <div className="border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-white shadow-sm">
+                          <div className="text-6xl mb-4">{fileIcon}</div>
+                          <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
+                          <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
+
+                          <div className="max-w-md bg-blue-50/40 border border-blue-100 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 leading-relaxed">
+                            💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
+                          </div>
+
+                          <a
+                            href={fileUrl}
+                            download={fileName}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 hover:-translate-y-0.5 duration-150"
+                          >
+                            📥 Tải tài liệu về máy ngay
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+
+              {/* Right Column - Ratings & Comments */}
+              {selectedLessonForDetail.status !== 'LOCAL' && (
+                <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
+                  {/* Rating Summary Card & Stats */}
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50/20 border border-amber-100/60 rounded-2xl p-5 mb-6 shadow-sm">
+                    <div className="flex items-center gap-6 mb-4">
+                      <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
+                        <div className="text-4xl font-black text-amber-500">{ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0'}</div>
+                        <div className="flex text-amber-400 text-xs my-1.5 justify-center">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <span key={star} className="text-lg leading-none">{star <= Math.round(ratingAvg) ? '★' : '☆'}</span>
+                          ))}
+                        </div>
+                        <div className="text-xs text-gray-500 font-bold">{ratingTotal} đánh giá</div>
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-gray-900 text-base mb-1">Đánh giá chất lượng</h4>
+                        <p className="text-sm text-gray-600 leading-normal text-slate-500">
+                          {ratingTotal > 0
+                            ? 'Thống kê nhận xét chuyên môn từ hội đồng giáo viên và đồng nghiệp.'
+                            : 'Chưa có lượt đánh giá nào. Hãy chia sẻ nhận xét chuyên môn đầu tiên của bạn ở dưới!'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Horizonal Star Progress Bars (Statistics) */}
+                    {ratingTotal > 0 && (
+                      <div className="border-t border-amber-100/50 pt-4 space-y-2">
+                        {[5, 4, 3, 2, 1].map(star => {
+                          const percent = starStats.percentages[star as keyof typeof starStats.percentages] || 0;
+                          const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
+                          return (
+                            <div key={star} className="flex items-center gap-3 text-xs">
+                              <span className="w-10 font-bold text-gray-600 flex items-center gap-0.5">{star} <span className="text-amber-500">★</span></span>
+                              <div className="flex-grow h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${percent}%` }}
+                                ></div>
+                              </div>
+                              <span className="w-12 text-right text-gray-400 font-semibold">{percent}% ({count})</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Star Filter */}
+                  {ratingTotal > 0 && (
+                    <div className="mb-6 bg-white border border-gray-150 rounded-2xl p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <span className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Lọc theo số sao:</span>
+                        {selectedStarFilter !== 'all' && (
+                          <button
+                            onClick={() => setSelectedStarFilter('all')}
+                            className="text-xs text-blue-600 font-bold hover:underline"
+                          >
+                            Xóa bộ lọc
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          onClick={() => setSelectedStarFilter('all')}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${selectedStarFilter === 'all'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                            }`}
+                        >
+                          Tất cả ({ratingTotal})
+                        </button>
+                        {[5, 4, 3, 2, 1].map(star => {
+                          const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
+                          return (
+                            <button
+                              key={star}
+                              onClick={() => setSelectedStarFilter(String(star))}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${selectedStarFilter === String(star)
+                                  ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                                  : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                              {star} <span className={selectedStarFilter === String(star) ? 'text-white' : 'text-amber-500'}>★</span> ({count})
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* Render activities timeline if exists */}
-                  <LessonActivitiesTimeline activities={selectedLessonForDetail.attributes?.tien_trinh_day_hoc} />
-
-                 {/* Document Preview & Attachment */}
-                 {((selectedLessonForDetail.file_path || selectedLessonForDetail.file_url) || selectedLessonForDetail.content_preview) && (() => {
-                   const fileUrl = getLessonFileUrl(selectedLessonForDetail);
-                   const fileName = getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path);
-                    const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
-                   
-                   if (isPdfFile) {
-                     return (
-                       <div className="mt-2 border-t border-gray-100 pt-6">
-                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Xem tài liệu trực tuyến</h4>
-                         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm h-[600px] transition-all hover:shadow-md">
-                           <iframe 
-                             src={fileUrl} 
-                             className="w-full h-full border-0" 
-                             title="PDF Preview"
-                           />
-                         </div>
-                       </div>
-                     );
-                   } else {
-                     const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!selectedLessonForDetail.content_preview;
-                      const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
-                      if (isMd) {
-                        return (
-                          <div className="mt-2 border-t border-gray-100 pt-6">
-                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Nội dung tài liệu Markdown</h4>
-                            <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
+                  {/* My Highlighted Review (Nhận xét của bạn) — with integrated inline edit */}
+                  {currentUser && lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
+                    (() => {
+                      const myReview = lessonRatings.find((r: any) => r.user_id === currentUser.id);
+                      if (!myReview) return null;
+                      return (
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50/20 border border-blue-200/80 rounded-2xl p-5 shadow-sm mb-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-xs font-extrabold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <span>👤</span> Nhận xét của bạn
+                            </h4>
+                            <button
+                              onClick={() => setEditingMyReview(!editingMyReview)}
+                              className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border ${editingMyReview
+                                  ? 'text-gray-600 bg-gray-100 hover:bg-gray-200 border-gray-200'
+                                  : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200/50'
+                                }`}
+                            >
+                              {editingMyReview ? '✕ Đóng chỉnh sửa' : '✏️ Chỉnh sửa lại bình luận'}
+                            </button>
                           </div>
-                        );
-                      } else if (isDocx) {
-                        return (
-                          <div className="mt-2 border-t border-gray-100 pt-6">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 sm:gap-6 mb-4">
-                              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Xem chi tiết tài liệu</h4>
-                              <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shadow-sm self-start">
+
+                          {/* Display mode */}
+                          {!editingMyReview && (
+                            <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] text-gray-400">📅 {new Date(myReview.created_at).toLocaleDateString('vi-VN')} {new Date(myReview.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                                <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <span key={s} className={`text-sm ${s <= myReview.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                                  ))}
+                                </div>
+                              </div>
+                              {myReview.comment ? (
+                                <p className="text-sm text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">{myReview.comment}</p>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic font-medium">Bạn đã xếp hạng {myReview.rating} sao và không để lại bình luận viết.</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Inline edit mode */}
+                          {editingMyReview && (
+                            <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
+                              <div className="flex items-center gap-2 mb-3">
+                                {[1, 2, 3, 4, 5].map(star => (
+                                  <button
+                                    key={star}
+                                    onClick={() => setMyRating(star)}
+                                    type="button"
+                                    className={`text-2xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
+                                      }`}
+                                  >
+                                    ★
+                                  </button>
+                                ))}
+                                {myRating > 0 && (
+                                  <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
+                                    {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc'][myRating]}
+                                  </span>
+                                )}
+                              </div>
+
+                              <textarea
+                                value={myComment}
+                                onChange={e => setMyComment(e.target.value)}
+                                placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng..."
+                                rows={3}
+                                className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
+                              />
+                              <div className="flex justify-end gap-2">
                                 <button
-                                  type="button"
-                                  onClick={() => setPreviewMode('docx')}
-                                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                    previewMode === 'docx'
-                                      ? 'bg-white text-blue-600 shadow-sm'
-                                      : 'text-gray-500 hover:text-gray-900'
-                                  }`}
+                                  onClick={() => setEditingMyReview(false)}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all"
                                 >
-                                  📝 Bản Word gốc (Offline)
+                                  Hủy
                                 </button>
                                 <button
-                                  type="button"
-                                  onClick={() => setPreviewMode('markdown')}
-                                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                    previewMode === 'markdown'
-                                      ? 'bg-white text-blue-600 shadow-sm'
-                                      : 'text-gray-500 hover:text-gray-900'
-                                  }`}
+                                  disabled={myRating === 0 || ratingSubmitting}
+                                  onClick={async () => {
+                                    if (!currentUser || myRating === 0) return;
+                                    setRatingSubmitting(true);
+                                    try {
+                                      const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
+                                        user_id: currentUser.id, rating: myRating, comment: myComment
+                                      });
+                                      setRatingAvg(res.data.average_rating);
+                                      setRatingTotal(res.data.total_ratings);
+                                      const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
+                                      setLessonRatings(res2.data.ratings);
+                                      fetchLessonPlans(searchQuery);
+                                      setEditingMyReview(false);
+                                    } catch { alert('Lỗi khi gửi đánh giá.'); }
+                                    finally { setRatingSubmitting(false); }
+                                  }}
+                                  className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${myRating === 0 || ratingSubmitting
+                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20'
+                                    }`}
                                 >
-                                  ⚡ Bản trích xuất Markdown
+                                  {ratingSubmitting ? '⟳ Đang gửi...' : '💾 Lưu thay đổi'}
                                 </button>
                               </div>
                             </div>
-                            
-                            {previewMode === 'docx' ? (
-                              <div className="bg-white border border-gray-200 rounded-2xl p-1 shadow-sm transition-all hover:shadow-md">
-                                <DocxPreview fileUrl={fileUrl} />
-                              </div>
-                            ) : (
-                              <MarkdownViewer markdown={selectedLessonForDetail.content_preview} highlightQuery={lessonHighlightQuery} />
-                            )}
-                          </div>
-                        );
-                      }
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
 
-                     const isPptx = fileUrl.toLowerCase().endsWith('.pptx') || fileUrl.toLowerCase().endsWith('.ppt');
-                     const fileTypeLabel = isPptx ? 'Microsoft PowerPoint' : 'Tài liệu';
-                     const fileIcon = isPptx ? '📊' : '📄';
+                  {/* New Rating Form — only shown when user has NOT reviewed yet */}
+                  {currentUser && !lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
+                    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-6">
+                      <h4 className="text-sm font-extrabold text-gray-900 mb-3 flex items-center gap-1.5">
+                        ✍️ Gửi đánh giá & nhận xét
+                      </h4>
 
-                     return (
-                       <div className="mt-2 border-t border-gray-100 pt-6">
-                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tài liệu đính kèm</h4>
-                         <div className="border border-gray-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center bg-white shadow-sm">
-                           <div className="text-6xl mb-4">{fileIcon}</div>
-                           <h5 className="font-bold text-gray-900 text-lg mb-1 leading-snug break-all max-w-lg">{fileName}</h5>
-                           <p className="text-sm text-gray-500 mb-6">Định dạng: <span className="font-semibold text-gray-700">{fileTypeLabel}</span></p>
-                           
-                           <div className="max-w-md bg-blue-50/40 border border-blue-100 rounded-xl p-4 text-left text-sm text-gray-600 mb-6 leading-relaxed">
-                             💡 <strong>Hướng dẫn:</strong> Vì bạn đang chạy hệ thống dưới quyền máy chủ nội bộ (Localhost Offline), tài liệu {fileTypeLabel} cần được tải về máy tính để mở bằng Word/PowerPoint (tránh gửi tài liệu ra internet).
-                           </div>
+                      <div className="flex items-center gap-2 mb-3.5">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <button
+                            key={star}
+                            onClick={() => setMyRating(star)}
+                            type="button"
+                            className={`text-3xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
+                              }`}
+                          >
+                            ★
+                          </button>
+                        ))}
+                        {myRating > 0 && (
+                          <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
+                            {['', 'Rất tệ', 'Tệ', 'Bình thường', 'Tốt', 'Xuất sắc'][myRating]}
+                          </span>
+                        )}
+                      </div>
 
-                           <a 
-                             href={fileUrl} 
-                             download={fileName}
-                             target="_blank"
-                             rel="noopener noreferrer"
-                             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md shadow-blue-200 hover:shadow-blue-300 transition-all flex items-center gap-2 hover:-translate-y-0.5 duration-150"
-                           >
-                             📥 Tải tài liệu về máy ngay
-                           </a>
-                         </div>
-                       </div>
-                     );
-                   }
-                 })()}
-               </div>
+                      <textarea
+                        value={myComment}
+                        onChange={e => setMyComment(e.target.value)}
+                        placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng (phương pháp giảng dạy, nội dung, kiến thức học tập, cấu trúc bài giảng...)"
+                        rows={3}
+                        className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
+                      />
+                      <div className="flex justify-end">
+                        <button
+                          disabled={myRating === 0 || ratingSubmitting}
+                          onClick={async () => {
+                            if (!currentUser || myRating === 0) return;
+                            setRatingSubmitting(true);
+                            try {
+                              const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
+                                user_id: currentUser.id, rating: myRating, comment: myComment
+                              });
+                              setRatingAvg(res.data.average_rating);
+                              setRatingTotal(res.data.total_ratings);
+                              const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
+                              setLessonRatings(res2.data.ratings);
+                              fetchLessonPlans(searchQuery);
+                            } catch { alert('Lỗi khi gửi đánh giá.'); }
+                            finally { setRatingSubmitting(false); }
+                          }}
+                          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${myRating === 0 || ratingSubmitting
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 hover:-translate-y-0.5'
+                            }`}
+                        >
+                          {ratingSubmitting ? '⟳ Đang gửi...' : '⭐ Gửi đánh giá'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-               {/* Right Column - Ratings & Comments */}
-               {selectedLessonForDetail.status !== 'LOCAL' && (
-                 <div className="w-full lg:w-[40%] flex flex-col h-full bg-slate-50/50 overflow-y-auto p-6 scrollbar-thin">
-                 {/* Rating Summary Card & Stats */}
-                 <div className="bg-gradient-to-br from-amber-50 to-orange-50/20 border border-amber-100/60 rounded-2xl p-5 mb-6 shadow-sm">
-                   <div className="flex items-center gap-6 mb-4">
-                     <div className="text-center bg-white border border-amber-200/60 rounded-2xl px-5 py-4 shadow-sm flex-shrink-0">
-                       <div className="text-4xl font-black text-amber-500">{ratingAvg > 0 ? ratingAvg.toFixed(1) : '0.0'}</div>
-                       <div className="flex text-amber-400 text-xs my-1.5 justify-center">
-                         {[1,2,3,4,5].map(star => (
-                           <span key={star} className="text-lg leading-none">{star <= Math.round(ratingAvg) ? '★' : '☆'}</span>
-                         ))}
-                       </div>
-                       <div className="text-xs text-gray-500 font-bold">{ratingTotal} đánh giá</div>
-                     </div>
-                     <div>
-                       <h4 className="font-extrabold text-gray-900 text-base mb-1">Đánh giá chất lượng</h4>
-                       <p className="text-sm text-gray-600 leading-normal text-slate-500">
-                         {ratingTotal > 0 
-                           ? 'Thống kê nhận xét chuyên môn từ hội đồng giáo viên và đồng nghiệp.' 
-                           : 'Chưa có lượt đánh giá nào. Hãy chia sẻ nhận xét chuyên môn đầu tiên của bạn ở dưới!'}
-                       </p>
-                     </div>
-                   </div>
-
-                   {/* Horizonal Star Progress Bars (Statistics) */}
-                   {ratingTotal > 0 && (
-                     <div className="border-t border-amber-100/50 pt-4 space-y-2">
-                       {[5, 4, 3, 2, 1].map(star => {
-                         const percent = starStats.percentages[star as keyof typeof starStats.percentages] || 0;
-                         const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
-                         return (
-                           <div key={star} className="flex items-center gap-3 text-xs">
-                             <span className="w-10 font-bold text-gray-600 flex items-center gap-0.5">{star} <span className="text-amber-500">★</span></span>
-                             <div className="flex-grow h-2 bg-gray-100 rounded-full overflow-hidden">
-                               <div 
-                                 className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500" 
-                                 style={{ width: `${percent}%` }}
-                               ></div>
-                             </div>
-                             <span className="w-12 text-right text-gray-400 font-semibold">{percent}% ({count})</span>
-                           </div>
-                         );
-                       })}
-                     </div>
-                   )}
-                 </div>
-
-                 {/* Interactive Star Filter */}
-                 {ratingTotal > 0 && (
-                   <div className="mb-6 bg-white border border-gray-150 rounded-2xl p-4 shadow-sm">
-                     <div className="flex items-center justify-between mb-2.5">
-                       <span className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Lọc theo số sao:</span>
-                       {selectedStarFilter !== 'all' && (
-                         <button 
-                           onClick={() => setSelectedStarFilter('all')} 
-                           className="text-xs text-blue-600 font-bold hover:underline"
-                         >
-                           Xóa bộ lọc
-                         </button>
-                       )}
-                     </div>
-                     <div className="flex flex-wrap gap-1.5">
-                       <button
-                         onClick={() => setSelectedStarFilter('all')}
-                         className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                           selectedStarFilter === 'all'
-                             ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                             : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                         }`}
-                       >
-                         Tất cả ({ratingTotal})
-                       </button>
-                       {[5, 4, 3, 2, 1].map(star => {
-                         const count = starStats.counts[star as keyof typeof starStats.counts] || 0;
-                         return (
-                           <button
-                             key={star}
-                             onClick={() => setSelectedStarFilter(String(star))}
-                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1 ${
-                               selectedStarFilter === String(star)
-                                 ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
-                                 : 'bg-slate-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                             }`}
-                           >
-                             {star} <span className={selectedStarFilter === String(star) ? 'text-white' : 'text-amber-500'}>★</span> ({count})
-                           </button>
-                         );
-                       })}
-                     </div>
-                   </div>
-                 )}
-
-                 {/* My Highlighted Review (Nhận xét của bạn) — with integrated inline edit */}
-                 {currentUser && lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
-                   (() => {
-                     const myReview = lessonRatings.find((r: any) => r.user_id === currentUser.id);
-                     if (!myReview) return null;
-                     return (
-                       <div className="bg-gradient-to-br from-blue-50 to-indigo-50/20 border border-blue-200/80 rounded-2xl p-5 shadow-sm mb-6">
-                         <div className="flex items-center justify-between mb-3">
-                           <h4 className="text-xs font-extrabold text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
-                             <span>👤</span> Nhận xét của bạn
-                           </h4>
-                           <button
-                             onClick={() => setEditingMyReview(!editingMyReview)}
-                             className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 border ${
-                               editingMyReview
-                                 ? 'text-gray-600 bg-gray-100 hover:bg-gray-200 border-gray-200'
-                                 : 'text-blue-700 bg-blue-100 hover:bg-blue-200 border-blue-200/50'
-                             }`}
-                           >
-                             {editingMyReview ? '✕ Đóng chỉnh sửa' : '✏️ Chỉnh sửa lại bình luận'}
-                           </button>
-                         </div>
-
-                         {/* Display mode */}
-                         {!editingMyReview && (
-                           <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
-                             <div className="flex items-center justify-between mb-2">
-                               <span className="text-[10px] text-gray-400">📅 {new Date(myReview.created_at).toLocaleDateString('vi-VN')} {new Date(myReview.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
-                               <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                                 {[1,2,3,4,5].map(s => (
-                                   <span key={s} className={`text-sm ${s <= myReview.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
-                                 ))}
-                               </div>
-                             </div>
-                             {myReview.comment ? (
-                               <p className="text-sm text-gray-800 font-medium leading-relaxed whitespace-pre-wrap">{myReview.comment}</p>
-                             ) : (
-                               <p className="text-sm text-gray-400 italic font-medium">Bạn đã xếp hạng {myReview.rating} sao và không để lại bình luận viết.</p>
-                             )}
-                           </div>
-                         )}
-
-                         {/* Inline edit mode */}
-                         {editingMyReview && (
-                           <div className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
-                             <div className="flex items-center gap-2 mb-3">
-                               {[1,2,3,4,5].map(star => (
-                                 <button
-                                   key={star}
-                                   onClick={() => setMyRating(star)}
-                                   type="button"
-                                   className={`text-2xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${
-                                     star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
-                                   }`}
-                                 >
-                                   ★
-                                 </button>
-                               ))}
-                               {myRating > 0 && (
-                                 <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
-                                   {['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}
-                                 </span>
-                               )}
-                             </div>
-
-                             <textarea
-                               value={myComment}
-                               onChange={e => setMyComment(e.target.value)}
-                               placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng..."
-                               rows={3}
-                               className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
-                             />
-                             <div className="flex justify-end gap-2">
-                               <button
-                                 onClick={() => setEditingMyReview(false)}
-                                 className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all"
-                               >
-                                 Hủy
-                               </button>
-                               <button
-                                 disabled={myRating === 0 || ratingSubmitting}
-                                 onClick={async () => {
-                                   if (!currentUser || myRating === 0) return;
-                                   setRatingSubmitting(true);
-                                   try {
-                                     const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
-                                       user_id: currentUser.id, rating: myRating, comment: myComment
-                                     });
-                                     setRatingAvg(res.data.average_rating);
-                                     setRatingTotal(res.data.total_ratings);
-                                     const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
-                                     setLessonRatings(res2.data.ratings);
-                                     fetchLessonPlans(searchQuery);
-                                     setEditingMyReview(false);
-                                   } catch { alert('Lỗi khi gửi đánh giá.'); }
-                                     finally { setRatingSubmitting(false); }
-                                 }}
-                                 className={`px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
-                                   myRating === 0 || ratingSubmitting
-                                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                     : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20'
-                                 }`}
-                               >
-                                 {ratingSubmitting ? '⟳ Đang gửi...' : '💾 Lưu thay đổi'}
-                               </button>
-                             </div>
-                           </div>
-                         )}
-                       </div>
-                     );
-                   })()
-                 )}
-
-                 {/* New Rating Form — only shown when user has NOT reviewed yet */}
-                 {currentUser && !lessonRatings.some((r: any) => r.user_id === currentUser.id) && (
-                   <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-6">
-                     <h4 className="text-sm font-extrabold text-gray-900 mb-3 flex items-center gap-1.5">
-                       ✍️ Gửi đánh giá & nhận xét
-                     </h4>
-                     
-                     <div className="flex items-center gap-2 mb-3.5">
-                       {[1,2,3,4,5].map(star => (
-                         <button
-                           key={star}
-                           onClick={() => setMyRating(star)}
-                           type="button"
-                           className={`text-3xl transition-all duration-150 transform hover:scale-125 focus:outline-none ${
-                             star <= myRating ? 'text-amber-400 scale-110 drop-shadow-sm' : 'text-gray-200 hover:text-amber-200'
-                           }`}
-                         >
-                           ★
-                         </button>
-                       ))}
-                       {myRating > 0 && (
-                         <span className="ml-2 text-xs font-bold text-amber-700 px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">
-                           {['','Rất tệ','Tệ','Bình thường','Tốt','Xuất sắc'][myRating]}
-                         </span>
-                       )}
-                     </div>
-
-                     <textarea
-                       value={myComment}
-                       onChange={e => setMyComment(e.target.value)}
-                       placeholder="Hãy đóng góp nhận xét chi tiết về bài giảng (phương pháp giảng dạy, nội dung, kiến thức học tập, cấu trúc bài giảng...)"
-                       rows={3}
-                       className="w-full text-sm border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none bg-slate-50/50 mb-3"
-                     />
-                     <div className="flex justify-end">
-                       <button
-                         disabled={myRating === 0 || ratingSubmitting}
-                         onClick={async () => {
-                           if (!currentUser || myRating === 0) return;
-                           setRatingSubmitting(true);
-                           try {
-                             const res = await axios.post(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`, {
-                               user_id: currentUser.id, rating: myRating, comment: myComment
-                             });
-                             setRatingAvg(res.data.average_rating);
-                             setRatingTotal(res.data.total_ratings);
-                             const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
-                             setLessonRatings(res2.data.ratings);
-                             fetchLessonPlans(searchQuery);
-                           } catch { alert('Lỗi khi gửi đánh giá.'); }
-                             finally { setRatingSubmitting(false); }
-                         }}
-                         className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
-                           myRating === 0 || ratingSubmitting
-                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                             : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/10 hover:shadow-blue-600/20 hover:-translate-y-0.5'
-                         }`}
-                       >
-                         {ratingSubmitting ? '⟳ Đang gửi...' : '⭐ Gửi đánh giá'}
-                       </button>
-                     </div>
-                   </div>
-                 )}
-
-                 {/* Comments list */}
-                 <div className="flex flex-col flex-grow">
-                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tất cả nhận xét</h4>
-                   {ratingLoading ? (
-                     <div className="flex flex-col items-center justify-center py-12 text-gray-400 text-sm gap-2 bg-white border border-gray-150 rounded-2xl shadow-sm">
-                       <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                       <span>Đang tải nhận xét...</span>
-                     </div>
-                   ) : otherReviews.length === 0 ? (
-                     <div className="text-center py-12 text-gray-400 text-sm italic bg-white border border-gray-155 rounded-2xl shadow-sm">
-                       {selectedStarFilter !== 'all' 
-                         ? `Không có nhận xét nào đạt ${selectedStarFilter} sao.` 
-                         : 'Chưa có nhận xét nào khác từ đồng nghiệp.'}
-                     </div>
-                   ) : (
-                     <div className="space-y-4 pr-1 flex-grow">
-                       {otherReviews.map((r: any) => (
-                         <div key={r.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm transition-all hover:shadow-md duration-200">
-                           <div className="flex items-start justify-between mb-2">
-                             <div className="flex items-center gap-3">
-                               <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-extrabold shadow-sm flex-shrink-0">
-                                 {r.user_avatar_url ? (
+                  {/* Comments list */}
+                  <div className="flex flex-col flex-grow">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tất cả nhận xét</h4>
+                    {ratingLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400 text-sm gap-2 bg-white border border-gray-150 rounded-2xl shadow-sm">
+                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Đang tải nhận xét...</span>
+                      </div>
+                    ) : otherReviews.length === 0 ? (
+                      <div className="text-center py-12 text-gray-400 text-sm italic bg-white border border-gray-155 rounded-2xl shadow-sm">
+                        {selectedStarFilter !== 'all'
+                          ? `Không có nhận xét nào đạt ${selectedStarFilter} sao.`
+                          : 'Chưa có nhận xét nào khác từ đồng nghiệp.'}
+                      </div>
+                    ) : (
+                      <div className="space-y-4 pr-1 flex-grow">
+                        {otherReviews.map((r: any) => (
+                          <div key={r.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm transition-all hover:shadow-md duration-200">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-extrabold shadow-sm flex-shrink-0">
+                                  {r.user_avatar_url ? (
                                     <img src={r.user_avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                                   ) : (
                                     (r.user_full_name || r.user_username || 'A')[0].toUpperCase()
                                   )}
-                               </div>
-                               <div>
-                                 <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                                   {r.user_full_name || r.user_username}
-                                 </p>
-                                 <p className="text-[10px] text-gray-400">📅 {new Date(r.created_at).toLocaleDateString('vi-VN')} {new Date(r.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</p>
-                               </div>
-                             </div>
-                             <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
-                               {[1,2,3,4,5].map(s => (
-                                 <span key={s} className={`text-sm ${s <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
-                               ))}
-                             </div>
-                           </div>
-                           {r.comment ? (
-                             <p className="text-sm text-gray-700 leading-relaxed ml-12 whitespace-pre-wrap">{r.comment}</p>
-                           ) : (
-                             <p className="text-sm text-gray-400 italic leading-relaxed ml-12">Đã xếp hạng {r.rating} sao và không để lại nhận xét.</p>
-                           )}
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
-               </div>
-               )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                                    {r.user_full_name || r.user_username}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400">📅 {new Date(r.created_at).toLocaleDateString('vi-VN')} {new Date(r.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                                </div>
+                              </div>
+                              <div className="flex bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-100">
+                                {[1, 2, 3, 4, 5].map(s => (
+                                  <span key={s} className={`text-sm ${s <= r.rating ? 'text-amber-400' : 'text-gray-200'}`}>★</span>
+                                ))}
+                              </div>
+                            </div>
+                            {r.comment ? (
+                              <p className="text-sm text-gray-700 leading-relaxed ml-12 whitespace-pre-wrap">{r.comment}</p>
+                            ) : (
+                              <p className="text-sm text-gray-400 italic leading-relaxed ml-12">Đã xếp hạng {r.rating} sao và không để lại nhận xét.</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bottom Bar / Footer */}
             <div className="p-5 border-t border-gray-100 bg-white flex items-center justify-end gap-3 flex-shrink-0">
-               {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
-                 <button 
-                   onClick={() => {
-                     const id = selectedLessonForDetail.id;
-                     setSelectedLessonForDetail(null);
-                     handleDeleteLesson(id);
-                   }} 
-                   className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-all flex items-center gap-1.5 mr-auto hover:shadow-sm"
-                 >
-                   🗑️ Xóa tài liệu
-                 </button>
-               )}
-               
-               <button 
-                 onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }} 
-                 className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all hover:shadow-sm"
-               >
-                 Đóng
-               </button>
+              {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
+                <button
+                  onClick={() => {
+                    const id = selectedLessonForDetail.id;
+                    setSelectedLessonForDetail(null);
+                    handleDeleteLesson(id);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-all flex items-center gap-1.5 mr-auto hover:shadow-sm"
+                >
+                  🗑️ Xóa tài liệu
+                </button>
+              )}
 
-               {currentUser && selectedLessonForDetail.creator?.id === currentUser.id && (
-                 <>
-                   <button 
-                     onClick={() => {
-                       const l = selectedLessonForDetail;
-                       setSelectedLessonForDetail(null);
-                       openEditModal(l);
-                     }} 
-                     className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-all hover:shadow-sm"
-                   >
-                     ✏️ Chỉnh sửa thông tin
-                   </button>
-                   {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
-                     <button 
-                       onClick={() => {
-                         const l = selectedLessonForDetail;
-                         setSelectedLessonForDetail(null);
-                         openProposeModal(l);
-                       }} 
-                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-95 text-white font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
-                     >
-                       🌐 Đề xuất công khai
-                     </button>
-                   )}
-                 </>
-               )}
+              <button
+                onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
+                className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all hover:shadow-sm"
+              >
+                Đóng
+              </button>
 
-               {selectedLessonForDetail.file_path || selectedLessonForDetail.file_url ? (
-                  <a
-                    href={getLessonFileUrl(selectedLessonForDetail)}
-                    download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-all hover:shadow-md flex items-center justify-center gap-2"
+              {currentUser && selectedLessonForDetail.creator?.id === currentUser.id && (
+                <>
+                  <button
+                    onClick={() => {
+                      const l = selectedLessonForDetail;
+                      setSelectedLessonForDetail(null);
+                      openEditModal(l);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-all hover:shadow-sm"
                   >
-                    ↓ Tải tài liệu về máy
-                  </a>
-                ) : (
-                  <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-455 font-bold cursor-not-allowed border border-gray-200">
-                    Không có file đính kèm
+                    ✏️ Chỉnh sửa thông tin
                   </button>
-                )}
+                  {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
+                    <button
+                      onClick={() => {
+                        const l = selectedLessonForDetail;
+                        setSelectedLessonForDetail(null);
+                        openProposeModal(l);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-95 text-white font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                    >
+                      🌐 Đề xuất công khai
+                    </button>
+                  )}
+                </>
+              )}
+
+              {selectedLessonForDetail.file_path || selectedLessonForDetail.file_url ? (
+                <a
+                  href={getLessonFileUrl(selectedLessonForDetail)}
+                  download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-all hover:shadow-md flex items-center justify-center gap-2"
+                >
+                  ↓ Tải tài liệu về máy
+                </a>
+              ) : (
+                <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-455 font-bold cursor-not-allowed border border-gray-200">
+                  Không có file đính kèm
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -4873,7 +5262,7 @@ export default function App() {
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <span>👤</span> Thông tin tài khoản đăng tải
               </h3>
-              <button 
+              <button
                 onClick={() => setSelectedCreatorForProfile(null)}
                 className="text-gray-400 hover:text-gray-600 text-xl font-bold transition-colors"
               >
@@ -4910,19 +5299,17 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Vai trò hệ thống</label>
                   <div>
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-sm font-bold ${
-                      selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                      selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${
-                        selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-500' :
-                        selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-500' :
-                        'bg-emerald-500'
-                      }`}></span>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-sm font-bold ${selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                        selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                      <span className={`w-2 h-2 rounded-full ${selectedCreatorForProfile.role === 'ADMIN' ? 'bg-purple-500' :
+                          selectedCreatorForProfile.role === 'TEACHER' ? 'bg-blue-500' :
+                            'bg-emerald-500'
+                        }`}></span>
                       {selectedCreatorForProfile.role === 'ADMIN' ? 'Ban quản trị hệ thống' :
-                       selectedCreatorForProfile.role === 'TEACHER' ? 'Giáo viên phụ trách môn' :
-                       'Thành viên / Học sinh'}
+                        selectedCreatorForProfile.role === 'TEACHER' ? 'Giáo viên phụ trách môn' :
+                          'Thành viên / Học sinh'}
                     </span>
                   </div>
                 </div>
@@ -4939,7 +5326,7 @@ export default function App() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setSelectedCreatorForProfile(null)}
                 className="w-full py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors shadow-sm"
               >
@@ -4956,7 +5343,7 @@ export default function App() {
       {/* Approval Requests Management Modal */}
       {showApprovalModal && currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') && (
         <div className="fixed z-50 inset-0 flex items-center justify-center p-3 bg-gray-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl overflow-hidden border border-gray-100 flex flex-col" style={{height: '92vh'}}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl overflow-hidden border border-gray-100 flex flex-col" style={{ height: '92vh' }}>
             {/* Modal Header */}
             <div className="bg-amber-700 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
               <div className="flex items-center gap-2">
@@ -4966,7 +5353,7 @@ export default function App() {
                   <p className="text-amber-200 text-xs mt-0.5">Duyệt hoặc từ chối bài giảng được đăng bởi người dùng</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => { setShowApprovalModal(false); setSelectedApproval(null); }}
                 className="text-white hover:text-amber-100 text-2xl transition-colors font-bold"
               >
@@ -4991,14 +5378,13 @@ export default function App() {
                     pendingApprovals.map((req: any) => {
                       const isSelected = selectedApproval && selectedApproval.id === req.id;
                       return (
-                        <div 
+                        <div
                           key={req.id}
                           onClick={() => { setSelectedApproval(req); setFeedback(req.feedback || ''); }}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                            isSelected 
-                              ? 'border-amber-500 bg-amber-50 shadow-sm' 
+                          className={`p-3 rounded-xl border transition-all cursor-pointer ${isSelected
+                              ? 'border-amber-500 bg-amber-50 shadow-sm'
                               : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/30'
-                          }`}
+                            }`}
                         >
                           <p className="font-semibold text-gray-900 text-sm truncate">{req.lesson_plan_title}</p>
                           <p className="text-xs text-gray-400 mt-0.5">👤 {req.requester_name || 'Người dùng'}</p>
@@ -5134,13 +5520,13 @@ export default function App() {
 
                     {/* Action footer */}
                     <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-white flex gap-3 justify-end">
-                      <button 
+                      <button
                         onClick={() => handleActionApproval(selectedApproval.id, 'REJECT', feedback)}
                         className="px-5 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl text-sm font-bold transition-colors"
                       >
                         ✕ Từ chối
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleActionApproval(selectedApproval.id, 'APPROVE')}
                         className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-bold shadow-md shadow-green-100 transition-all"
                       >
@@ -5162,7 +5548,7 @@ export default function App() {
 
             {/* Modal Footer */}
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
+              <button
                 onClick={() => { setShowApprovalModal(false); setSelectedApproval(null); }}
                 className="px-6 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm shadow-sm"
               >
@@ -5279,7 +5665,7 @@ export default function App() {
                 <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <span>🔑</span> Đổi mật khẩu bảo mật (Không bắt buộc)
                 </h4>
-                
+
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 mb-1.5">Mật khẩu mới</label>
@@ -5348,9 +5734,8 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={profileSaving}
-                  className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-100 ${
-                    profileSaving ? 'opacity-70 cursor-not-allowed' : ''
-                  }`}
+                  className={`px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-md transition-all flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-100 ${profileSaving ? 'opacity-70 cursor-not-allowed' : ''
+                    }`}
                 >
                   {profileSaving ? (
                     <>
@@ -5375,7 +5760,7 @@ export default function App() {
           useAiRag={useAiRag}
           directories={directories}
           currentUser={currentUser}
-          onBack={() => {}}
+          onBack={() => { }}
           onSuccess={() => { fetchLessonPlans(searchQuery); }}
           onRefreshDirs={fetchDirectories}
           lessonPlans={lessonPlans}

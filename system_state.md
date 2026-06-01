@@ -78,6 +78,21 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * Chạy thành công tập lệnh dọn dẹp diện rộng `cleanup_orphaned_notes.py` giải phóng sạch sẽ **10 ghi chú mồ côi** và **6 nốt khái niệm rác** trong thư mục vault thực tế.
     - **Khắc phục lỗi ECONNRESET, Mismatch Đồ thị & Tối ưu hóa Context RAG**:
         * Tích hợp Thread Lock `_gguf_model_lock` và tăng context an toàn `n_ctx=4096` trong `llm_runner.py` để bảo vệ tài nguyên GGUF khỏi xung đột truy cập song song.
-        * Làm sạch và chuẩn hóa an toàn tham số `lesson_id` query params tại `AIChatGraphDataAPIView` (`views.py`) để loại bỏ hoàn toàn các chuỗi `"null"` hoặc `"undefined"` bị coi là ID hợp lệ, sửa triệt để lỗi hiển thị sai lệch đồ thị.
-        * **Nâng cấp đột phá**: Tối ưu hóa kích thước prompt trong `graph_rag_service.py` bằng cách loại bỏ bảng danh mục toàn hệ thống khi ở chế độ `FOCUS_QA`. Dung lượng context được nén từ 14,874 ký tự xuống còn 4,103 ký tự (giảm ~72%), loại bỏ hoàn toàn nguy cơ tràn cửa sổ ngữ cảnh `4096 tokens` của Qwen 7B GGUF chạy offline trên CPU.
+*   **2026-06-01**: **Sửa lỗi Phân tích Giáo án Word (Docx), Tự động chuyển đổi Markdown thời gian thực & Tích hợp nút Về giữa Sơ đồ tư duy**:
+    - **Cập nhật Backend Serializer thông minh (On-the-fly Docx Sync)**:
+        * Khắc phục lỗi trả về nội dung tóm tắt ngắn từ database thay vì nội dung tài liệu đầy đủ. Cập nhật `get_content_preview` trong `LessonPlanSerializer` (`backend/app/serializers.py`) để tự động kiểm tra nếu dữ liệu xem trước chỉ là tóm tắt ngắn seeded (không chứa `"## "` hoặc `"# "`), hệ thống sẽ **ép buộc chạy trình trích xuất ngầm tài liệu Word** (`convert_docx_to_markdown`) để phân tích tệp `.docx` thực tế tại chỗ, lưu cập nhật lại database và trả về bản Markdown chi tiết cho Frontend.
+    - **Nâng cấp Bộ phân tích Sư phạm thích ứng (Adaptive Pedagogical Parser)**:
+        * Tối ưu hóa bộ phân tích `parseMarkdownLessonPlan` trong `App.tsx` giúp nhận diện linh hoạt các cấu trúc tài liệu không có bảng biểu.
+        * **Mục tiêu**: Nhận diện thông minh các dòng gạch đầu dòng tự do dưới mục tiêu dạy học (dù không có mã hóa `KT/NL/PC`) để tự động sắp xếp vào nhánh mục tiêu.
+        * **Học liệu**: Tự động trích xuất các dòng mô tả thiết bị, đồ dùng dạy học tự do bên ngoài bảng biểu.
+        * **Đồng bộ Tiến trình - Hoạt động**: Tích hợp cơ chế liên kết ngược song phương (`Cross-population fallbacks`). Nếu bảng tiến trình bị trống, Frontend tự động vẽ nhánh tiến trình dựa trên danh sách hoạt động chi tiết (và ngược lại), giúp sơ đồ luôn đầy đủ 4 nhánh nội dung thực tế.
+    - **Nút "🎯 Về giữa" (Center View) cho Sơ đồ tư duy**:
+        * Tích hợp hook `useReactFlow` từ `@xyflow/react` trong `MindmapFlow.tsx`.
+        * Thêm nút **🎯 Về giữa** nằm bên cạnh nút **🔄 Reset** với hiệu ứng hover mượt mà và chuyển cảnh di chuyển `fitView` êm ái thời lượng **800ms**, nâng cao độ cao cấp và trải nghiệm tương tác trực quan cho người dùng.
+    - **Sửa lỗi lặp tệp tin trong Cây Thư mục (Directory Tree Deduplication)**:
+        * Khắc phục lỗi hiển thị tệp tin lặp lại ở cả thư mục cha và thư mục con khi một tệp thuộc về nhiều cấp thư mục.
+        * Viết thêm hàm đệ quy `getDescendantIds` trong `App.tsx` để xác định toàn bộ các thư mục con (descendants) của thư mục hiện tại.
+        * Cập nhật `dirFiles` của `DirectoryNode` để tự động lọc bỏ các tệp tin nếu chúng đã được xếp vào các thư mục con cụ thể bên dưới, giúp sơ đồ cây thư mục luôn sạch sẽ, chính xác theo cấu trúc chuẩn.
+
+
 
