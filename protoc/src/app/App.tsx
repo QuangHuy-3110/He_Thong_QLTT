@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+﻿import React, { useEffect, useState, useMemo } from 'react';
 import MindmapFlow from './components/MindmapFlow';
 import axios from 'axios';
 import UploadPage, { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, BIOLOGY_CONNECTIONS, LOCATIONS } from './UploadPage';
@@ -1696,6 +1696,9 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
+  const [detailCache, setDetailCache] = useState<Record<number, LessonPlan>>({});
+  // Session-level ratings cache: avoids re-fetching ratings from server when user revisits same card
+  const [ratingsCache, setRatingsCache] = useState<Record<number, { ratings: any[]; average_rating: number; total_ratings: number }>>({});
 
   // Edit History States & Methods
   const [editHistory, setEditHistory] = useState<any[]>([]);
@@ -1772,6 +1775,7 @@ export default function App() {
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editGrade, setEditGrade] = useState('');
+  const [editLops, setEditLops] = useState<string[]>([]);
   const [editDirId, setEditDirId] = useState('');
   const [editAttrs, setEditAttrs] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
@@ -1928,16 +1932,7 @@ export default function App() {
     fetchLessonPlans(debouncedSearchQuery);
   }, [
     currentUser,
-    debouncedSearchQuery,
-    selectedClasses,
-    selectedTypes,
-    selectedSubjects,
-    selectedTietDay,
-    selectedTargetStudents,
-    selectedTracks,
-    selectedTopics,
-    selectedBiologies,
-    selectedLocations
+    debouncedSearchQuery
   ]);
 
   useEffect(() => {
@@ -1959,46 +1954,74 @@ export default function App() {
   useEffect(() => {
     if (selectedLessonForDetail) {
       setPreviewMode('markdown');
-      setRatingLoading(true);
       setSelectedStarFilter('all');
       setEditingMyReview(false);
 
-      // Fetch the full lesson detail in the background to ensure we have the complete and latest content_preview
-      axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/?user_id=${currentUser?.id}`)
-        .then(res => {
-          if (res.data && res.data.content_preview !== selectedLessonForDetail.content_preview) {
-            setSelectedLessonForDetail(prev => {
-              if (!prev || prev.id !== res.data.id) return prev;
-              return { ...prev, ...res.data };
-            });
-          }
-        })
-        .catch(err => {
-          console.error("Lỗi khi tải chi tiết giáo án từ API:", err);
-        });
-
-      axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
-        .then(res => {
-          setLessonRatings(res.data.ratings);
-          setRatingAvg(res.data.average_rating);
-          setRatingTotal(res.data.total_ratings);
-          if (currentUser) {
-            const mine = res.data.ratings.find((r: any) => r.user_id === currentUser.id);
-            if (mine) {
-              setMyRating(mine.rating);
-              setMyComment(mine.comment || '');
-            } else {
-              setMyRating(0);
-              setMyComment('');
+      // ── 1. Content detail cache (avoid re-fetching content_preview) ────────
+      const cached = detailCache[selectedLessonForDetail.id];
+      if (cached && cached.content_preview) {
+        // Restore full detail from session cache — zero network request!
+        if (selectedLessonForDetail.content_preview !== cached.content_preview) {
+          setSelectedLessonForDetail(prev => {
+            if (!prev || prev.id !== cached.id) return prev;
+            return { ...prev, ...cached };
+          });
+        }
+      } else {
+        // First visit: fetch full lesson detail and store in cache
+        axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/?user_id=${currentUser?.id}`)
+          .then(res => {
+            if (res.data) {
+              setDetailCache(prev => ({ ...prev, [selectedLessonForDetail.id]: res.data }));
+              if (res.data.content_preview !== selectedLessonForDetail.content_preview) {
+                setSelectedLessonForDetail(prev => {
+                  if (!prev || prev.id !== res.data.id) return prev;
+                  return { ...prev, ...res.data };
+                });
+              }
             }
-          }
-        })
-        .catch(err => {
-          console.error("Lỗi khi tải bình luận:", err);
-        })
-        .finally(() => {
-          setRatingLoading(false);
-        });
+          })
+          .catch(err => {
+            console.error("Lỗi khi tải chi tiết giáo án từ API:", err);
+          });
+      }
+
+      // ── 2. Ratings cache (avoid re-fetching ratings on revisit) ─────────────
+      const cachedRatings = ratingsCache[selectedLessonForDetail.id];
+      if (cachedRatings) {
+        // Restore ratings from session cache — zero network request!
+        setLessonRatings(cachedRatings.ratings);
+        setRatingAvg(cachedRatings.average_rating);
+        setRatingTotal(cachedRatings.total_ratings);
+        if (currentUser) {
+          const mine = cachedRatings.ratings.find((r: any) => r.user_id === currentUser.id);
+          if (mine) { setMyRating(mine.rating); setMyComment(mine.comment || ''); }
+          else { setMyRating(0); setMyComment(''); }
+        }
+        setRatingLoading(false);
+      } else {
+        // First visit: fetch ratings and store in cache
+        setRatingLoading(true);
+        axios.get(`/api/lesson-plans/${selectedLessonForDetail.id}/ratings/`)
+          .then(res => {
+            const ratingsData = { ratings: res.data.ratings, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings };
+            setRatingsCache(prev => ({ ...prev, [selectedLessonForDetail.id]: ratingsData }));
+            setLessonRatings(res.data.ratings);
+            setRatingAvg(res.data.average_rating);
+            setRatingTotal(res.data.total_ratings);
+            if (currentUser) {
+              const mine = res.data.ratings.find((r: any) => r.user_id === currentUser.id);
+              if (mine) { setMyRating(mine.rating); setMyComment(mine.comment || ''); }
+              else { setMyRating(0); setMyComment(''); }
+            }
+          })
+          .catch(err => {
+            console.error("Lỗi khi tải bình luận:", err);
+          })
+          .finally(() => {
+            setRatingLoading(false);
+          });
+      }
     } else {
       setLessonRatings([]);
       setMyRating(0);
@@ -2006,7 +2029,7 @@ export default function App() {
       setSelectedStarFilter('all');
       setEditingMyReview(false);
     }
-  }, [selectedLessonForDetail, currentUser]);
+  }, [selectedLessonForDetail?.id, currentUser]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2125,10 +2148,15 @@ export default function App() {
       });
       if (!response.ok) throw new Error('Upload failed with status ' + response.status);
 
+      const newPlan = await response.json();
       alert('Tải lên thành công (Lưu cục bộ)!');
       setShowUploadModal(false);
       setUpFile(null);
-      fetchLessonPlans(searchQuery);
+      
+      // Update local state directly to avoid full DB reload
+      setAllLessonPlans(prev => [newPlan, ...prev]);
+      setUnfilteredLessons(prev => [newPlan, ...prev]);
+      setDetailCache(prev => ({ ...prev, [newPlan.id]: newPlan }));
     } catch (err) {
       console.error('Upload Error:', err);
       alert('Lỗi khi tải lên. Vui lòng kiểm tra console.');
@@ -2140,7 +2168,18 @@ export default function App() {
     try {
       await fetch(`/api/lesson-plans/${id}/`, { method: 'DELETE' });
       alert('Xóa thành công!');
-      fetchLessonPlans(searchQuery);
+      
+      // Update local state directly to avoid full DB reload
+      setAllLessonPlans(prev => prev.filter(p => p.id !== id));
+      setUnfilteredLessons(prev => prev.filter(p => p.id !== id));
+      setDetailCache(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (selectedLessonForDetail?.id === id) {
+        setSelectedLessonForDetail(null);
+      }
     } catch (err) {
       alert('Lỗi khi xóa.');
     }
@@ -2194,6 +2233,8 @@ export default function App() {
     setEditTitle(lesson.title);
     setEditDesc(lesson.description);
     setEditGrade(lesson.target_student);
+    const lpLop = lesson.attributes?.['lop'] || lesson.attributes?.['Lớp'] || [];
+    setEditLops(Array.isArray(lpLop) ? lpLop : [lpLop]);
     setEditDirId(lesson.directory_ids && lesson.directory_ids.length > 0 ? lesson.directory_ids[0].toString() : '');
     setEditAttrs(JSON.stringify(lesson.attributes));
     setEditFile(null);
@@ -2215,6 +2256,7 @@ export default function App() {
       formData.append('directory_id', editDirId);
 
       const attrsObj = JSON.parse(editAttrs || '{}');
+      attrsObj['lop'] = editLops;
       attrsObj['Địa điểm'] = editLocation;
       formData.append('attributes', JSON.stringify(attrsObj));
       if (editFile) {
@@ -2236,13 +2278,22 @@ export default function App() {
         throw new Error('Edit failed with status ' + response.status);
       }
 
+      const updatedPlan = await response.json();
+
       const msg = currentUser.role === 'USER'
         ? 'Đã gửi bản chỉnh sửa để chờ duyệt lại!'
         : 'Cập nhật thành công!';
       alert(msg);
       setEditingLesson(null);
       setEditFile(null);
-      fetchLessonPlans(searchQuery);
+
+      // Update local state directly to avoid full DB reload
+      setAllLessonPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      setUnfilteredLessons(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+      setDetailCache(prev => ({ ...prev, [updatedPlan.id]: updatedPlan }));
+      if (selectedLessonForDetail?.id === updatedPlan.id) {
+        setSelectedLessonForDetail(updatedPlan);
+      }
     } catch (err: any) {
       console.error('Edit Error:', err);
       alert('Lỗi cập nhật tài liệu: ' + err.message);
@@ -2285,9 +2336,22 @@ export default function App() {
       });
       alert(res.data.message || 'Đã gửi đề xuất công khai thành công!');
       setShowProposeModal(false);
+      
+      const updatedPlan = res.data.lesson;
       setLessonToPropose(null);
       setTargetPublicDirId('');
-      fetchLessonPlans(searchQuery);
+      
+      if (updatedPlan) {
+        // Update local state directly to avoid full DB reload
+        setAllLessonPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+        setUnfilteredLessons(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+        setDetailCache(prev => ({ ...prev, [updatedPlan.id]: updatedPlan }));
+        if (selectedLessonForDetail?.id === updatedPlan.id) {
+          setSelectedLessonForDetail(updatedPlan);
+        }
+      } else {
+        fetchLessonPlans(searchQuery);
+      }
     } catch (err: any) {
       if (err.response?.data?.error) {
         setProposeError(err.response.data.error);
@@ -2313,7 +2377,31 @@ export default function App() {
         action
       });
       alert(res.data.message || labels[action].success);
-      fetchLessonPlans(searchQuery);
+
+      if (action === 'delete') {
+        setAllLessonPlans(prev => prev.filter(p => p.id !== lessonId));
+        setUnfilteredLessons(prev => prev.filter(p => p.id !== lessonId));
+        setDetailCache(prev => {
+          const next = { ...prev };
+          delete next[lessonId];
+          return next;
+        });
+        if (selectedLessonForDetail?.id === lessonId) {
+          setSelectedLessonForDetail(null);
+        }
+      } else {
+        const updatedPlan = res.data.lesson;
+        if (updatedPlan) {
+          setAllLessonPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+          setUnfilteredLessons(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+          setDetailCache(prev => ({ ...prev, [updatedPlan.id]: updatedPlan }));
+          if (selectedLessonForDetail?.id === updatedPlan.id) {
+            setSelectedLessonForDetail(updatedPlan);
+          }
+        } else {
+          fetchLessonPlans(searchQuery);
+        }
+      }
     } catch (err: any) {
       alert('Lỗi: ' + (err.response?.data?.error || err.message));
     }
@@ -2388,11 +2476,131 @@ export default function App() {
     return selectedTracks.flatMap(track => TRACK_TO_TOPICS[track] || []);
   }, [selectedTracks]);
 
-  // Search & dynamic filters are fully executed on PostgreSQL Server-side.
-  // We only apply the directory folder scope client-side here.
+  // Search & dynamic filters are fully executed on client-side React state for instant 0ms filtering
+  // to avoid redundant database reloads when clicking sidebar checkboxes.
   const filteredLessonPlans = useMemo(() => {
-    return dirFilteredLessons;
-  }, [dirFilteredLessons]);
+    let list = [...dirFilteredLessons];
+
+    // 1. Filter by Lớp học (selectedClasses) - Strict AND (every)
+    if (selectedClasses.length > 0) {
+      list = list.filter(l => {
+        const lpLop = l.attributes?.['lop'] || l.attributes?.['Lớp'];
+        if (!lpLop) return false;
+        const lopList = Array.isArray(lpLop) ? lpLop : [lpLop];
+        return selectedClasses.every(c => lopList.some((val: any) => String(val).toLowerCase().includes(c.toLowerCase())));
+      });
+    }
+
+    // 2. Filter by Loại hình (selectedTypes) - Strict AND (every)
+    if (selectedTypes.length > 0) {
+      list = list.filter(l => {
+        const lpType = l.attributes?.['Loại hình'] || l.attributes?.['loai_hinh'];
+        if (!lpType) return false;
+        return selectedTypes.every(t => String(lpType).toLowerCase().includes(t.toLowerCase()));
+      });
+    }
+
+    // 3. Filter by Đối tượng (selectedTargetStudents) - Strict AND (every)
+    if (selectedTargetStudents.length > 0) {
+      list = list.filter(l => {
+        const lpTarget = l.target_student;
+        if (!lpTarget) return false;
+        return selectedTargetStudents.every(ts => {
+          if (ts === 'Học sinh nông thôn') {
+            return lpTarget.toLowerCase().includes('nông thôn') || lpTarget.toLowerCase().includes('ns') || lpTarget.toLowerCase().includes('hs nông thôn') || lpTarget.toLowerCase().includes('tat ca') || lpTarget.toLowerCase().includes('tất cả');
+          }
+          if (ts === 'Học sinh thành thị') {
+            return lpTarget.toLowerCase().includes('thành thị') || lpTarget.toLowerCase().includes('hs thành thị') || lpTarget.toLowerCase().includes('tat ca') || lpTarget.toLowerCase().includes('tất cả');
+          }
+          return lpTarget.toLowerCase().includes(ts.toLowerCase());
+        });
+      });
+    }
+
+    // 4. Filter by Địa điểm (selectedLocations) - Strict AND (every)
+    if (selectedLocations.length > 0) {
+      list = list.filter(l => {
+        const lpLoc = l.attributes?.['Địa điểm'] || l.attributes?.['dia_diem'];
+        if (!lpLoc) return false;
+        return selectedLocations.every(loc => {
+          if (loc.toLowerCase().includes('ngoài trời')) {
+            return String(lpLoc).toLowerCase().includes('ngoài trời') || String(lpLoc).toLowerCase().includes('ngoai troi');
+          }
+          if (loc.toLowerCase().includes('thực địa')) {
+            return String(lpLoc).toLowerCase().includes('thực địa') || String(lpLoc).toLowerCase().includes('thuc dia') || String(lpLoc).toLowerCase().includes('nông trại');
+          }
+          return String(lpLoc).toLowerCase().includes(loc.toLowerCase());
+        });
+      });
+    }
+
+    // 5. Filter by Kiến thức / Subjects (selectedSubjects) - Strict AND (every)
+    if (selectedSubjects.length > 0) {
+      list = list.filter(l => {
+        const lpSub = l.attributes?.['Môn học'] || l.attributes?.['mon_hoc'];
+        const tags = l.attributes?.['knowledge_tags'] || [];
+        const tk = l.attributes?.['Từ khóa kiến thức'] || [];
+        const bio = l.attributes?.['Kiến thức sinh học liên quan'] || '';
+
+        return selectedSubjects.every(sub => {
+          const lSubjMatches = lpSub && String(lpSub).toLowerCase().includes(sub.toLowerCase());
+          const tagsMatches = Array.isArray(tags) && tags.some((t: any) => String(t).toLowerCase() === sub.toLowerCase());
+          const tkMatches = Array.isArray(tk) && tk.some((t: any) => String(t).toLowerCase() === sub.toLowerCase());
+          const bioMatches = String(bio).toLowerCase().includes(sub.toLowerCase());
+          return lSubjMatches || tagsMatches || tkMatches || bioMatches;
+        });
+      });
+    }
+
+    // 6. Filter by Tiết dạy (selectedTietDay) - Strict AND (every)
+    if (selectedTietDay.length > 0) {
+      list = list.filter(l => {
+        const lpTiet = l.attributes?.['Tiết dạy'] || l.attributes?.['tiet_day'];
+        if (!lpTiet) return false;
+        return selectedTietDay.every(td => String(lpTiet).toLowerCase().includes(td.toLowerCase()));
+      });
+    }
+
+    // 7. Filter by Mạch kiến thức (selectedTracks) - Strict AND (every)
+    if (selectedTracks.length > 0) {
+      list = list.filter(l => {
+        const lpTrack = l.attributes?.['Mạch kiến thức'] || l.attributes?.['mach_kien_thuc'];
+        if (!lpTrack) return false;
+        return selectedTracks.every(tr => String(lpTrack).toLowerCase().includes(tr.toLowerCase()));
+      });
+    }
+
+    // 8. Filter by Chủ đề (selectedTopics) - Strict AND (every)
+    if (selectedTopics.length > 0) {
+      list = list.filter(l => {
+        const lpTopic = l.attributes?.['Chủ đề'] || l.attributes?.['chu_de'];
+        if (!lpTopic) return false;
+        return selectedTopics.every(tp => String(lpTopic).toLowerCase().includes(tp.toLowerCase()));
+      });
+    }
+
+    // 9. Filter by Liên kết sinh học (selectedBiologies) - Strict AND (every)
+    if (selectedBiologies.length > 0) {
+      list = list.filter(l => {
+        const lpBio = l.attributes?.['Kiến thức sinh học liên quan'] || l.attributes?.['kien_thuc_sinh_hoc'];
+        if (!lpBio) return false;
+        return selectedBiologies.every(b => String(lpBio).toLowerCase().includes(b.toLowerCase()));
+      });
+    }
+
+    return list;
+  }, [
+    dirFilteredLessons,
+    selectedClasses,
+    selectedTypes,
+    selectedTargetStudents,
+    selectedLocations,
+    selectedSubjects,
+    selectedTietDay,
+    selectedTracks,
+    selectedTopics,
+    selectedBiologies
+  ]);
 
   // Auto-switch sort to Relevance when FTS query is active, and revert to Newest when empty
   useEffect(() => {
@@ -2420,10 +2628,16 @@ export default function App() {
         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       }
       if (sortBy === 'rating_desc') {
-        return (b.average_rating || 0) - (a.average_rating || 0);
+        // Primary: highest average rating first. Tiebreaker: more total ratings = higher priority
+        const ratingDiff = (b.average_rating || 0) - (a.average_rating || 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        return (b.total_ratings || 0) - (a.total_ratings || 0);
       }
       if (sortBy === 'rating_asc') {
-        return (a.average_rating || 0) - (b.average_rating || 0);
+        // Primary: lowest average rating first. Tiebreaker: fewer total ratings = lower priority
+        const ratingDiff = (a.average_rating || 0) - (b.average_rating || 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        return (a.total_ratings || 0) - (b.total_ratings || 0);
       }
       if (sortBy === 'total_desc') {
         return (b.total_ratings || 0) - (a.total_ratings || 0);
@@ -2467,7 +2681,16 @@ export default function App() {
         directories={directories}
         currentUser={currentUser}
         onBack={() => setCurrentView('home')}
-        onSuccess={() => { setCurrentView('home'); fetchLessonPlans(searchQuery); }}
+        onSuccess={(newPlan) => {
+          setCurrentView('home');
+          if (newPlan) {
+            setAllLessonPlans(prev => [newPlan, ...prev]);
+            setUnfilteredLessons(prev => [newPlan, ...prev]);
+            setDetailCache(prev => ({ ...prev, [newPlan.id]: newPlan }));
+          } else {
+            fetchLessonPlans(searchQuery);
+          }
+        }}
         onRefreshDirs={fetchDirectories}
         managedDirectoryIds={currentUserManagedDirIds}
         uploadMode={uploadMode}
@@ -4615,7 +4838,34 @@ export default function App() {
             <form onSubmit={submitEdit} className="space-y-4">
               <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
               <div><label className="block text-sm mb-1">Mô tả</label><textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
-              <div><label className="block text-sm mb-1">Khối lớp</label><input type="text" value={editGrade} onChange={e => setEditGrade(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
+              <div>
+                <label className="block text-sm mb-1 font-semibold text-gray-700">Đối tượng giảng dạy</label>
+                <select
+                  value={editGrade}
+                  onChange={e => setEditGrade(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Học sinh thành thị">Học sinh thành thị</option>
+                  <option value="Học sinh nông thôn">Học sinh nông thôn</option>
+                  <option value="Học sinh thành thị, Học sinh nông thôn">Cả hai đối tượng</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm mb-1 font-semibold text-gray-700">Lớp học (Áp dụng)</label>
+                <div className="flex gap-2">
+                  {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setEditLops(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])}
+                      className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold transition-all ${editLops.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-700 bg-white hover:bg-slate-50'}`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="block text-sm mb-1 font-semibold text-gray-700">Lưu vào thư mục</label>
                 <select
@@ -5057,9 +5307,17 @@ export default function App() {
                                       });
                                       setRatingAvg(res.data.average_rating);
                                       setRatingTotal(res.data.total_ratings);
-                                      const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
-                                      setLessonRatings(res2.data.ratings);
-                                      fetchLessonPlans(searchQuery);
+                                      // Update ratings list locally (replace current user entry - no extra GET needed)
+                                      const updatedRatings1 = lessonRatings.map((r: any) =>
+                                        r.user_id === currentUser.id ? { ...r, rating: myRating, comment: myComment } : r
+                                      );
+                                      setLessonRatings(updatedRatings1);
+                                      const lid1 = selectedLessonForDetail!.id;
+                                      setRatingsCache(prev => ({ ...prev, [lid1]: { ratings: updatedRatings1, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } }));
+                                      setAllLessonPlans(prev => prev.map(p => p.id === lid1 ? { ...p, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : p));
+                                      setUnfilteredLessons(prev => prev.map(p => p.id === lid1 ? { ...p, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : p));
+                                      setSelectedLessonForDetail(prev => prev ? { ...prev, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : null);
+
                                       setEditingMyReview(false);
                                     } catch { alert('Lỗi khi gửi đánh giá.'); }
                                     finally { setRatingSubmitting(false); }
@@ -5124,9 +5382,15 @@ export default function App() {
                               });
                               setRatingAvg(res.data.average_rating);
                               setRatingTotal(res.data.total_ratings);
-                              const res2 = await axios.get(`/api/lesson-plans/${selectedLessonForDetail!.id}/ratings/`);
-                              setLessonRatings(res2.data.ratings);
-                              fetchLessonPlans(searchQuery);
+                              // Append new rating locally (no extra GET needed)
+                              const newEntry = { user_id: currentUser.id, user_full_name: currentUser.full_name, user_username: currentUser.username, rating: myRating, comment: myComment, created_at: new Date().toISOString() };
+                              const updatedRatings2 = [...lessonRatings, newEntry];
+                              setLessonRatings(updatedRatings2);
+                              const lid2 = selectedLessonForDetail!.id;
+                              setRatingsCache(prev => ({ ...prev, [lid2]: { ratings: updatedRatings2, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } }));
+                              setAllLessonPlans(prev => prev.map(p => p.id === lid2 ? { ...p, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : p));
+                              setUnfilteredLessons(prev => prev.map(p => p.id === lid2 ? { ...p, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : p));
+                              setSelectedLessonForDetail(prev => prev ? { ...prev, average_rating: res.data.average_rating, total_ratings: res.data.total_ratings } : null);
                             } catch { alert('Lỗi khi gửi đánh giá.'); }
                             finally { setRatingSubmitting(false); }
                           }}

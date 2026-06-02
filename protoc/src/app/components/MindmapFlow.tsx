@@ -413,7 +413,6 @@ const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => v
 
 const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
   const [activeItem, setActiveItem] = useState<NodeDetailItem | null>(null);
-  const [hoveredItem, setHoveredItem] = useState<NodeDetailItem | null>(null);
   const { fitView } = useReactFlow();
 
   const { nodes: initNodes, edges: initEdges } = useMemo(
@@ -438,23 +437,6 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
     fitView({ duration: 800, padding: 0.15 });
   }, [fitView]);
 
-  const onNodeMouseEnter = useCallback((event: React.MouseEvent, node: Node) => {
-    if (node.type === 'leaf') {
-      const item = (node.data as any).item;
-      if (item) {
-        setHoveredItem(item);
-      }
-    }
-  }, []);
-
-  const onPaneMouseEnter = useCallback(() => {
-    setHoveredItem(null);
-  }, []);
-
-  const onPaneClick = useCallback(() => {
-    setHoveredItem(null);
-  }, []);
-
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <ReactFlow
@@ -462,9 +444,6 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onNodeMouseEnter={onNodeMouseEnter}
-        onPaneMouseEnter={onPaneMouseEnter}
-        onPaneClick={onPaneClick}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
@@ -526,117 +505,7 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
         >🎯 Về giữa</button>
       </div>
 
-      {/* Floating Detailed Panel for Hovered Node */}
-      {hoveredItem && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '95%',
-            maxWidth: 1140,
-            maxHeight: '75vh',
-            background: '#fff',
-            borderRadius: 24,
-            boxShadow: '0 24px 80px rgba(15,23,42,0.18)',
-            display: 'flex',
-            flexDirection: 'column',
-            zIndex: 1000,
-            overflow: 'hidden',
-            borderTop: `6px solid ${hoveredItem.color}`,
-            pointerEvents: 'auto',
-            animation: 'modalInHover 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-        >
-          {/* Header */}
-          <div style={{ background: '#ffffff', padding: '22px 28px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifySelf: 'stretch', justifyItems: 'stretch', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <div>
-                <span style={{
-                  display: 'inline-block', padding: '3px 12px', borderRadius: 99,
-                  background: `${hoveredItem.color}15`, border: `1px solid ${hoveredItem.color}33`,
-                  fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase',
-                  color: hoveredItem.color, marginBottom: 8,
-                }}>📂 {hoveredItem.category}</span>
-                <div style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.4, color: '#0f172a' }}>
-                  {hoveredItem.title.split('\n')[0].replace(/^(Tên:|Mục tiêu:)\s*/i, '')}
-                </div>
-              </div>
-              <button
-                onClick={() => setHoveredItem(null)}
-                style={{
-                  background: '#f1f5f9', border: 'none', borderRadius: 99,
-                  width: 32, height: 32, cursor: 'pointer', color: '#64748b', fontSize: 16,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
-              >✕</button>
-            </div>
-          </div>
-
-          {/* Body */}
-          <div style={{
-            padding: '24px 28px',
-            maxHeight: '60vh',
-            overflowY: 'auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
-            gap: 24,
-            background: '#fafbfc',
-          }}>
-            {/* Left Column: Description */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>📝 MÔ TẢ NỘI DUNG</div>
-              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', flexGrow: 1, overflowX: 'auto', fontSize: 14.5, lineHeight: 1.75 }}>
-                <MarkdownViewer markdown={hoveredItem.details} />
-              </div>
-            </div>
-
-            {/* Right Column: Pedagogical Tip */}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: '#059669', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>💡 ĐỊNH HƯỚNG SƯ PHẠM – CTGDPT 2018</div>
-              <div style={{
-                background: 'linear-gradient(135deg,#ffffff,#f0fdf4)',
-                border: '1.5px solid #a7f3d0',
-                borderRadius: 16,
-                padding: '20px',
-                boxShadow: '0 4px 12px rgba(5,150,105,0.03)',
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-              }}>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 22 }}>🏫</span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: '#065f46', letterSpacing: 0.5 }}>Căn cứ: Thông tư 32/2018/TT-BGDĐT – Bộ GD&ĐT</span>
-                </div>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#064e3b', lineHeight: 1.95, whiteSpace: 'pre-line' }}>
-                  {hoveredItem.tip}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{ padding: '16px 28px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#fff', flexShrink: 0 }}>
-            <button
-              onClick={() => setHoveredItem(null)}
-              style={{
-                background: '#0f172a', color: '#fff', border: 'none', borderRadius: 12,
-                padding: '10px 28px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-            >Đóng xem nhanh</button>
-          </div>
-        </div>
-      )}
-
       {activeItem && <DetailModal item={activeItem} onClose={() => setActiveItem(null)} />}
-      <style>{`@keyframes modalInHover { from { opacity:0; transform: translate(-50%, -50%) scale(0.95); } to { opacity:1; transform: translate(-50%, -50%) scale(1); } }`}</style>
     </div>
   );
 };

@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from .models import LessonPlan, User, Directory, ApprovalRequest, LessonPlanRating, LessonPlanEditHistory
-from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer, LessonPlanRatingSerializer, LessonPlanEditHistorySerializer
+from .serializers import LessonPlanSerializer, UserSerializer, DirectorySerializer, ApprovalRequestSerializer, LessonPlanRatingSerializer, LessonPlanEditHistorySerializer, LessonPlanListSerializer
 from django.db.models import Q, Avg
 import json
 
@@ -24,7 +24,7 @@ def get_user_managed_directories(user):
     return list(managed_ids.union(descendant_ids))
 
 class LessonPlanListAPIView(generics.ListAPIView):
-    serializer_class = LessonPlanSerializer
+    serializer_class = LessonPlanListSerializer
 
     def get_queryset(self):
         queryset = LessonPlan.objects.all()
@@ -111,7 +111,11 @@ class LessonPlanListAPIView(generics.ListAPIView):
             for bio in biologies:
                 bio_clean = bio.strip()
                 if bio_clean:
-                    bio_queries |= Q(**{"attributes__Kiến thức sinh học liên quan__icontains": bio_clean})
+                    bio_queries |= (
+                        Q(**{"attributes__Kiến thức sinh học liên quan__icontains": bio_clean}) |
+                        Q(attributes__knowledge_tags__contains=[bio_clean]) |
+                        Q(**{"attributes__Từ khóa kiến thức__contains": [bio_clean]})
+                    )
             queryset = queryset.filter(bio_queries)
 
         # D. Đối tượng giảng dạy (target_student)
@@ -123,7 +127,12 @@ class LessonPlanListAPIView(generics.ListAPIView):
             for ts in target_students:
                 ts_clean = ts.strip()
                 if ts_clean:
-                    ts_queries |= Q(target_student__icontains=ts_clean)
+                    if 'nông thôn' in ts_clean.lower() or 'nong thon' in ts_clean.lower():
+                        ts_queries |= Q(target_student__icontains='nông thôn') | Q(target_student__icontains='HS nông thôn') | Q(target_student__icontains='Tat ca') | Q(target_student__icontains='Tất cả')
+                    elif 'thành thị' in ts_clean.lower() or 'thanh thi' in ts_clean.lower():
+                        ts_queries |= Q(target_student__icontains='thành thị') | Q(target_student__icontains='HS thành thị') | Q(target_student__icontains='Tat ca') | Q(target_student__icontains='Tất cả')
+                    else:
+                        ts_queries |= Q(target_student__icontains=ts_clean)
             queryset = queryset.filter(ts_queries)
 
         # E. Địa điểm / Phòng thiết bị (location)
@@ -135,7 +144,12 @@ class LessonPlanListAPIView(generics.ListAPIView):
             for loc in locations:
                 loc_clean = loc.strip()
                 if loc_clean:
-                    loc_queries |= Q(**{"attributes__Địa điểm__icontains": loc_clean})
+                    if 'ngoài trời' in loc_clean.lower() or 'ngoai troi' in loc_clean.lower():
+                        loc_queries |= Q(**{"attributes__Địa điểm__icontains": "Ngoài trời"})
+                    elif 'thực địa' in loc_clean.lower() or 'thuc dia' in loc_clean.lower() or 'nông trại' in loc_clean.lower():
+                        loc_queries |= Q(**{"attributes__Địa điểm__icontains": "Thực địa"}) | Q(**{"attributes__Địa điểm__icontains": "Nông trại"})
+                    else:
+                        loc_queries |= Q(**{"attributes__Địa điểm__icontains": loc_clean})
             queryset = queryset.filter(loc_queries)
 
         # 5. Directory Filter
@@ -178,6 +192,12 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             
         if lesson.creator != user and user.role != 'ADMIN':
             raise PermissionDenied("Chỉ chủ sở hữu mới có quyền chỉnh sửa bài giảng này.")
+
+        # Standardize target_student in validated_data if present
+        if 'target_student' in serializer.validated_data:
+            ts = serializer.validated_data['target_student']
+            if ts:
+                serializer.validated_data['target_student'] = ts.replace('HS thành thị', 'Học sinh thành thị').replace('HS nông thôn', 'Học sinh nông thôn')
 
         import os
         title_before = lesson.title
@@ -501,6 +521,8 @@ class LessonPlanUploadAPIView(APIView):
         title = request.data.get('title')
         description = request.data.get('description', '')
         target_student = request.data.get('target_student', '')
+        if target_student:
+            target_student = target_student.replace('HS thành thị', 'Học sinh thành thị').replace('HS nông thôn', 'Học sinh nông thôn')
         # Enforce status based on user role and target directory permissions
         resolved_status = 'LOCAL'
         directory = None
@@ -967,7 +989,8 @@ class LessonPlanProposeAPIView(APIView):
             )
             return Response({
                 'message': 'Đã xuất bản tài liệu công khai thành công (Tự động duyệt)!',
-                'published': True
+                'published': True,
+                'lesson': LessonPlanSerializer(lesson, context={'request': request}).data
             })
         else:
             # Tạo mới/Cập nhật yêu cầu xét duyệt (ApprovalRequest)
@@ -982,7 +1005,8 @@ class LessonPlanProposeAPIView(APIView):
             )
             return Response({
                 'message': 'Đề xuất công khai tài liệu thành công, đang chờ phê duyệt!',
-                'published': False
+                'published': False,
+                'lesson': LessonPlanSerializer(lesson, context={'request': request}).data
             })
 
 class LessonPlanCheckDuplicateAPIView(APIView):
@@ -1156,7 +1180,10 @@ class LessonPlanWithdrawAPIView(APIView):
             lesson.save(update_fields=['status'])
             # Hủy các yêu cầu duyệt đang chờ (nếu có)
             ApprovalRequest.objects.filter(lesson_plan=lesson, status='PENDING').update(status='REJECTED', feedback='Tác giả thu hồi tài liệu.')
-            return Response({'message': 'Đã thu hồi bài giảng về thư viện cá nhân!'}, status=status.HTTP_200_OK)
+            return Response({
+                'message': 'Đã thu hồi bài giảng về thư viện cá nhân!',
+                'lesson': LessonPlanSerializer(lesson, context={'request': request}).data
+            }, status=status.HTTP_200_OK)
 
 class LessonPlanParseDocxAPIView(APIView):
     def post(self, request):

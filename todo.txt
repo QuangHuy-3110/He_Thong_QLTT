@@ -81,7 +81,22 @@ minerU
 - Cải thiện giao diện trong card bài giảng chi tiết: Thiết kế lại toàn bộ phần xem tài liệu và sơ đồ tư duy rườm rà thành 2 thẻ nút tiện ích cao cấp (Interactive Portal Grid) mở rộng sang các trang không gian làm việc toàn màn hình (Dedicated Workspace Pages) màu sáng sang trọng. Sơ đồ tư duy được tái cấu trúc thành dạng Sơ đồ 2 bên đối xứng cân đối hoàn hảo (Bilateral Symmetrical Layout) tự động zoom to gấp 2 lần cực thoáng và sắc nét. Trang xem tài liệu chi tiết ưu tiên hiển thị định dạng trích xuất Markdown tinh gọn và hỗ trợ bộ đôi nút tải xuống thông minh cho cả bản gốc Word (.docx) lẫn bản sao Markdown (.md) trùng khớp hiển thị web; đồng thời ô cửa sổ chi tiết lá sơ đồ (DetailModal) được nới rộng tối đa lên 1140px chia làm 2 cột song song với cỡ chữ phóng to 14.5px cực dễ quan sát và loại bỏ trùng lặp nhãn => xong
 - Sửa lại role admin: có quyền chỉnh sửa thông tin các file người khác tải lên (kể cả các admin khác) => xong
 - Sơ đồ tư duy: Tích hợp bảng xem nhanh thông tin chi tiết (Floating Live Preview Panel) hiển thị bự ra ngay GIỮA màn hình khi rê chuột (hover) vào bất kỳ lá sơ đồ nào, loại bỏ hoàn toàn lỗi nhấp nháy (flicker) bằng lớp phủ trong suốt (pointer-events: none), cho phép người dùng đọc trực tiếp toàn bộ Nội dung chi tiết & Định hướng sư phạm CTGDPT 2018 tức thì với hiệu ứng scale-in cực mượt mà => xong
-- So sánh thử mình có nên soạn cả 1 KHBG không... hay chỉ cần ý tưởng thôi.
+
+- Ngày 2/6/2026
+- Thiết kế lại logic chỉ cập nhật (load lại những file có sự thay đổi) ở Frontend và Backend (Phương án C: Hybrid state sync + lightweight serialization), loại bỏ triệt để tình trạng tải lại toàn bộ database khi thêm, sửa, xóa, duyệt, đánh giá => xong
+- Backend: bổ sung LessonPlanListSerializer (bỏ cột nặng content_preview khỏi API danh sách, chỉ tải khi xem chi tiết) => xong
+- Frontend: chuyển toàn bộ bộ lọc sidebar checkbox và topbar popover sang xử lý 100% client-side (useMemo), bấm lọc không gửi bất kỳ request nào lên server => xong
+- Sửa lỗi bộ lọc Lớp: thay free-text bằng dropdown checkbox chuẩn (không lọc bằng text nữa) => xong
+- Chuẩn hóa giá trị target_student ("Học sinh thành thị", "Học sinh nông thôn") trong CSDL để lọc chính xác 100% => xong
+- Logic bộ lọc chọn nhiều: AND mode (chọn nhiều giá trị thì card phải thỏa TẤT CẢ điều kiện) => xong
+- Sơ đồ tư duy: loại bỏ tính năng hover xem nhanh (Floating Quick Preview) gây phiền nhiễu => xong
+- Session-level ratings cache: lần đầu mở card mới fetch từ server, lần sau trong cùng phiên đọc thẳng từ cache (0 request) => xong
+- Sau khi gửi / sửa đánh giá: cập nhật ratingsCache cục bộ, loại bỏ hoàn toàn GET /ratings/ thứ 2 sau POST => xong
+- Sắp xếp theo đánh giá: dùng total_ratings làm tiebreaker khi cùng số sao (nhiều đánh giá hơn ưu tiên hiển thị trước) => xong
+
+
+
+
 
 
 - Thứ 1 là không có 2 file mẫu cho 2 đối tượng học sinh thành thị/nông thôn (chuyên biệt cho từng đối tượng)

@@ -76,7 +76,7 @@ interface UploadPageProps {
   directories: Directory[];
   currentUser: User | null;
   onBack: () => void;
-  onSuccess: () => void;
+  onSuccess: (newPlan?: any) => void;
   onRefreshDirs: () => void;
   managedDirectoryIds?: number[]; // IDs explicitly granted to current teacher
   uploadMode?: 'personal' | 'public'; // Controls which directories are shown
@@ -205,6 +205,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [selectedLops, setSelectedLops] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState('');
   const [selectedKnowledge, setSelectedKnowledge] = useState<string[]>([]);
   const [parsedActivities, setParsedActivities] = useState<any[]>([]);
@@ -219,6 +220,10 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
   const [selectedBiologyConnections, setSelectedBiologyConnections] = useState<string[]>([]);
   const [biologySearch, setBiologySearch] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
+
+  const toggleLop = (val: string) => {
+    setSelectedLops(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  };
 
   const handleFileChange = async (selectedFile: File) => {
     setFile(selectedFile);
@@ -242,8 +247,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           // Map backend strings to exact frontend options
           const mappedTargets: string[] = [];
           data.target_students.forEach((t: string) => {
-            if (t.toLowerCase().includes('thành thị')) mappedTargets.push('HS thành thị');
-            else if (t.toLowerCase().includes('nông thôn')) mappedTargets.push('HS nông thôn');
+            if (t.toLowerCase().includes('thành thị')) mappedTargets.push('Học sinh thành thị');
+            else if (t.toLowerCase().includes('nông thôn')) mappedTargets.push('Học sinh nông thôn');
             else mappedTargets.push(t);
           });
           setSelectedTargets(mappedTargets);
@@ -267,6 +272,10 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
             );
           }
           if (data.attributes['Địa điểm']) setSelectedLocation(data.attributes['Địa điểm']);
+          if (data.attributes['lop'] || data.attributes['Lớp']) {
+            const lopVal = data.attributes['lop'] || data.attributes['Lớp'];
+            setSelectedLops(Array.isArray(lopVal) ? lopVal : [lopVal]);
+          }
         }
       } catch (err) {
         console.error('Auto-extraction error:', err);
@@ -278,7 +287,10 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       const baseName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.'));
       setTitle(baseName);
       if (selectedTargets.length === 0) {
-        setSelectedTargets(['HS thành thị']);
+        setSelectedTargets(['Học sinh thành thị']);
+      }
+      if (selectedLops.length === 0) {
+        setSelectedLops(['Lớp 10']);
       }
       if (!selectedType) {
         setSelectedType('Lý thuyết');
@@ -438,6 +450,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       formData.append('status', defaultStatus);
       
       formData.append('attributes', JSON.stringify({
+        'lop': selectedLops,
         'Mạch kiến thức': selectedTrack,
         'Chủ đề': selectedTopic,
         'Kiến thức sinh học liên quan': selectedBiologyConnections.join(', '),
@@ -465,7 +478,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         } catch {}
         throw new Error('Upload failed');
       }
-      onSuccess();
+      const data = await res.json();
+      onSuccess(data);
     } catch (err: any) {
       setUploadError('Lỗi khi tải lên bài giảng. Vui lòng thử lại.');
     } finally {
@@ -634,12 +648,27 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
             <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-3">Đối tượng giảng dạy <span className="text-red-500">*</span></label>
             <div className="grid grid-cols-2 gap-3">
-              {['HS thành thị', 'HS nông thôn'].map(val => (
+              {['Học sinh thành thị', 'Học sinh nông thôn'].map(val => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => toggleTarget(val)}
                   className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedTargets.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-350 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'}`}
+                >{val}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lớp học */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-3">Lớp học (Áp dụng) <span className="text-red-500">*</span></label>
+            <div className="grid grid-cols-3 gap-3">
+              {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => toggleLop(val)}
+                  className={`py-2.5 px-4 rounded-lg border text-sm font-medium transition-colors ${selectedLops.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-350 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'}`}
                 >{val}</button>
               ))}
             </div>
