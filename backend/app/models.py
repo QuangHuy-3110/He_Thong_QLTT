@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from pgvector.django import VectorField
+from pgvector.django import VectorField, HnswIndex
 
 class User(AbstractUser):
     role = models.CharField(max_length=50, choices=[('ADMIN', 'Quản trị viên'), ('TEACHER', 'Giáo viên'), ('USER', 'Người dùng bình thường')], default='USER')
@@ -55,6 +55,17 @@ class DocumentChunk(models.Model):
     embedding = VectorField(dimensions=1536) 
     heading = models.CharField(max_length=255, blank=True, null=True)
     metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            HnswIndex(
+                name='chunk_vector_hnsw_idx',
+                fields=['embedding'],
+                opclasses=['vector_cosine_ops'],
+                m=16,
+                ef_construction=64
+            )
+        ]
 
 class SystemSetting(models.Model):
     key = models.CharField(max_length=50, unique=True)

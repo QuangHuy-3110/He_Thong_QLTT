@@ -44,6 +44,165 @@ def _check_ollama_llm():
 # Khóa đồng bộ toàn cục cho việc nạp và gọi mô hình local GGUF tránh xung đột luồng gây crash C-level
 _gguf_model_lock = threading.Lock()
 
+def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI hữu ích.", model_choice="3b", api_key=None, model_name=None):
+    """
+    Sinh câu trả lời từ LLM dưới dạng stream (generator).
+    """
+    import requests
+    import time
+    
+    # 1. API ngoài
+    if model_choice == "api" and api_key:
+        is_gemini = "gemini" in str(model_name).lower() or api_key.startswith("AIzaSy")
+        if is_gemini:
+            model = model_name or "gemini-1.5-flash"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": f"{system_prompt}\n\nCâu hỏi/Yêu cầu:\n{prompt}"}
+                        ]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.5,
+                    "maxOutputTokens": 2048
+                }
+            }
+            try:
+                res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
+                buffer = ""
+                for chunk in res.iter_content(chunk_size=512):
+                    if chunk:
+                        text = chunk.decode('utf-8')
+                        buffer += text
+                        import re
+                        # Tìm và yield các đoạn text mới được đóng gói trong JSON của Gemini stream
+                        matches = re.findall(r'"text":\s*"((?:[^"\\]|\\.)*)"', buffer)
+                        if matches:
+                            for m in matches:
+                                try:
+                                    decoded = m.encode('utf-8').decode('unicode-escape')
+                                    yield decoded
+                                except Exception:
+                                    yield m
+                            buffer = ""
+                return
+            except Exception as e:
+                print(f"Error streaming Gemini API: {e}")
+        else:
+            # OpenAI stream
+            model = model_name or "gpt-4o-mini"
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.5,
+                "stream": True
+            }
+            try:
+                res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
+                for line in res.iter_lines():
+                    if line:
+                        line_str = line.decode('utf-8')
+                        if line_str.startswith("data: "):
+                            data_content = line_str[6:]
+                            if data_content.strip() == "[DONE]":
+                                break
+                            try:
+                                json_data = json.loads(data_content)
+                                delta = json_data["choices"][0]["delta"].get("content", "")
+                                if delta:
+                                    yield delta
+                            except Exception:
+                                pass
+                return
+            except Exception as e:
+                print(f"Error streaming OpenAI API: {e}")
+
+    # 2. Ollama stream
+    if model_choice in ("3b", "7b") and _check_ollama_llm():
+        ollama_model = "qwen2.5:3b" if model_choice == "3b" else "qwen2.5:7b"
+        try:
+            url = "http://127.0.0.1:11434/api/chat"
+            payload = {
+                "model": ollama_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                "stream": True,
+                "options": {
+                    "temperature": 0.5
+                }
+            }
+            res = requests.post(url, json=payload, stream=True, timeout=30)
+            for line in res.iter_lines():
+                if line:
+                    try:
+                        json_data = json.loads(line.decode('utf-8'))
+                        delta = json_data["message"].get("content", "")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        pass
+            return
+        except Exception:
+            pass
+
+    # 3. Llama GGUF stream
+    if model_choice in ("3b", "7b"):
+        model_path = MODEL_3B_PATH if model_choice == "3b" else MODEL_7B_PATH
+        if os.path.exists(model_path):
+            try:
+                from llama_cpp import Llama
+                with _gguf_model_lock:
+                    if _loaded_models[model_choice] is None:
+                        _loaded_models[model_choice] = Llama(
+                            model_path=model_path,
+                            n_ctx=4096,
+                            n_threads=4,
+                            n_gpu_layers=0,
+                            verbose=False
+                        )
+                    llm = _loaded_models[model_choice]
+                    formatted_prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+                    
+                    stream_output = llm(
+                        formatted_prompt,
+                        max_tokens=512,
+                        stop=["<|im_end|>", "<|im_start|>"],
+                        temperature=0.5,
+                        stream=True
+                    )
+                    for chunk in stream_output:
+                        text = chunk["choices"][0]["text"]
+                        if text:
+                            yield text
+                return
+            except Exception as e:
+                print(f"Error streaming direct GGUF model: {e}")
+        else:
+            print(f"GGUF model not found at {model_path}")
+
+    # 4. Fallback Simulator stream
+    full_text = generate_simulated_rag_response(prompt)
+    i = 0
+    while i < len(full_text):
+        chunk_len = min(5, len(full_text) - i)
+        yield full_text[i:i+chunk_len]
+        i += chunk_len
+        time.sleep(0.005)
+
 def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu ích.", model_choice="3b", api_key=None, model_name=None):
     """
     Sinh câu trả lời từ LLM.

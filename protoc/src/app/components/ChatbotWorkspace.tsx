@@ -4,7 +4,7 @@ import {
   Send, Bot, User, Sparkles, Plus, Trash2, 
   X, Check, Layers, Compass, Cpu, MessageSquare,
   GripVertical, Activity, Settings, Link, FileText,
-  BookOpen, FolderOpen
+  BookOpen, FolderOpen, Copy, CheckCheck, RefreshCw
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -72,6 +72,9 @@ export default function ChatbotWorkspace({
 }: ChatbotWorkspaceProps) {
   // --- STATES & REFS ---
   const [isOpen, setIsOpen] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false); // Checking history before opening
+  const [showContinueDialog, setShowContinueDialog] = useState<{ session: ChatSession } | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'graph' | 'wiki' | 'settings'>('chat');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
@@ -179,6 +182,22 @@ export default function ChatbotWorkspace({
     localStorage.setItem('kms_chat_size', JSON.stringify(widgetSize));
   }, [widgetSize]);
 
+  // Listen for text selection custom event to trigger Quick QA
+  useEffect(() => {
+    const handleAskTextSelection = (e: Event) => {
+      const text = (e as CustomEvent).detail;
+      if (text) {
+        setIsOpen(true);
+        setActiveTab('chat');
+        setInputMessage(`Giải thích giúp tôi đoạn này trong tài liệu: "${text}"`);
+      }
+    };
+    window.addEventListener('ask-ai-text-selection', handleAskTextSelection);
+    return () => {
+      window.removeEventListener('ask-ai-text-selection', handleAskTextSelection);
+    };
+  }, []);
+
   // --- RESIZE HANDLERS ---
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -241,11 +260,24 @@ export default function ChatbotWorkspace({
     setLoadingHistory(true);
     try {
       const res = await axios.get(`/api/chat-sessions/?user_id=${currentUser.id}`);
-      setSessions(res.data);
-      if (res.data.length > 0 && !activeSession) {
-        loadSessionDetails(res.data[0].id);
-      } else if (res.data.length === 0) {
-        handleCreateSession();
+      const allSessions: ChatSession[] = res.data;
+      setSessions(allSessions);
+      if (allSessions.length > 0 && !activeSession) {
+        // Nếu đang trong ngữ cảnh bài giảng, ưu tiên load session của bài giảng đó
+        if (focusLessonId) {
+          const lessonSession = allSessions.find(s => s.lesson_plan === focusLessonId);
+          if (lessonSession) {
+            loadSessionDetails(lessonSession.id);
+          } else {
+            // Không có session cho bài giảng này -> tạo mới với lessonId
+            handleCreateSession(focusLessonId);
+          }
+        } else {
+          loadSessionDetails(allSessions[0].id);
+        }
+      } else if (allSessions.length === 0) {
+        // Tạo session mới, có thể kèm lessonId nếu đang trong card context
+        handleCreateSession(focusLessonId || undefined);
       }
     } catch (err) {
       console.error('Error fetching chat sessions:', err);
@@ -254,8 +286,36 @@ export default function ChatbotWorkspace({
     }
   };
 
+  // Helper: Open chat with smart context check (for card AI buttons)
+  const openWithContext = useCallback(async (lessonId?: number | null) => {
+    // If no lesson context or already open, just open normally
+    if (!lessonId || !currentUser) {
+      setIsOpen(true);
+      return;
+    }
+    setIsInitializing(true);
+    try {
+      const res = await axios.get(`/api/chat-sessions/?user_id=${currentUser.id}`);
+      const allSessions: ChatSession[] = res.data;
+      setSessions(allSessions);
+      const existing = allSessions.find(s => s.lesson_plan === lessonId);
+      if (existing) {
+        // Found prior session for this card — ask user to continue or start new
+        setShowContinueDialog({ session: existing });
+      } else {
+        // No prior session — just open and let session creation proceed
+        setIsOpen(true);
+      }
+    } catch {
+      setIsOpen(true);
+    } finally {
+      setIsInitializing(false);
+    }
+  }, [currentUser]);
+
   // 2. Load Session details (with messages)
   const loadSessionDetails = async (sessionId: number) => {
+    setLoadingHistory(true);
     try {
       const res = await axios.get(`/api/chat-sessions/${sessionId}/`);
       setActiveSession(res.data);
@@ -268,12 +328,15 @@ export default function ChatbotWorkspace({
       }
     } catch (err) {
       console.error('Error loading session details:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
   // 3. Create Session
   const handleCreateSession = async (lessonId?: number) => {
     if (!currentUser) return;
+    setLoadingHistory(true);
     try {
       const payload = {
         user_id: currentUser.id,
@@ -292,8 +355,30 @@ export default function ChatbotWorkspace({
       }
     } catch (err) {
       console.error('Error creating session:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
+
+  // Auto-rename session title based on first user message
+  const autoRenameSession = useCallback(async (sessionId: number, firstMessage: string) => {
+    const title = firstMessage.length > 50 ? firstMessage.slice(0, 50) + '…' : firstMessage;
+    try {
+      await axios.patch(`/api/chat-sessions/${sessionId}/`, { title });
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s));
+      setActiveSession(prev => prev && prev.id === sessionId ? { ...prev, title } : prev);
+    } catch {
+      // Silent fail — title rename is non-critical
+    }
+  }, []);
+
+  // Copy AI message to clipboard
+  const handleCopyMessage = useCallback((msgId: number, content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedMsgId(msgId);
+      setTimeout(() => setCopiedMsgId(null), 2000);
+    });
+  }, []);
 
   // 4. Delete Session
   const handleDeleteSession = async (sessionId: number, e: React.MouseEvent) => {
@@ -312,10 +397,16 @@ export default function ChatbotWorkspace({
     }
   };
 
-  // 5. Send Message
+  // 5. Send Message (Streaming version)
   const handleSendMessage = async (msgText?: string) => {
     const textToSend = msgText || inputMessage;
     if (!textToSend.trim() || !activeSession || sending) return;
+
+    // Auto-rename session if this is the very first message
+    const isFirstMessage = !activeSession.messages || activeSession.messages.length === 0;
+    if (isFirstMessage) {
+      autoRenameSession(activeSession.id, textToSend);
+    }
 
     setSending(true);
     setInputMessage('');
@@ -327,12 +418,20 @@ export default function ChatbotWorkspace({
       content: textToSend,
       created_at: new Date().toISOString()
     };
+
+    // Add placeholder AI message for streaming
+    const tempAiMsg: ChatMessage = {
+      id: Date.now() + 1,
+      sender_role: 'AI',
+      content: '',
+      created_at: new Date().toISOString()
+    };
     
     setActiveSession(prev => {
       if (!prev) return null;
       return {
         ...prev,
-        messages: [...(prev.messages || []), tempUserMsg]
+        messages: [...(prev.messages || []), tempUserMsg, tempAiMsg]
       };
     });
 
@@ -348,54 +447,107 @@ export default function ChatbotWorkspace({
         focus_lesson_id: focusLessonId || undefined
       };
 
-      const res = await axios.post(`/api/chat-sessions/${activeSession.id}/send/`, payload, {
+      const response = await fetch(`/api/chat-sessions/${activeSession.id}/send/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
-      
-      const aiReply = res.data.message;
-      const retrievedGraph = res.data.retrieved_graph;
-      const sugQuestions = res.data.suggested_questions;
-      
-      setActiveSession(prev => {
-        if (!prev) return null;
-        const baseMsgs = prev.messages ? prev.messages.filter(m => m.id !== tempUserMsg.id) : [];
-        return {
-          ...prev,
-          messages: [...baseMsgs, tempUserMsg, aiReply]
-        };
-      });
 
-      if (sugQuestions && sugQuestions.length > 0) {
-        setSuggestedQuestions(sugQuestions);
+      if (!response.body) {
+        throw new Error('Không hỗ trợ Streaming.');
       }
 
-      // Highlight nodes in the Force Graph
-      if (retrievedGraph && retrievedGraph.nodes) {
-        const nodeIds = retrievedGraph.nodes.map((n: any) => n.id);
-        setActiveRetrievedNodeIds(nodeIds);
-        
-        graphNodesRef.current.forEach(n => {
-          if (nodeIds.includes(n.id)) {
-            n.highlighted = true;
-            n.val = n.val * 1.5;
-          } else {
-            n.highlighted = false;
-            n.val = n.type === 'lesson' ? 25 : n.type === 'directory' ? 20 : n.type === 'user' ? 15 : 12;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let done = false;
+      let buffer = '';
+      let aiContent = '';
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          buffer += chunk;
+
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const cleanLine = line.trim();
+            if (cleanLine.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(cleanLine.substring(6));
+                
+                if (parsed.type === 'meta') {
+                  // Nhận gợi ý câu hỏi & đồ thị RAG
+                  const sugQuestions = parsed.suggested_questions;
+                  if (sugQuestions && sugQuestions.length > 0) {
+                    setSuggestedQuestions(sugQuestions);
+                  }
+
+                  const retrievedGraph = parsed.retrieved_graph;
+                  if (retrievedGraph && retrievedGraph.nodes) {
+                    const nodeIds = retrievedGraph.nodes.map((n: any) => n.id);
+                    setActiveRetrievedNodeIds(nodeIds);
+                    
+                    graphNodesRef.current.forEach(n => {
+                      if (nodeIds.includes(n.id)) {
+                        n.highlighted = true;
+                        n.val = n.val * 1.5;
+                      } else {
+                        n.highlighted = false;
+                        n.val = n.type === 'lesson' ? 25 : n.type === 'directory' ? 20 : n.type === 'user' ? 15 : 12;
+                      }
+                    });
+                  }
+                } else if (parsed.type === 'text') {
+                  // Nhận từng từ/ký tự câu trả lời của AI
+                  aiContent += parsed.content;
+                  setActiveSession(prev => {
+                    if (!prev || !prev.messages) return null;
+                    return {
+                      ...prev,
+                      messages: prev.messages.map(m => 
+                        m.id === tempAiMsg.id ? { ...m, content: aiContent } : m
+                      )
+                    };
+                  });
+                } else if (parsed.type === 'done') {
+                  // Nhận tin nhắn đầy đủ được lưu vào CSDL
+                  const finalMsg = parsed.message;
+                  setActiveSession(prev => {
+                    if (!prev || !prev.messages) return null;
+                    return {
+                      ...prev,
+                      messages: prev.messages.map(m => 
+                        m.id === tempAiMsg.id ? finalMsg : m
+                      )
+                    };
+                  });
+                }
+              } catch (e) {
+                // Incomplete JSON chunk, wait for next buffer
+              }
+            }
           }
-        });
+        }
       }
-    } catch (err) {
-      if (axios.isCancel(err)) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
         console.log('Chat request generation stopped by user.');
         return;
       }
       console.error('Error sending message:', err);
-      // Remove optimistic message and show error
+      // Clean up temp AI message and temp user message on error
       setActiveSession(prev => {
         if (!prev) return null;
         return {
           ...prev,
-          messages: (prev.messages || []).filter(m => m.id !== tempUserMsg.id)
+          messages: (prev.messages || []).filter(m => m.id !== tempUserMsg.id && m.id !== tempAiMsg.id)
         };
       });
       alert('Không thể gửi tin nhắn. Hãy kiểm tra lại kết nối mô hình của bạn.');
@@ -633,22 +785,21 @@ export default function ChatbotWorkspace({
     setFocusLessonIdState(initialFocusLessonId);
   }, [initialFocusLessonId]);
 
-  // Synchronize active chat session when focusLessonId changes
+  // Synchronize active chat session when focusLessonId or isOpen changes
   useEffect(() => {
-    if (focusLessonId) {
+    if (focusLessonId && isOpen) {
       setActiveTab('chat');
-      if (sessions.length > 0) {
-        const existing = sessions.find(s => s.lesson_plan === focusLessonId);
-        if (existing) {
-          if (!activeSession || activeSession.id !== existing.id) {
-            loadSessionDetails(existing.id);
-          }
+      const existing = sessions.find(s => s.lesson_plan === focusLessonId);
+      if (existing) {
+        if (!activeSession || activeSession.id !== existing.id) {
+          loadSessionDetails(existing.id);
         }
-        // Khi không có cuộc hội thoại riêng cho bài học này, KHÔNG tự động tạo cuộc hội thoại mới
-        // mà tiếp tục giữ nguyên activeSession hiện tại để người dùng trò chuyện tiếp với trạng thái liên kết.
+      } else {
+        // Tự động tạo cuộc trò chuyện mới cho bài giảng này khi mở chatbot
+        handleCreateSession(focusLessonId);
       }
     }
-  }, [focusLessonId, sessions.length]);
+  }, [focusLessonId, isOpen, sessions.length]);
 
   // Auto-scroll chat area
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1252,16 +1403,16 @@ export default function ChatbotWorkspace({
     <div className="font-sans">
       
       {/* 1. FLOATING CHAT TRIGGER BUTTON */}
-      {!isOpen && (
+      {!isOpen && !showContinueDialog && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => openWithContext(focusLessonId)}
           style={{
             position: 'fixed',
             bottom: isDetailOpen ? '96px' : '24px',
             right: '24px',
             zIndex: 9999,
-            width: '52px',
-            height: '52px',
+            width: '56px',
+            height: '56px',
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
             color: '#fff',
@@ -1270,20 +1421,35 @@ export default function ChatbotWorkspace({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
+            cursor: isInitializing ? 'wait' : 'pointer',
             transition: 'transform 0.2s, box-shadow 0.2s',
+            opacity: isInitializing ? 0.7 : 1,
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
-            (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(99, 102, 241, 0.5)';
+            if (!isInitializing) {
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(99, 102, 241, 0.5)';
+            }
           }}
           onMouseLeave={e => {
             (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
             (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
           }}
+          disabled={isInitializing}
           title="Trợ lý AI & Đồ thị Tri thức"
         >
-          <MessageSquare className="w-6 h-6" />
+          {isInitializing ? (
+            <RefreshCw className="w-5 h-5 animate-spin" />
+          ) : (
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="6" width="18" height="13" rx="3" fill="rgba(255,255,255,0.25)" stroke="white" strokeWidth="1.5"/>
+              <circle cx="8.5" cy="12.5" r="1.5" fill="white"/>
+              <circle cx="15.5" cy="12.5" r="1.5" fill="white"/>
+              <path d="M9 16c1-1 5-1 6 0" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+              <path d="M9 3L12 6M15 3L12 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="12" cy="6" r="1" fill="white"/>
+            </svg>
+          )}
           <span style={{
             position: 'absolute',
             top: '-2px',
@@ -1300,6 +1466,116 @@ export default function ChatbotWorkspace({
             border: '2px solid #fff',
           }}>AI</span>
         </button>
+      )}
+
+      {/* CONTINUE OR NEW SESSION DIALOG */}
+      {showContinueDialog && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10000,
+          background: 'rgba(15,23,42,0.45)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'chatSlideUp 0.2s ease-out',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '20px',
+            padding: '28px 32px',
+            maxWidth: '380px',
+            width: '90%',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '44px', height: '44px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="6" width="18" height="13" rx="3" fill="rgba(255,255,255,0.25)" stroke="white" strokeWidth="1.5"/>
+                  <circle cx="8.5" cy="12.5" r="1.5" fill="white"/>
+                  <circle cx="15.5" cy="12.5" r="1.5" fill="white"/>
+                  <path d="M9 16c1-1 5-1 6 0" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M9 3L12 6M15 3L12 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="12" cy="6" r="1" fill="white"/>
+                </svg>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', margin: 0 }}>Lịch sử trò chuyện</h3>
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>Bạn đã có cuộc trò chuyện trước với tài liệu này.</p>
+              </div>
+            </div>
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '10px 14px',
+            }}>
+              <p style={{ fontSize: '11px', color: '#94a3b8', margin: '0 0 2px 0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Cuộc trò chuyện gần nhất</p>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>💬 {showContinueDialog.session.title}</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  setShowContinueDialog(null);
+                  loadSessionDetails(showContinueDialog.session.id);
+                  setIsOpen(true);
+                }}
+                style={{
+                  padding: '11px',
+                  background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.9'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+              >
+                ▶ Tiếp tục cuộc trò chuyện cũ
+              </button>
+              <button
+                onClick={() => {
+                  const lid = initialFocusLessonId;
+                  setShowContinueDialog(null);
+                  setIsOpen(true);
+                  handleCreateSession(lid || undefined);
+                }}
+                style={{
+                  padding: '11px',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#e2e8f0'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = '#f1f5f9'}
+              >
+                ✨ Bắt đầu cuộc trò chuyện mới
+              </button>
+              <button
+                onClick={() => setShowContinueDialog(null)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '12px', cursor: 'pointer', padding: '4px' }}
+              >
+                Hủy
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 2. FLOATING POPOVER WIDGET - LIGHT THEME */}
@@ -1355,15 +1631,23 @@ export default function ChatbotWorkspace({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
-                width: '28px',
-                height: '28px',
-                background: 'rgba(255,255,255,0.2)',
-                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
+                background: 'rgba(255,255,255,0.18)',
+                borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                border: '1px solid rgba(255,255,255,0.25)',
               }}>
-                <Bot className="w-4 h-4 text-white" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="6" width="18" height="13" rx="3" fill="rgba(255,255,255,0.2)" stroke="white" strokeWidth="1.5"/>
+                  <circle cx="8.5" cy="12.5" r="1.5" fill="white"/>
+                  <circle cx="15.5" cy="12.5" r="1.5" fill="white"/>
+                  <path d="M9 16c1-1 5-1 6 0" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M9 3L12 6M15 3L12 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="12" cy="6" r="1" fill="white"/>
+                </svg>
               </div>
               <div>
                 <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#fff', letterSpacing: '0.5px', margin: 0, lineHeight: 1.2 }}>
@@ -1671,120 +1955,187 @@ export default function ChatbotWorkspace({
                     </button>
                   )}
                   <div style={{ flexGrow: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {activeSession && activeSession.messages && activeSession.messages.length > 0 ? (
-                      activeSession.messages.map(msg => (
+                    {loadingHistory ? (
+                      <div style={{ display: 'flex', flexGrow: 1, height: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', gap: '12px' }}>
+                        <div style={{
+                          width: '32px', height: '32px',
+                          border: '3px solid #3b82f6',
+                          borderTop: '3px solid transparent',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                        }} />
+                        <p style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>Đang đồng bộ hội thoại...</p>
+                      </div>
+                    ) : activeSession && activeSession.messages && activeSession.messages.length > 0 ? (
+                      activeSession.messages.map(msg => {
+                        const isUser = msg.sender_role === 'USER';
+                        const isStreaming = sending && msg.content === '' && !isUser;
+                        // Get user avatar initials
+                        const userInitials = currentUser
+                          ? (currentUser.full_name || currentUser.username || currentUser.email || 'U')
+                              .split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+                          : 'U';
+                        return (
                         <div
                           key={msg.id}
                           style={{
                             display: 'flex',
                             gap: '8px',
-                            flexDirection: msg.sender_role === 'USER' ? 'row-reverse' : 'row',
+                            flexDirection: isUser ? 'row-reverse' : 'row',
                           }}
                         >
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '8px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                            background: msg.sender_role === 'USER' ? '#3b82f6' : '#f1f5f9',
-                            color: msg.sender_role === 'USER' ? '#fff' : '#6366f1',
-                            border: `1px solid ${msg.sender_role === 'USER' ? '#2563eb' : '#e2e8f0'}`,
-                          }}>
-                            {msg.sender_role === 'USER' ? <User className="w-3 h-3" /> : <Bot className="w-3 h-3" />}
-                          </div>
+                          {/* Avatar */}
+                          {isUser ? (
+                            currentUser?.avatar ? (
+                              <img
+                                src={currentUser.avatar}
+                                alt="avatar"
+                                style={{
+                                  width: '26px', height: '26px', borderRadius: '50%',
+                                  objectFit: 'cover', flexShrink: 0,
+                                  border: '2px solid #3b82f6',
+                                }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: '26px', height: '26px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                                color: '#fff', fontSize: '9px', fontWeight: 800,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0, border: '2px solid #bfdbfe',
+                                letterSpacing: '-0.5px',
+                              }}>
+                                {userInitials}
+                              </div>
+                            )
+                          ) : (
+                            <div style={{
+                              width: '26px', height: '26px', borderRadius: '8px',
+                              background: 'linear-gradient(135deg, #e0e7ff, #ede9fe)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0, border: '1px solid #c7d2fe',
+                            }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="6" width="18" height="13" rx="3" fill="#c7d2fe" stroke="#6366f1" strokeWidth="1.5"/>
+                                <circle cx="8.5" cy="12.5" r="1.5" fill="#6366f1"/>
+                                <circle cx="15.5" cy="12.5" r="1.5" fill="#6366f1"/>
+                                <path d="M9 16c1-1 5-1 6 0" stroke="#6366f1" strokeWidth="1.2" strokeLinecap="round"/>
+                                <path d="M9 3L12 6M15 3L12 6" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round"/>
+                                <circle cx="12" cy="6" r="1" fill="#6366f1"/>
+                              </svg>
+                            </div>
+                          )}
                           <div style={{
                             maxWidth: '85%',
-                            borderRadius: '12px',
-                            padding: '8px 12px',
-                            fontSize: '12px',
-                            lineHeight: 1.5,
-                            background: msg.sender_role === 'USER' ? '#3b82f6' : '#f1f5f9',
-                            color: msg.sender_role === 'USER' ? '#fff' : '#334155',
-                            border: `1px solid ${msg.sender_role === 'USER' ? '#2563eb' : '#e2e8f0'}`,
-                            wordBreak: 'break-word',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            alignItems: isUser ? 'flex-end' : 'flex-start',
                           }}>
-                            {editingMessageId === msg.id ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px' }}>
-                                <textarea
-                                  value={editingMessageText}
-                                  onChange={e => setEditingMessageText(e.target.value)}
-                                  style={{
-                                    width: '100%',
-                                    minHeight: '60px',
-                                    padding: '6px',
-                                    borderRadius: '6px',
-                                    border: '1px solid #bfdbfe',
-                                    fontSize: '11px',
-                                    color: '#334155',
-                                    outline: 'none',
-                                    fontFamily: 'inherit',
-                                    resize: 'vertical',
-                                  }}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleSaveAndResubmit(msg.id, editingMessageText);
-                                    }
-                                  }}
-                                />
-                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                                  <button
-                                    onClick={() => { setEditingMessageId(null); setEditingMessageText(''); }}
+                            <div style={{
+                              borderRadius: isUser ? '12px 4px 12px 12px' : '4px 12px 12px 12px',
+                              padding: '8px 12px',
+                              fontSize: '12px',
+                              lineHeight: 1.5,
+                              background: isUser ? 'linear-gradient(135deg, #3b82f6, #6366f1)' : '#f1f5f9',
+                              color: isUser ? '#fff' : '#334155',
+                              border: `1px solid ${isUser ? '#2563eb' : '#e2e8f0'}`,
+                              wordBreak: 'break-word',
+                            }}>
+                              {editingMessageId === msg.id ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '180px' }}>
+                                  <textarea
+                                    value={editingMessageText}
+                                    onChange={e => setEditingMessageText(e.target.value)}
                                     style={{
-                                      fontSize: '9px',
-                                      fontWeight: 650,
-                                      padding: '3px 8px',
-                                      background: '#f1f5f9',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      color: '#475569',
-                                      cursor: 'pointer',
+                                      width: '100%',
+                                      minHeight: '60px',
+                                      padding: '6px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #bfdbfe',
+                                      fontSize: '11px',
+                                      color: '#334155',
+                                      outline: 'none',
+                                      fontFamily: 'inherit',
+                                      resize: 'vertical',
                                     }}
-                                  >
-                                    Hủy
-                                  </button>
-                                  <button
-                                    onClick={() => handleSaveAndResubmit(msg.id, editingMessageText)}
-                                    style={{
-                                      fontSize: '9px',
-                                      fontWeight: 700,
-                                      padding: '3px 8px',
-                                      background: '#3b82f6',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      color: '#fff',
-                                      cursor: 'pointer',
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSaveAndResubmit(msg.id, editingMessageText);
+                                      }
                                     }}
-                                  >
-                                    Lưu & Gửi
-                                  </button>
+                                  />
+                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                                    <button
+                                      onClick={() => { setEditingMessageId(null); setEditingMessageText(''); }}
+                                      style={{
+                                        fontSize: '9px', fontWeight: 650, padding: '3px 8px',
+                                        background: '#f1f5f9', border: 'none', borderRadius: '4px',
+                                        color: '#475569', cursor: 'pointer',
+                                      }}
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      onClick={() => handleSaveAndResubmit(msg.id, editingMessageText)}
+                                      style={{
+                                        fontSize: '9px', fontWeight: 700, padding: '3px 8px',
+                                        background: '#3b82f6', border: 'none', borderRadius: '4px',
+                                        color: '#fff', cursor: 'pointer',
+                                      }}
+                                    >
+                                      Lưu & Gửi
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              renderMessageContent(msg.content, msg.sender_role === 'USER')
+                              ) : isStreaming ? (
+                                <div style={{ display: 'flex', gap: '4px', padding: '2px 0' }}>
+                                  <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite' }} />
+                                  <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }} />
+                                  <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }} />
+                                </div>
+                              ) : (
+                                renderMessageContent(msg.content, isUser)
+                              )}
+                            </div>
+                            {/* Action buttons below message */}
+                            {!isUser && !isStreaming && msg.content && (
+                              <button
+                                onClick={() => handleCopyMessage(msg.id, msg.content)}
+                                style={{
+                                  background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px',
+                                  color: copiedMsgId === msg.id ? '#10b981' : '#94a3b8',
+                                  cursor: 'pointer', padding: '2px 7px',
+                                  display: 'flex', alignItems: 'center', gap: '3px',
+                                  fontSize: '9px', fontWeight: 600,
+                                  transition: 'all 0.15s',
+                                  opacity: 0.7,
+                                }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0.7'}
+                                title="Sao chép nội dung"
+                              >
+                                {copiedMsgId === msg.id ? (
+                                  <><CheckCheck className="w-3 h-3" /> Đã sao chép</>
+                                ) : (
+                                  <><Copy className="w-3 h-3" /> Sao chép</>
+                                )}
+                              </button>
                             )}
                           </div>
-                          {msg.sender_role === 'USER' && editingMessageId !== msg.id && (
+                          {isUser && editingMessageId !== msg.id && (
                             <button
                               onClick={() => {
                                 setEditingMessageId(msg.id);
                                 setEditingMessageText(msg.content);
                               }}
                               style={{
-                                background: 'none',
-                                border: 'none',
-                                cursor: 'pointer',
-                                opacity: 0.35,
-                                fontSize: '10px',
-                                padding: '2px',
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                opacity: 0.35, fontSize: '10px', padding: '2px',
                                 transition: 'opacity 0.15s, transform 0.15s',
-                                alignSelf: 'center',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                alignSelf: 'center', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center',
                               }}
                               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'scale(1.15)'; }}
                               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.35'; (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
@@ -1794,9 +2145,10 @@ export default function ChatbotWorkspace({
                             </button>
                           )}
                         </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      // Empty State
+                      // Empty State — Context-aware greeting
                       <div style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -1806,71 +2158,111 @@ export default function ChatbotWorkspace({
                         padding: '24px 16px',
                         height: '100%',
                       }}>
+                        {/* Bot Avatar */}
                         <div style={{
-                          width: '40px', height: '40px',
-                          background: '#eff6ff',
-                          border: '1px solid #bfdbfe',
-                          borderRadius: '12px',
+                          width: '52px', height: '52px',
+                          background: focusLesson
+                            ? 'linear-gradient(135deg, #f59e0b, #f97316)'
+                            : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                          borderRadius: '14px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          marginBottom: '8px',
+                          marginBottom: '10px',
+                          boxShadow: focusLesson
+                            ? '0 4px 16px rgba(245,158,11,0.3)'
+                            : '0 4px 16px rgba(99,102,241,0.25)',
                         }}>
-                          <Sparkles className="w-5 h-5 text-blue-500" />
+                          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="6" width="18" height="13" rx="3" fill="rgba(255,255,255,0.2)" stroke="white" strokeWidth="1.5"/>
+                            <circle cx="8.5" cy="12.5" r="1.5" fill="white"/>
+                            <circle cx="15.5" cy="12.5" r="1.5" fill="white"/>
+                            <path d="M9 16c1-1 5-1 6 0" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                            <path d="M9 3L12 6M15 3L12 6" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                            <circle cx="12" cy="6" r="1" fill="white"/>
+                          </svg>
                         </div>
-                        <h3 style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px', margin: '0 0 4px 0' }}>Hỏi trợ lý RAG!</h3>
-                        <p style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '200px', margin: '0 0 16px 0', lineHeight: 1.4 }}>
-                          Đặt câu hỏi liên quan đến tài liệu trong hệ thống.
-                        </p>
+
+                        {focusLesson ? (
+                          <>
+                            <div style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              background: '#fffbeb', border: '1px solid #fde68a',
+                              borderRadius: '20px', padding: '3px 10px',
+                              fontSize: '9px', fontWeight: 700, color: '#b45309',
+                              marginBottom: '6px', letterSpacing: '0.3px'
+                            }}>
+                              📄 Ngữ cảnh tài liệu
+                            </div>
+                            <h3 style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px', margin: '0 0 4px 0', lineHeight: 1.3 }}>
+                              Trợ lý AI đang tập trung vào:
+                            </h3>
+                            <p style={{
+                              fontSize: '12px', fontWeight: 700, color: '#f59e0b',
+                              margin: '0 0 6px 0', lineHeight: 1.3,
+                              maxWidth: '220px',
+                              overflow: 'hidden', display: '-webkit-box',
+                              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                            }}>
+                              {focusLesson.title}
+                            </p>
+                            <p style={{ fontSize: '10px', color: '#94a3b8', maxWidth: '200px', margin: '0 0 14px 0', lineHeight: 1.4 }}>
+                              Tôi đã phân tích bài giảng này. Hãy đặt câu hỏi về nội dung, phương pháp hoặc tìm tài liệu liên quan.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <h3 style={{ fontWeight: 800, color: '#1e293b', fontSize: '13px', margin: '0 0 4px 0' }}>Hỏi Trợ lý AI RAG!</h3>
+                            <p style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '200px', margin: '0 0 14px 0', lineHeight: 1.4 }}>
+                              Đặt câu hỏi về bất kỳ tài liệu nào trong hệ thống.
+                            </p>
+                          </>
+                        )}
+
+                        {/* Suggested Questions */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-                          {suggestedQuestions.slice(0, 3).map((q, i) => (
+                          {(focusLesson
+                            ? suggestedQuestions.length > 0
+                              ? suggestedQuestions.slice(0, 3)
+                              : [
+                                  `Tóm tắt hoạt động dạy học của bài "${focusLesson.title}"?`,
+                                  `Phương pháp sư phạm phù hợp cho bài "${focusLesson.title}"?`,
+                                  `Tìm tài liệu tương tự hoặc liên quan đến bài giảng này?`
+                                ]
+                            : suggestedQuestions.slice(0, 3)
+                          ).map((q, i) => (
                             <button
                               key={i}
                               onClick={() => handleSendMessage(q)}
                               style={{
                                 fontSize: '10px',
                                 padding: '8px 10px',
-                                background: '#f8fafc',
-                                border: '1px solid #e2e8f0',
+                                background: focusLesson ? '#fffbeb' : '#f8fafc',
+                                border: `1px solid ${focusLesson ? '#fde68a' : '#e2e8f0'}`,
                                 borderRadius: '8px',
-                                color: '#475569',
+                                color: focusLesson ? '#92400e' : '#475569',
                                 cursor: 'pointer',
                                 textAlign: 'left',
                                 fontWeight: 500,
                                 transition: 'all 0.15s',
                               }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eff6ff'; (e.currentTarget as HTMLElement).style.borderColor = '#bfdbfe'; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f8fafc'; (e.currentTarget as HTMLElement).style.borderColor = '#e2e8f0'; }}
+                              onMouseEnter={e => {
+                                (e.currentTarget as HTMLElement).style.background = focusLesson ? '#fef3c7' : '#eff6ff';
+                                (e.currentTarget as HTMLElement).style.borderColor = focusLesson ? '#f59e0b' : '#bfdbfe';
+                              }}
+                              onMouseLeave={e => {
+                                (e.currentTarget as HTMLElement).style.background = focusLesson ? '#fffbeb' : '#f8fafc';
+                                (e.currentTarget as HTMLElement).style.borderColor = focusLesson ? '#fde68a' : '#e2e8f0';
+                              }}
                             >
-                              💡 {q}
+                              {focusLesson ? '🎯' : '💡'} {q}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {sending && (
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <div style={{
-                          width: '24px', height: '24px', borderRadius: '8px',
-                          background: '#f1f5f9', border: '1px solid #e2e8f0',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#6366f1', flexShrink: 0,
-                        }}>
-                          <Bot className="w-3 h-3" />
-                        </div>
-                        <div style={{
-                          background: '#f1f5f9', border: '1px solid #e2e8f0',
-                          borderRadius: '12px', padding: '10px 14px',
-                        }}>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite' }} />
-                            <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite 0.2s' }} />
-                            <div style={{ width: '6px', height: '6px', background: '#6366f1', borderRadius: '50%', animation: 'bounce 1s infinite 0.4s' }} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Note: streaming indicator is now handled inside the message bubble for the empty AI placeholder */}
                     <div ref={messagesEndRef} />
                   </div>
 

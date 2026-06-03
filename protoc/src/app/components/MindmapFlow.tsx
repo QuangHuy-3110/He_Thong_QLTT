@@ -34,6 +34,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toPng } from 'html-to-image';
 import { MarkdownViewer } from '../App';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -219,45 +220,64 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
   // Root
   nodes.push({ id: 'root', type: 'root', position: { x: 0, y: 0 }, data: { label: data.title }, draggable: true });
 
+  // Calculate dynamic heights & offsets to prevent vertical overlap of leaf blocks on the same side
+  const b1_leaves_raw = [
+    ...data.mục_tiêu.kiến_thức.filter(isMeaningful).map(t => ({ label: t, icon: '📚', cat: 'Mục tiêu – Kiến thức', details: t, tip: getPedagogyTip('kiến thức', t) })),
+    ...data.mục_tiêu.năng_lực.filter(isMeaningful).map(t => ({ label: t, icon: '⚡', cat: 'Mục tiêu – Năng lực', details: t, tip: getPedagogyTip('năng lực', t) })),
+    ...data.mục_tiêu.phẩm_chất.filter(isMeaningful).map(t => ({ label: t, icon: '💎', cat: 'Mục tiêu – Phẩm chất', details: t, tip: getPedagogyTip('phẩm chất', t) })),
+  ];
+  const b2_leaves_raw = [
+    ...data.học_liệu.giáo_viên.filter(isMeaningful).map(t => ({ label: t, icon: '👨‍🏫', cat: 'Học liệu – Giáo viên', details: t, tip: getPedagogyTip('giáo viên học liệu', t) })),
+    ...data.học_liệu.học_sinh.filter(isMeaningful).map(t => ({ label: t, icon: '🎒', cat: 'Học liệu – Học sinh', details: t, tip: getPedagogyTip('học sinh', t) })),
+  ];
+  const b3_leaves_raw = data.tiến_trình.filter(t => isMeaningful(t.ten)).map(t => ({
+    label: `${t.ten} (${t.time})`,
+    icon: '▶',
+    cat: 'Khung tiến trình',
+    details: t.tom_tat,
+    tip: getPedagogyTip(t.ten, t.tom_tat),
+  }));
+  const b4_leaves_raw = data.hoạt_động.filter(t => isMeaningful(t.ten)).map(t => ({
+    label: t.ten,
+    icon: '🎯',
+    cat: 'Hoạt động dạy học',
+    details: `### 🎯 Mục tiêu\n${t.muc_tieu || 'Đạt mục tiêu của hoạt động trải nghiệm.'}\n\n### 🚀 Cách thực hiện\n${t.thuc_hien || 'Tiến hành theo kịch bản giáo án.'}`,
+    tip: getPedagogyTip(t.ten, t.muc_tieu + ' ' + t.thuc_hien),
+  }));
+
+  const leafSpacing = 85; // increased from 68 to 85 for breathing room
+  const verticalGap = 120; // safe gap between leaf blocks
+
+  const b1_height = b1_leaves_raw.length * leafSpacing;
+  const b2_height = b2_leaves_raw.length * leafSpacing;
+  const b1_y = Math.min(-220, - (b1_height / 2 + verticalGap / 2));
+  const b2_y = Math.max(220, (b2_height / 2 + verticalGap / 2));
+
+  const b3_height = b3_leaves_raw.length * leafSpacing;
+  const b4_height = b4_leaves_raw.length * leafSpacing;
+  const b3_y = Math.min(-220, - (b3_height / 2 + verticalGap / 2));
+  const b4_y = Math.max(220, (b4_height / 2 + verticalGap / 2));
+
   const branches = [
     {
       id: 'b1', label: 'MỤC TIÊU DẠY HỌC', icon: '🎯', sub: 'Mục tiêu',
-      bg: COLORS.b1.bg, accent: '#3b82f6', y: -200, side: 'left', sourceHandle: 'left',
-      leaves: [
-        ...data.mục_tiêu.kiến_thức.filter(isMeaningful).map(t => ({ label: t, icon: '📚', cat: 'Mục tiêu – Kiến thức', details: t, tip: getPedagogyTip('kiến thức', t) })),
-        ...data.mục_tiêu.năng_lực.filter(isMeaningful).map(t => ({ label: t, icon: '⚡', cat: 'Mục tiêu – Năng lực', details: t, tip: getPedagogyTip('năng lực', t) })),
-        ...data.mục_tiêu.phẩm_chất.filter(isMeaningful).map(t => ({ label: t, icon: '💎', cat: 'Mục tiêu – Phẩm chất', details: t, tip: getPedagogyTip('phẩm chất', t) })),
-      ],
+      bg: COLORS.b1.bg, accent: '#3b82f6', y: b1_y, side: 'left', sourceHandle: 'left',
+      leaves: b1_leaves_raw,
     },
     {
       id: 'b2', label: 'THIẾT BỊ & HỌC LIỆU', icon: '🛠️', sub: 'Học liệu',
-      bg: COLORS.b2.bg, accent: '#10b981', y: 200, side: 'left', sourceHandle: 'left',
-      leaves: [
-        ...data.học_liệu.giáo_viên.filter(isMeaningful).map(t => ({ label: t, icon: '👨‍🏫', cat: 'Học liệu – Giáo viên', details: t, tip: getPedagogyTip('giáo viên học liệu', t) })),
-        ...data.học_liệu.học_sinh.filter(isMeaningful).map(t => ({ label: t, icon: '🎒', cat: 'Học liệu – Học sinh', details: t, tip: getPedagogyTip('học sinh', t) })),
-      ],
+      bg: COLORS.b2.bg, accent: '#10b981', y: b2_y, side: 'left', sourceHandle: 'left',
+      leaves: b2_leaves_raw,
     },
     {
       id: 'b3', label: 'KHUNG TIẾN TRÌNH', icon: '⏱️', sub: 'Tiến trình',
-      bg: COLORS.b3.bg, accent: '#f59e0b', y: -200, side: 'right', sourceHandle: 'right',
-      leaves: data.tiến_trình.filter(t => isMeaningful(t.ten)).map(t => ({
-        label: `${t.ten} (${t.time})`,
-        icon: '▶',
-        cat: 'Khung tiến trình',
-        details: t.tom_tat,
-        tip: getPedagogyTip(t.ten, t.tom_tat),
-      })),
+      bg: COLORS.b3.bg, accent: '#f59e0b', y: b3_y, side: 'right', sourceHandle: 'right',
+      leaves: b3_leaves_raw,
     },
     {
       id: 'b4', label: 'TRẢI NGHIỆM CHI TIẾT', icon: '🤸', sub: 'Hoạt động',
-      bg: COLORS.b4.bg, accent: '#ec4899', y: 200, side: 'right', sourceHandle: 'right',
-      leaves: data.hoạt_động.filter(t => isMeaningful(t.ten)).map(t => ({
-        label: t.ten,
-        icon: '🎯',
-        cat: 'Hoạt động dạy học',
-        details: `### 🎯 Mục tiêu\n${t.muc_tieu || 'Đạt mục tiêu của hoạt động trải nghiệm.'}\n\n### 🚀 Cách thực hiện\n${t.thuc_hien || 'Tiến hành theo kịch bản giáo án.'}`,
-        tip: getPedagogyTip(t.ten, t.muc_tieu + ' ' + t.thuc_hien),
-      })),
+      bg: COLORS.b4.bg, accent: '#ec4899', y: b4_y, side: 'right', sourceHandle: 'right',
+      leaves: b4_leaves_raw,
     },
   ];
 
@@ -282,7 +302,7 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
       };
       nodes.push({
         id: lid, type: 'leaf',
-        position: { x: isLeft ? -720 : 720, y: b.y - ((b.leaves.length - 1) * 60) / 2 + i * 68 },
+        position: { x: isLeft ? -720 : 720, y: b.y - ((b.leaves.length - 1) * leafSpacing) / 2 + i * leafSpacing },
         data: {
           label: leaf.label.length > 80 ? leaf.label.slice(0, 78) + '…' : leaf.label,
           icon: leaf.icon,
@@ -437,6 +457,35 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
     fitView({ duration: 800, padding: 0.15 });
   }, [fitView]);
 
+  const handleExport = useCallback(() => {
+    const flowEl = document.querySelector('.react-flow') as HTMLElement;
+    if (!flowEl) return;
+
+    const controls = flowEl.querySelector('.react-flow__controls') as HTMLElement;
+    const minimap = flowEl.querySelector('.react-flow__minimap') as HTMLElement;
+
+    if (controls) controls.style.visibility = 'hidden';
+    if (minimap) minimap.style.visibility = 'hidden';
+
+    toPng(flowEl, {
+      backgroundColor: '#ffffff',
+      cacheBust: true,
+    })
+      .then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `sơ_đồ_tư_duy_${data.title || 'giao_an'}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => {
+        console.error('Không thể xuất ảnh sơ đồ:', err);
+      })
+      .finally(() => {
+        if (controls) controls.style.visibility = 'visible';
+        if (minimap) minimap.style.visibility = 'visible';
+      });
+  }, [data.title]);
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <ReactFlow
@@ -503,6 +552,20 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#eff6ff'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.95)'; }}
         >🎯 Về giữa</button>
+        <button
+          onClick={handleExport}
+          title="Tải sơ đồ tư duy dạng ảnh PNG"
+          style={{
+            background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+            border: '1px solid #e2e8f0', borderRadius: 99, padding: '6px 14px',
+            fontSize: 11, fontWeight: 800, color: '#059669',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#ecfdf5'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.95)'; }}
+        >📸 Tải ảnh</button>
       </div>
 
       {activeItem && <DetailModal item={activeItem} onClose={() => setActiveItem(null)} />}

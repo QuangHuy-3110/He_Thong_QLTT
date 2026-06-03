@@ -1303,7 +1303,7 @@ class AIChatSessionListCreateAPIView(APIView):
 
 class AIChatSessionDetailAPIView(APIView):
     """
-    API View để xem thông tin chi tiết một phiên chat (GET) hoặc xóa phiên chat (DELETE).
+    API View để xem thông tin chi tiết một phiên chat (GET), cập nhật tiêu đề (PATCH) hoặc xóa phiên chat (DELETE).
     """
     def get(self, request, pk):
         from .models import AIChatSession
@@ -1320,6 +1320,21 @@ class AIChatSessionDetailAPIView(APIView):
             res_data = dict(serializer.data)
             res_data['suggested_questions'] = rag_data['suggested_questions']
             return Response(res_data)
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+    def patch(self, request, pk):
+        """Cập nhật tiêu đề phiên hội thoại (dùng để tự động đặt tên từ câu hỏi đầu tiên)."""
+        from .models import AIChatSession
+        from .serializers import AIChatSessionSerializer
+        try:
+            session = AIChatSession.objects.get(id=pk)
+            title = request.data.get('title')
+            if title:
+                session.title = title[:100]
+                session.save(update_fields=['title'])
+            serializer = AIChatSessionSerializer(session)
+            return Response(serializer.data)
         except AIChatSession.DoesNotExist:
             return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1617,30 +1632,52 @@ class AIChatSendMessageAPIView(APIView):
             f"CÂU HỎI NGƯỜI DÙNG: {user_message_content}"
         )
         
-        # 4. Thực thi nạp và gọi LLM thông qua LLM Runner
-        from .llm_runner import generate_llm_response
-        
-        ai_response_content = generate_llm_response(
-            prompt=prompt_with_context,
-            system_prompt=system_prompt,
-            model_choice=model_choice,
-            api_key=api_key,
-            model_name=model_name
-        )
-        
-        # 5. Lưu tin nhắn trả lời của AI vào Database
-        ai_message = AIChatMessage.objects.create(
-            session=session,
-            sender_role='AI',
-            content=ai_response_content
-        )
-        
-        # 6. Trả về kết quả cho client
-        return Response({
-            'message': AIChatMessageSerializer(ai_message).data,
-            'retrieved_graph': rag_data['retrieved_graph'],
-            'suggested_questions': rag_data['suggested_questions']
-        }, status=status.HTTP_200_OK)
+        # 4. Thực thi nạp và gọi LLM dưới dạng Stream thông qua LLM Runner
+        from .llm_runner import generate_llm_response_stream
+        from django.http import StreamingHttpResponse
+        import json
+
+        def event_stream():
+            # Bước 1: Gửi siêu dữ liệu RAG (graph, câu hỏi gợi ý) cho Client
+            meta_payload = {
+                'type': 'meta',
+                'retrieved_graph': rag_data['retrieved_graph'],
+                'suggested_questions': rag_data['suggested_questions']
+            }
+            yield f"data: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
+
+            # Bước 2: Stream câu trả lời của AI
+            ai_response_chunks = []
+            for chunk in generate_llm_response_stream(
+                prompt=prompt_with_context,
+                system_prompt=system_prompt,
+                model_choice=model_choice,
+                api_key=api_key,
+                model_name=model_name
+            ):
+                ai_response_chunks.append(chunk)
+                text_payload = {
+                    'type': 'text',
+                    'content': chunk
+                }
+                yield f"data: {json.dumps(text_payload, ensure_ascii=False)}\n\n"
+
+            # Bước 3: Lưu tin nhắn đầy đủ vào database và gửi tín hiệu Hoàn thành
+            full_response = "".join(ai_response_chunks)
+            ai_message = AIChatMessage.objects.create(
+                session=session,
+                sender_role='AI',
+                content=full_response
+            )
+
+            from .serializers import AIChatMessageSerializer
+            done_payload = {
+                'type': 'done',
+                'message': AIChatMessageSerializer(ai_message).data
+            }
+            yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
+
+        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
 
 
 class AIChatGraphDataAPIView(APIView):
