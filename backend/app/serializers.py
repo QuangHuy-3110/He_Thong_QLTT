@@ -31,6 +31,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
     directory_ids = serializers.SerializerMethodField()
     directory_names = serializers.SerializerMethodField()
     file_path = serializers.SerializerMethodField()
+    storage_path = serializers.SerializerMethodField()
     latest_feedback = serializers.SerializerMethodField()
     content_preview = serializers.SerializerMethodField()
 
@@ -51,6 +52,14 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         if request is not None:
             return request.build_absolute_uri(url)
         return url
+
+    def get_storage_path(self, obj):
+        if not obj.file_path:
+            return None
+        try:
+            return obj.file_path.path
+        except ValueError:
+            return obj.file_path.name
 
     def get_latest_feedback(self, obj):
         req = ApprovalRequest.objects.filter(lesson_plan=obj).order_by('-created_at').first()
@@ -77,7 +86,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LessonPlan
-        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings', 'content_preview']
+        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'storage_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings', 'content_preview']
 
 class LessonPlanListSerializer(serializers.ModelSerializer):
     creator = UserSerializer(read_only=True)

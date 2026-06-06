@@ -138,6 +138,7 @@ export default function ChatbotWorkspace({
   // Graph state (Full system graph cached)
   const [fullGraph, setFullGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] });
   const [activeRetrievedNodeIds, setActiveRetrievedNodeIds] = useState<string[]>([]);
+  const [clickedNodeId, setClickedNodeId] = useState<string | null>(null);
   
   // Canvas Graph rendering refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -167,6 +168,19 @@ export default function ChatbotWorkspace({
   });
   const isResizing = useRef(false);
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
+
+  // Floating AI Button drag-and-drop state
+  const [btnPos, setBtnPos] = useState<{ x: number | null; y: number | null }>(() => {
+    const saved = localStorage.getItem('kms_ai_btn_pos');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch { /* ignore */ }
+    }
+    return { x: null, y: null };
+  });
+  const isDraggingBtn = useRef(false);
+  const dragStartBtn = useRef({ mouseX: 0, mouseY: 0, btnX: 0, btnY: 0, distance: 0 });
 
   // Save Settings to LocalStorage
   useEffect(() => {
@@ -252,6 +266,157 @@ export default function ChatbotWorkspace({
     document.addEventListener('mouseup', handleMouseUp);
   }, [historySidebarWidth, widgetSize]);
 
+  // Floating AI Button Drag & Snap Handlers
+  const handleBtnMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0 || isInitializing) return;
+
+    const target = e.currentTarget as HTMLElement;
+    target.style.transition = 'none';
+
+    const rect = target.getBoundingClientRect();
+    const currentX = rect.left;
+    const currentY = rect.top;
+
+    isDraggingBtn.current = true;
+    dragStartBtn.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      btnX: currentX,
+      btnY: currentY,
+      distance: 0
+    };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingBtn.current) return;
+      const dx = ev.clientX - dragStartBtn.current.mouseX;
+      const dy = ev.clientY - dragStartBtn.current.mouseY;
+      
+      dragStartBtn.current.distance = Math.sqrt(dx * dx + dy * dy);
+
+      const newX = dragStartBtn.current.btnX + dx;
+      const newY = dragStartBtn.current.btnY + dy;
+
+      const buttonSize = 56;
+      const maxX = window.innerWidth - buttonSize;
+      const maxY = window.innerHeight - buttonSize;
+      const boundedX = Math.min(Math.max(0, newX), maxX);
+      const boundedY = Math.min(Math.max(0, newY), maxY);
+
+      setBtnPos({ x: boundedX, y: boundedY });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingBtn.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+
+      target.style.transition = 'transform 0.2s, box-shadow 0.2s, left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+
+      if (dragStartBtn.current.distance < 5) {
+        openWithContext(focusLessonId);
+        return;
+      }
+
+      const buttonSize = 56;
+      const padding = 24;
+      const midPoint = window.innerWidth / 2;
+      const rect = target.getBoundingClientRect();
+      const currentX = rect.left;
+      const currentY = rect.top;
+
+      let finalX = padding;
+      if (currentX + buttonSize / 2 > midPoint) {
+        finalX = window.innerWidth - buttonSize - padding;
+      }
+
+      const minY = padding;
+      const maxY = window.innerHeight - buttonSize - padding;
+      const finalY = Math.min(Math.max(minY, currentY), maxY);
+
+      const newPos = { x: finalX, y: finalY };
+      setBtnPos(newPos);
+      localStorage.setItem('kms_ai_btn_pos', JSON.stringify(newPos));
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleBtnTouchStart = (e: React.TouchEvent) => {
+    if (isInitializing) return;
+    const touch = e.touches[0];
+    const target = e.currentTarget as HTMLElement;
+    target.style.transition = 'none';
+
+    const rect = target.getBoundingClientRect();
+    const currentX = rect.left;
+    const currentY = rect.top;
+
+    isDraggingBtn.current = true;
+    dragStartBtn.current = {
+      mouseX: touch.clientX,
+      mouseY: touch.clientY,
+      btnX: currentX,
+      btnY: currentY,
+      distance: 0
+    };
+
+    const handleTouchMove = (ev: TouchEvent) => {
+      if (!isDraggingBtn.current) return;
+      const t = ev.touches[0];
+      const dx = t.clientX - dragStartBtn.current.mouseX;
+      const dy = t.clientY - dragStartBtn.current.mouseY;
+      
+      dragStartBtn.current.distance = Math.sqrt(dx * dx + dy * dy);
+
+      const newX = dragStartBtn.current.btnX + dx;
+      const newY = dragStartBtn.current.btnY + dy;
+
+      const buttonSize = 56;
+      const maxX = window.innerWidth - buttonSize;
+      const maxY = window.innerHeight - buttonSize;
+      const boundedX = Math.min(Math.max(0, newX), maxX);
+      const boundedY = Math.min(Math.max(0, newY), maxY);
+
+      setBtnPos({ x: boundedX, y: boundedY });
+    };
+
+    const handleTouchEnd = () => {
+      isDraggingBtn.current = false;
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+
+      target.style.transition = 'transform 0.2s, box-shadow 0.2s, left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+
+      if (dragStartBtn.current.distance < 5) {
+        openWithContext(focusLessonId);
+        return;
+      }
+
+      const buttonSize = 56;
+      const padding = 24;
+      const midPoint = window.innerWidth / 2;
+      const rect = target.getBoundingClientRect();
+      const currentX = rect.left;
+      const currentY = rect.top;
+
+      let finalX = padding;
+      if (currentX + buttonSize / 2 > midPoint) {
+        finalX = window.innerWidth - buttonSize - padding;
+      }
+
+      const minY = padding;
+      const maxY = window.innerHeight - buttonSize - padding;
+      const finalY = Math.min(Math.max(minY, currentY), maxY);
+
+      const newPos = { x: finalX, y: finalY };
+      setBtnPos(newPos);
+      localStorage.setItem('kms_ai_btn_pos', JSON.stringify(newPos));
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  };
 
   // --- API CALLS ---
   // 1. Fetch Sessions
@@ -910,13 +1075,20 @@ export default function ChatbotWorkspace({
           ctx.moveTo(sourceNode.x!, sourceNode.y!);
           ctx.lineTo(targetNode.x!, targetNode.y!);
           
-          if (edge.highlighted || activeRetrievedNodeIds.includes(edge.source) && activeRetrievedNodeIds.includes(edge.target)) {
+          const isRelatedToClicked = clickedNodeId && (edge.source === clickedNodeId || edge.target === clickedNodeId);
+          
+          if (isRelatedToClicked) {
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3.5;
+            ctx.shadowColor = '#3b82f6';
+            ctx.shadowBlur = 10;
+          } else if (edge.highlighted || (activeRetrievedNodeIds.includes(edge.source) && activeRetrievedNodeIds.includes(edge.target))) {
             ctx.strokeStyle = '#f59e0b';
             ctx.lineWidth = 3.5;
             ctx.shadowColor = '#f59e0b';
             ctx.shadowBlur = 10;
           } else {
-            ctx.strokeStyle = '#e2e8f0';
+            ctx.strokeStyle = clickedNodeId ? 'rgba(226, 232, 240, 0.4)' : '#e2e8f0';
             ctx.lineWidth = 1.0;
             ctx.shadowBlur = 0;
           }
@@ -928,11 +1100,22 @@ export default function ChatbotWorkspace({
       // Draw Nodes
       nodes.forEach(node => {
         const isHighlighted = activeRetrievedNodeIds.includes(node.id);
+        const isClicked = clickedNodeId === node.id;
+        const isRelatedToClicked = clickedNodeId && edges.some(e => 
+          (e.source === clickedNodeId && e.target === node.id) || 
+          (e.target === clickedNodeId && e.source === node.id)
+        );
+        
         const r = node.type === 'lesson' ? 8 : node.type === 'directory' ? 6 : node.type === 'user' ? 5 : 4;
         
         ctx.beginPath();
         
-        if (isHighlighted) {
+        if (isClicked) {
+          ctx.arc(node.x!, node.y!, r + 8 + Math.sin(Date.now() / 150) * 2, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+          ctx.fill();
+          ctx.beginPath();
+        } else if (isHighlighted) {
           ctx.arc(node.x!, node.y!, r + 6 + Math.sin(Date.now() / 200) * 3, 0, 2 * Math.PI);
           ctx.fillStyle = `${node.color}33`;
           ctx.fill();
@@ -940,15 +1123,27 @@ export default function ChatbotWorkspace({
         }
 
         ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI);
-        ctx.fillStyle = node.color;
+        
+        if (clickedNodeId && !isClicked && !isRelatedToClicked) {
+          ctx.fillStyle = `${node.color}55`;
+        } else {
+          ctx.fillStyle = node.color;
+        }
         ctx.fill();
         
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = isClicked ? 2.5 : 1.5;
+        ctx.strokeStyle = isClicked ? '#3b82f6' : '#ffffff';
         ctx.stroke();
 
-        ctx.font = isHighlighted ? 'bold 11px sans-serif' : '9px sans-serif';
-        ctx.fillStyle = isHighlighted ? '#1e293b' : '#64748b';
+        const labelIsHighlighted = isClicked || isRelatedToClicked || isHighlighted;
+        ctx.font = labelIsHighlighted ? 'bold 11px sans-serif' : '9px sans-serif';
+        
+        if (clickedNodeId && !isClicked && !isRelatedToClicked) {
+          ctx.fillStyle = '#cbd5e1';
+        } else {
+          ctx.fillStyle = labelIsHighlighted ? '#1e293b' : '#64748b';
+        }
+        
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         
@@ -967,6 +1162,64 @@ export default function ChatbotWorkspace({
       }
 
       ctx.restore();
+
+      // Draw tooltip for hovered node in screen coordinates
+      if (hoveredNodeRef.current) {
+        const node = hoveredNodeRef.current;
+        const scale = transformRef.current.scale;
+        const screenX = node.x! * scale + transformRef.current.x;
+        const screenY = node.y! * scale + transformRef.current.y;
+
+        ctx.save();
+
+        const text = node.label;
+        ctx.font = 'bold 11px sans-serif';
+        const textWidth = ctx.measureText(text).width;
+        const paddingX = 10;
+        const tooltipW = textWidth + paddingX * 2;
+        const tooltipH = 24;
+        const r = 6; // rounded corner radius
+
+        const nodeRadius = (node.type === 'lesson' ? 8 : node.type === 'directory' ? 6 : node.type === 'user' ? 5 : 4) * scale;
+        const rectX = screenX - tooltipW / 2;
+        const rectY = screenY - nodeRadius - tooltipH - 8;
+
+        // Draw shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4;
+
+        // Draw background box
+        ctx.fillStyle = '#1e293b'; // dark slate
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(rectX, rectY, tooltipW, tooltipH, r);
+        } else {
+          ctx.rect(rectX, rectY, tooltipW, tooltipH);
+        }
+        ctx.fill();
+
+        // Draw small arrow indicator pointing down
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.beginPath();
+        ctx.moveTo(screenX - 5, rectY + tooltipH);
+        ctx.lineTo(screenX + 5, rectY + tooltipH);
+        ctx.lineTo(screenX, rectY + tooltipH + 5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, screenX, rectY + tooltipH / 2);
+
+        ctx.restore();
+      }
     };
 
     const updateLoop = () => {
@@ -980,7 +1233,7 @@ export default function ChatbotWorkspace({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [visibleGraph, activeRetrievedNodeIds, activeTab, widgetSize]);
+  }, [visibleGraph, activeRetrievedNodeIds, clickedNodeId, activeTab, widgetSize]);
 
   // --- CANVAS EVENT HANDLERS ---
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1091,11 +1344,14 @@ export default function ChatbotWorkspace({
     const graphY = (clientY - transformRef.current.y) / transformRef.current.scale;
 
     const nodes = graphNodesRef.current;
+    let clickedAnyNode = false;
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       const dx = n.x! - graphX;
       const dy = n.y! - graphY;
       if (Math.sqrt(dx * dx + dy * dy) < 15) {
+        setClickedNodeId(n.id);
+        clickedAnyNode = true;
         if (n.type === 'tag') {
           setInputMessage(`Tìm kiếm tài liệu có từ khóa: ${n.label}`);
         } else if (n.type === 'directory') {
@@ -1103,6 +1359,10 @@ export default function ChatbotWorkspace({
         }
         break;
       }
+    }
+
+    if (!clickedAnyNode) {
+      setClickedNodeId(null);
     }
   };
 
@@ -1405,11 +1665,14 @@ export default function ChatbotWorkspace({
       {/* 1. FLOATING CHAT TRIGGER BUTTON */}
       {!isOpen && !showContinueDialog && (
         <button
-          onClick={() => openWithContext(focusLessonId)}
+          onMouseDown={handleBtnMouseDown}
+          onTouchStart={handleBtnTouchStart}
           style={{
             position: 'fixed',
-            bottom: isDetailOpen ? '96px' : '24px',
-            right: '24px',
+            left: btnPos.x !== null ? `${btnPos.x}px` : 'auto',
+            top: btnPos.y !== null ? `${btnPos.y}px` : 'auto',
+            right: btnPos.x !== null ? 'auto' : '24px',
+            bottom: btnPos.y !== null ? 'auto' : (isDetailOpen ? '96px' : '24px'),
             zIndex: 9999,
             width: '56px',
             height: '56px',
@@ -1421,22 +1684,25 @@ export default function ChatbotWorkspace({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: isInitializing ? 'wait' : 'pointer',
-            transition: 'transform 0.2s, box-shadow 0.2s',
+            cursor: isInitializing ? 'wait' : 'grab',
+            transition: 'transform 0.2s, box-shadow 0.2s, left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
             opacity: isInitializing ? 0.7 : 1,
+            touchAction: 'none',
           }}
           onMouseEnter={e => {
-            if (!isInitializing) {
+            if (!isInitializing && !isDraggingBtn.current) {
               (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
               (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 28px rgba(99, 102, 241, 0.5)';
             }
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
-            (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
+            if (!isDraggingBtn.current) {
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(99, 102, 241, 0.4)';
+            }
           }}
           disabled={isInitializing}
-          title="Trợ lý AI & Đồ thị Tri thức"
+          title="Kéo thả để di chuyển • Nhấp để mở Trợ lý AI"
         >
           {isInitializing ? (
             <RefreshCw className="w-5 h-5 animate-spin" />

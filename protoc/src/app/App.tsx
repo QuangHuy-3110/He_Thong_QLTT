@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import MindmapFlow from './components/MindmapFlow';
 import axios from 'axios';
 import UploadPage, { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, BIOLOGY_CONNECTIONS, LOCATIONS } from './UploadPage';
@@ -692,6 +692,121 @@ const getDescendantIds = (dirId: string, directories: any[]): string[] => {
   return result;
 };
 
+const DirectoryTitle = ({
+  name,
+  className,
+  onClick
+}: {
+  name: string;
+  className?: string;
+  onClick?: () => void;
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setPos({ x: e.clientX, y: e.clientY - 35 });
+  };
+
+  return (
+    <>
+      <span
+        className={className}
+        onClick={onClick}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onMouseMove={handleMouseMove}
+      >
+        {name}
+      </span>
+
+      {showTooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: pos.x,
+            top: pos.y,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 99999,
+            pointerEvents: 'none',
+          }}
+          className="bg-slate-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl max-w-xs whitespace-normal break-words transition-all duration-75"
+        >
+          <div className="relative font-semibold text-left">
+            {name}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const FileTreeItem = ({
+  file,
+  onFileClick,
+  hoverBgClass = "hover:bg-blue-50/70",
+  hoverTextClass = "hover:text-blue-700"
+}: {
+  file: any;
+  onFileClick: any;
+  hoverBgClass?: string;
+  hoverTextClass?: string;
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    setPos({ x: e.clientX, y: e.clientY - 35 });
+  };
+
+  return (
+    <>
+      <div
+        onClick={() => onFileClick && onFileClick(file)}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onMouseMove={handleMouseMove}
+        className={`flex items-center gap-2 py-1.5 px-3 rounded-xl cursor-pointer transition-colors text-xs text-gray-600 font-medium my-0.5 mr-2 ${hoverBgClass}`}
+        style={{ marginLeft: 20 }}
+      >
+        <span className="flex-shrink-0 text-sm">📄</span>
+        <span className={`truncate flex-grow hover:underline font-semibold text-gray-750 ${hoverTextClass}`}>
+          {file.title}
+        </span>
+        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider flex-shrink-0 ${
+          file.status === 'PUBLISHED'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+            : file.status === 'PENDING'
+              ? 'bg-amber-50 text-amber-700 border-amber-100'
+              : 'bg-sky-50 text-sky-700 border-sky-100'
+        }`}>
+          {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
+        </span>
+      </div>
+
+      {showTooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: pos.x,
+            top: pos.y,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 99999,
+            pointerEvents: 'none',
+          }}
+          className="bg-slate-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl max-w-xs whitespace-normal break-words transition-all duration-75"
+        >
+          <div className="relative font-semibold">
+            {file.title}
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 const DirectoryNode = ({
   dir: dirProp, directories, selectedDirs, onToggleDir,
   allLessons, currentUser, onAddChild, onDelete, onRename, onTogglePublic, onFileClick, depth = 0
@@ -777,12 +892,11 @@ const DirectoryNode = ({
             onClick={e => e.stopPropagation()}
           />
         ) : (
-          <span
+          <DirectoryTitle
+            name={dir.name}
             className={`text-sm truncate flex-grow cursor-pointer ${isSelected ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}
             onClick={() => onToggleDir(dir.id)}
-          >
-            {dir.name}
-          </span>
+          />
         )}
 
         {/* Count badge */}
@@ -851,23 +965,13 @@ const DirectoryNode = ({
             />
           ))}
           {dirFiles.map((file: any) => (
-            <div
+            <FileTreeItem
               key={file.id}
-              onClick={() => onFileClick && onFileClick(file)}
-              className="flex items-center gap-2 py-1.5 px-3 rounded-xl hover:bg-blue-50/70 cursor-pointer transition-colors text-xs text-gray-600 font-medium my-0.5 mr-2"
-              style={{ marginLeft: 20 }}
-            >
-              <span className="flex-shrink-0 text-sm">📄</span>
-              <span className="truncate flex-grow hover:underline hover:text-blue-700 font-semibold text-gray-750">{file.title}</span>
-              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider flex-shrink-0 ${file.status === 'PUBLISHED'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                  : file.status === 'PENDING'
-                    ? 'bg-amber-50 text-amber-700 border-amber-100'
-                    : 'bg-sky-50 text-sky-700 border-sky-100'
-                }`}>
-                {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
-              </span>
-            </div>
+              file={file}
+              onFileClick={onFileClick}
+              hoverBgClass="hover:bg-blue-50/70"
+              hoverTextClass="hover:text-blue-700"
+            />
           ))}
         </div>
       )}
@@ -984,7 +1088,10 @@ const PermissionDirTreeNode = ({
           className="rounded border-gray-300 text-purple-600 focus:ring-purple-400 w-4 h-4 cursor-pointer flex-shrink-0"
         />
         <span className="text-sm flex-shrink-0">{dir.is_public ? '📂' : '📁'}</span>
-        <span className={`text-sm truncate flex-grow ${isChecked ? 'font-semibold text-purple-800' : 'text-gray-700'}`}>{dir.name}</span>
+        <DirectoryTitle
+          name={dir.name}
+          className={`text-sm truncate flex-grow ${isChecked ? 'font-semibold text-purple-800' : 'text-gray-700'}`}
+        />
         {isChecked && descendants.length > 0 && (
           <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">+{descendants.length} con</span>
         )}
@@ -1004,23 +1111,13 @@ const PermissionDirTreeNode = ({
             />
           ))}
           {dirFiles.map(file => (
-            <div
+            <FileTreeItem
               key={file.id}
-              onClick={() => onFileClick && onFileClick(file)}
-              className="flex items-center gap-2 py-1.5 px-3 rounded-xl hover:bg-purple-50/50 cursor-pointer transition-colors text-xs text-gray-600 font-medium my-0.5"
-              style={{ marginLeft: 20 }}
-            >
-              <span className="flex-shrink-0 text-sm">📄</span>
-              <span className="truncate flex-grow hover:underline hover:text-purple-705 font-semibold text-gray-750">{file.title}</span>
-              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black border uppercase tracking-wider ${file.status === 'PUBLISHED'
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                  : file.status === 'PENDING'
-                    ? 'bg-amber-50 text-amber-700 border-amber-100'
-                    : 'bg-sky-50 text-sky-700 border-sky-100'
-                }`}>
-                {file.status === 'PUBLISHED' ? 'Public' : file.status === 'PENDING' ? 'Pending' : 'Local'}
-              </span>
-            </div>
+              file={file}
+              onFileClick={onFileClick}
+              hoverBgClass="hover:bg-purple-50/50"
+              hoverTextClass="hover:text-purple-700"
+            />
           ))}
         </div>
       )}
@@ -1045,7 +1142,10 @@ const PersonalDirTreeNode = ({
           {expanded ? '▼' : '▶'}
         </button>
         <span className="text-sm flex-shrink-0">📁</span>
-        <span className="text-sm truncate text-gray-700 font-medium">{dir.name}</span>
+        <DirectoryTitle
+          name={dir.name}
+          className="text-sm truncate text-gray-700 font-medium"
+        />
       </div>
       {expanded && children.length > 0 && (
         <div className="border-l border-gray-200 ml-4 pl-1">
@@ -1789,6 +1889,7 @@ export default function App() {
   const [editAttrs, setEditAttrs] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editLocation, setEditLocation] = useState<string>('');
+  const [isInlineEditingDetail, setIsInlineEditingDetail] = useState(false);
 
 
   // Dir Form
@@ -1965,6 +2066,9 @@ export default function App() {
       setPreviewMode('markdown');
       setSelectedStarFilter('all');
       setEditingMyReview(false);
+      if (!editingLesson || editingLesson.id !== selectedLessonForDetail.id) {
+        setIsInlineEditingDetail(false);
+      }
 
       // ── 1. Content detail cache (avoid re-fetching content_preview) ────────
       const cached = detailCache[selectedLessonForDetail.id];
@@ -2238,17 +2342,19 @@ export default function App() {
   };
 
   const openEditModal = (lesson: LessonPlan) => {
+    setSelectedLessonForDetail(lesson);
     setEditingLesson(lesson);
     setEditTitle(lesson.title);
-    setEditDesc(lesson.description);
-    setEditGrade(lesson.target_student);
+    setEditDesc(lesson.description || '');
+    setEditGrade(lesson.target_student || '');
     const lpLop = lesson.attributes?.['lop'] || lesson.attributes?.['Lớp'] || [];
     setEditLops(Array.isArray(lpLop) ? lpLop : [lpLop]);
     setEditDirId(lesson.directory_ids && lesson.directory_ids.length > 0 ? lesson.directory_ids[0].toString() : '');
-    setEditAttrs(JSON.stringify(lesson.attributes));
+    setEditAttrs(JSON.stringify(lesson.attributes || {}));
     setEditFile(null);
     const loc = lesson.attributes && lesson.attributes['Địa điểm'] ? lesson.attributes['Địa điểm'] : '';
     setEditLocation(loc);
+    setIsInlineEditingDetail(true);
   };
 
   const submitEdit = async (e: React.FormEvent) => {
@@ -2288,11 +2394,14 @@ export default function App() {
       }
 
       const updatedPlan = await response.json();
-
       const msg = currentUser.role === 'USER'
         ? 'Đã gửi bản chỉnh sửa để chờ duyệt lại!'
         : 'Cập nhật thành công!';
       alert(msg);
+      if (selectedLessonForDetail && selectedLessonForDetail.id === editingLesson.id) {
+        setSelectedLessonForDetail(updatedPlan);
+      }
+      setIsInlineEditingDetail(false);
       setEditingLesson(null);
       setEditFile(null);
 
@@ -4839,140 +4948,86 @@ export default function App() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingLesson && currentUser && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center p-4 bg-gray-900/50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Chỉnh sửa Tài liệu</h3>
-            <form onSubmit={submitEdit} className="space-y-4">
-              <div><label className="block text-sm mb-1">Tên bài giảng</label><input type="text" required value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full border rounded-lg p-2 text-sm" /></div>
-              <div><label className="block text-sm mb-1">Mô tả</label><textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full border rounded-lg p-2 text-sm h-20" /></div>
-              <div>
-                <label className="block text-sm mb-1 font-semibold text-gray-700">Đối tượng giảng dạy</label>
-                <select
-                  value={editGrade}
-                  onChange={e => setEditGrade(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Học sinh thành thị">Học sinh thành thị</option>
-                  <option value="Học sinh nông thôn">Học sinh nông thôn</option>
-                  <option value="Học sinh thành thị, Học sinh nông thôn">Cả hai đối tượng</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm mb-1 font-semibold text-gray-700">Lớp học (Áp dụng)</label>
-                <div className="flex gap-2">
-                  {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(val => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setEditLops(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])}
-                      className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold transition-all ${editLops.includes(val) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-700 bg-white hover:bg-slate-50'}`}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm mb-1 font-semibold text-gray-700">Lưu vào thư mục</label>
-                <select
-                  value={editDirId}
-                  onChange={e => setEditDirId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg p-2 text-sm font-mono focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Giữ nguyên / Chưa phân thư mục --</option>
-                  {(() => {
-                    // Determine if this lesson is public (published or in a public directory)
-                    const isPublicLesson = editingLesson.status === 'PUBLISHED' || (() => {
-                      if (editingLesson.directory_ids && editingLesson.directory_ids.length > 0) {
-                        const firstDir = directories.find(d => d.id === editingLesson.directory_ids![0]);
-                        return firstDir ? firstDir.is_public : false;
-                      }
-                      return false;
-                    })();
-
-                    if (isPublicLesson) {
-                      // Show only public directories (for public/published lessons)
-                      return getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
-                        <option key={d.id} value={d.id}>
-                          {d.visualPrefix}{d.name} 👥
-                        </option>
-                      ));
-                    } else {
-                      // Show only THIS user's personal (private) directories
-                      return getDirectoriesAsTreeOptions(
-                        directories,
-                        d => !d.is_public && (currentUser.role === 'ADMIN' ? true : d.user === currentUser.id)
-                      ).map(d => (
-                        <option key={d.id} value={d.id}>
-                          {d.visualPrefix}{d.name} 🔒
-                        </option>
-                      ));
-                    }
-                  })()}
-                </select>
-              </div>
-              {(() => {
-                if (!editDirId) return null;
-                const targetDir = directories.find(d => d.id.toString() === editDirId);
-                if (targetDir && targetDir.is_public && currentUser.role !== 'ADMIN' && targetDir.user !== currentUser.id) {
-                  return (
-                    <div className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-normal flex flex-col gap-0.5">
-                      <strong>⚠️ Yêu cầu kiểm duyệt:</strong> Bạn không có quyền quản trị trực tiếp thư mục công khai này. Hành động chuyển thư mục sẽ đưa tài liệu về trạng thái <strong>Chờ duyệt (Pending)</strong> để chờ duyệt.
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              <div className="mb-4">
-                <label className="block text-sm mb-1 font-semibold text-gray-700">Địa điểm / Phòng thiết bị</label>
-                <select
-                  value={editLocation}
-                  onChange={e => setEditLocation(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Chọn Địa điểm / Phòng thiết bị --</option>
-                  {LOCATIONS.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
-                <label className="block text-sm mb-1 font-medium text-yellow-800">Thay thế tài liệu đính kèm</label>
-                <p className="text-xs text-yellow-600 mb-2">Bỏ trống nếu muốn giữ nguyên file cũ</p>
-                <input type="file" onChange={e => e.target.files && setEditFile(e.target.files[0])} className="w-full text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200" />
-              </div>
-
-              <div className="flex gap-2 justify-end mt-6">
-                <button type="button" onClick={() => setEditingLesson(null)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Hủy</button>
-                <button type="submit" className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600">Lưu thay đổi</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Lesson Detail Modal (Xem chi tiết) */}
       {selectedLessonForDetail && (
         <div className="fixed z-50 inset-0 w-screen h-screen bg-slate-900/40 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white w-screen h-screen flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
+              <div className="flex-grow mr-4">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-100/50">
                     Chi tiết bài giảng
                   </span>
-                  {selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0 && (
-                    <span className="text-xs font-semibold text-gray-400 truncate max-w-xs sm:max-w-md block" title={getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}>
-                      / {getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}
-                    </span>
+                  {!isInlineEditingDetail ? (
+                    selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0 && (
+                      <span className="text-xs font-semibold text-gray-400 truncate max-w-xs sm:max-w-md block" title={getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}>
+                        / {getDirectoryFullPath(selectedLessonForDetail.directory_ids[0], directories)}
+                      </span>
+                    )
+                  ) : (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-bold text-slate-400">Thư mục:</span>
+                      <select
+                        value={editDirId}
+                        onChange={e => setEditDirId(e.target.value)}
+                        className="text-xs font-semibold bg-blue-50/50 border border-blue-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                      >
+                        <option value="">-- Chưa phân thư mục --</option>
+                        {(() => {
+                          const isPublicLesson = selectedLessonForDetail.status === 'PUBLISHED' || (() => {
+                            if (selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0) {
+                              const firstDir = directories.find(d => d.id === selectedLessonForDetail.directory_ids![0]);
+                              return firstDir ? firstDir.is_public : false;
+                            }
+                            return false;
+                          })();
+
+                          if (isPublicLesson) {
+                            return getDirectoriesAsTreeOptions(directories, d => d.is_public).map(d => (
+                              <option key={d.id} value={d.id}>
+                                {d.visualPrefix}{d.name} 👥
+                              </option>
+                            ));
+                          } else {
+                            return getDirectoriesAsTreeOptions(
+                              directories,
+                              d => !d.is_public && (currentUser?.role === 'ADMIN' ? true : d.user === currentUser?.id)
+                            ).map(d => (
+                              <option key={d.id} value={d.id}>
+                                {d.visualPrefix}{d.name} 🔒
+                              </option>
+                            ));
+                          }
+                        })()}
+                      </select>
+                      {(() => {
+                        if (!editDirId) return null;
+                        const targetDir = directories.find(d => d.id.toString() === editDirId);
+                        if (targetDir && targetDir.is_public && currentUser && currentUser.role !== 'ADMIN' && targetDir.user !== currentUser.id) {
+                          return (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title="Bạn không có quyền quản trị trực tiếp thư mục công khai này. Hành động chuyển thư mục sẽ đưa tài liệu về trạng thái Chờ duyệt.">
+                              ⚠️ Cần duyệt
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
                   )}
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
+                {!isInlineEditingDetail ? (
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">{selectedLessonForDetail.title}</h2>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="w-full border border-blue-300 rounded-xl px-3 py-1.5 text-base sm:text-lg font-bold text-gray-900 leading-tight focus:ring-2 focus:ring-blue-500 bg-blue-50/10 mt-1 shadow-inner focus:outline-none"
+                    placeholder="Tên bài giảng..."
+                  />
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {selectedLessonForDetail.status !== 'LOCAL' && (
@@ -5036,20 +5091,68 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Storage Path Location Info */}
+                <div className="mb-6 bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <span>💾</span> Vị trí tài liệu trong cây thư mục
+                    </span>
+                    <span className="text-[10px] bg-slate-200 text-slate-700 border border-slate-300/60 px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                      Cây Thư Mục
+                    </span>
+                  </div>
+                  <div className="font-mono text-xs bg-white border border-slate-150 p-3 rounded-xl break-all text-slate-600 flex items-center gap-2 select-all shadow-inner leading-relaxed">
+                    <span className="text-emerald-500 flex-shrink-0 font-bold font-sans select-none">📁 PATH:</span>
+                    {(() => {
+                      const hasDir = isInlineEditingDetail
+                        ? !!editDirId
+                        : (selectedLessonForDetail.directory_ids && selectedLessonForDetail.directory_ids.length > 0);
+                      const currentDirId = isInlineEditingDetail
+                        ? editDirId
+                        : (selectedLessonForDetail.directory_ids ? selectedLessonForDetail.directory_ids[0] : '');
+                      const dirPath = hasDir ? getDirectoryFullPath(currentDirId, directories) : 'Thư mục gốc (Root)';
+                      const fileName = editFile
+                        ? editFile.name
+                        : (getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path) || 'Chưa đính kèm tệp tin');
+                      return `${dirPath} / ${fileName}`;
+                    })()}
+                  </div>
+                </div>
+
                 {/* Description */}
                 <div className="mb-6">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Tóm tắt / Mô tả</h4>
-                  <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
-                    {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
-                  </div>
+                  {!isInlineEditingDetail ? (
+                    <div className="bg-white border border-gray-200 rounded-2xl p-5 text-gray-600 leading-relaxed text-sm shadow-sm">
+                      {selectedLessonForDetail.description || 'Tài liệu này hiện chưa có mô tả chi tiết trong cơ sở dữ liệu.'}
+                    </div>
+                  ) : (
+                    <textarea
+                      value={editDesc}
+                      onChange={e => setEditDesc(e.target.value)}
+                      className="w-full border border-blue-300 rounded-2xl p-5 text-gray-750 leading-relaxed text-sm focus:ring-2 focus:ring-blue-500 bg-blue-50/10 h-28 focus:outline-none shadow-inner resize-none"
+                      placeholder="Nhập mô tả / tóm tắt chi tiết của tài liệu..."
+                    />
+                  )}
                 </div>
+
                 {/* Key Metadata Cards */}
-                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
                     <div className="text-2xl">🎓</div>
-                    <div>
+                    <div className="w-full">
                       <span className="block text-[11px] text-gray-400 font-bold uppercase">Đối tượng / Lớp</span>
-                      <span className="font-bold text-gray-800 text-sm">{selectedLessonForDetail.target_student || 'Chung'}</span>
+                      {!isInlineEditingDetail ? (
+                        <span className="font-bold text-gray-800 text-sm">{selectedLessonForDetail.target_student || 'Chung'}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          value={editGrade}
+                          onChange={e => setEditGrade(e.target.value)}
+                          className="border border-blue-300 rounded-lg px-2.5 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 bg-blue-50/10 w-full mt-1 focus:outline-none"
+                          placeholder="Lớp..."
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-3">
@@ -5066,7 +5169,46 @@ export default function App() {
                       </span>
                     </div>
                   </div>
+                  {isInlineEditingDetail && (
+                    <div className="bg-white border border-blue-200 rounded-2xl p-4 shadow-sm flex items-center gap-3 animate-in fade-in duration-200">
+                      <div className="text-2xl">📍</div>
+                      <div className="w-full">
+                        <span className="block text-[11px] text-gray-400 font-bold uppercase">Địa điểm / Phòng TB</span>
+                        <select
+                          value={editLocation}
+                          onChange={e => setEditLocation(e.target.value)}
+                          className="w-full border border-blue-300 rounded-lg px-2 py-1 text-xs font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 bg-blue-50/10 mt-1 focus:outline-none"
+                        >
+                          <option value="">-- Địa điểm --</option>
+                          {LOCATIONS.map(loc => (
+                            <option key={loc} value={loc}>{loc}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {isInlineEditingDetail && (
+                  <div className="mb-6 bg-amber-50/40 border border-amber-200 rounded-2xl p-5 shadow-sm animate-in fade-in duration-200">
+                    <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span>📂</span> Thay thế tài liệu đính kèm
+                    </h4>
+                    <p className="text-[11px] text-amber-600 mb-3 leading-normal">
+                      Bỏ trống nếu muốn giữ nguyên tệp tin cũ. Bạn có thể chọn file .docx, .md, hoặc .txt mới.
+                    </p>
+                    <input
+                      type="file"
+                      onChange={e => e.target.files && setEditFile(e.target.files[0])}
+                      className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-100 file:text-amber-700 hover:file:bg-amber-200 transition-all cursor-pointer bg-white border border-amber-200/60 p-2 rounded-xl shadow-inner"
+                    />
+                    {editFile && (
+                      <p className="text-xs text-emerald-600 font-bold mt-2 flex items-center gap-1">
+                        <span>✓</span> Chuẩn bị tải lên: <span className="underline break-all">{editFile.name}</span> ({Math.round(editFile.size / 1024)} KB)
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Additional attributes */}
                 {selectedLessonForDetail.attributes && Object.keys(selectedLessonForDetail.attributes).filter(k => k !== 'tien_trinh_day_hoc' && k !== 'knowledge_tags').length > 0 && (
@@ -5470,75 +5612,110 @@ export default function App() {
 
             {/* Bottom Bar / Footer */}
             <div className="p-5 border-t border-gray-100 bg-white flex items-center justify-end gap-3 flex-shrink-0">
-              {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
-                <button
-                  onClick={() => {
-                    const id = selectedLessonForDetail.id;
-                    setSelectedLessonForDetail(null);
-                    handleDeleteLesson(id);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-all flex items-center gap-1.5 mr-auto hover:shadow-sm"
-                >
-                  🗑️ Xóa tài liệu
-                </button>
-              )}
-
-              <button
-                onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
-                className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all hover:shadow-sm"
-              >
-                Đóng
-              </button>
-
-              {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
+              {isInlineEditingDetail ? (
                 <>
                   <button
+                    type="button"
                     onClick={() => {
-                      fetchEditHistory(selectedLessonForDetail.id);
+                      setIsInlineEditingDetail(false);
+                      setEditingLesson(null);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 font-bold hover:bg-slate-100 transition-all hover:shadow-sm"
+                    className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-705 font-bold hover:bg-gray-100 hover:border-gray-400 transition-all mr-auto shadow-sm"
                   >
-                    📜 Lịch sử chỉnh sửa
+                    ✕ Hủy chỉnh sửa
                   </button>
                   <button
-                    onClick={() => {
-                      const l = selectedLessonForDetail;
-                      setSelectedLessonForDetail(null);
-                      openEditModal(l);
+                    type="button"
+                    onClick={async (e) => {
+                      await submitEdit(e);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-all hover:shadow-sm"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md shadow-emerald-600/10 hover:shadow-emerald-600/25 flex items-center justify-center gap-2"
                   >
-                    ✏️ Chỉnh sửa thông tin
+                    💾 Lưu thay đổi
                   </button>
-                  {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
+                </>
+              ) : (
+                <>
+                  {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
                     <button
                       onClick={() => {
-                        const l = selectedLessonForDetail;
+                        const id = selectedLessonForDetail.id;
                         setSelectedLessonForDetail(null);
-                        openProposeModal(l);
+                        handleDeleteLesson(id);
                       }}
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-95 text-white font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                      className="px-5 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-bold transition-all flex items-center gap-1.5 mr-auto hover:shadow-sm"
                     >
-                      🌐 Đề xuất công khai
+                      🗑️ Xóa tài liệu
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
+                    className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-750 font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all hover:shadow-sm"
+                  >
+                    Đóng
+                  </button>
+
+                  {currentUser && (selectedLessonForDetail.creator?.id === currentUser.id || currentUser.role === 'ADMIN') && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fetchEditHistory(selectedLessonForDetail.id);
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 font-bold hover:bg-slate-100 transition-all hover:shadow-sm"
+                      >
+                        📜 Lịch sử chỉnh sửa
+                      </button>
+                      <button
+                        onClick={() => {
+                          const l = selectedLessonForDetail;
+                          setEditingLesson(l);
+                          setEditTitle(l.title);
+                          setEditDesc(l.description || '');
+                          setEditGrade(l.target_student || '');
+                          setEditDirId(l.directory_ids && l.directory_ids.length > 0 ? l.directory_ids[0].toString() : '');
+                          setEditAttrs(JSON.stringify(l.attributes || {}));
+                          setEditFile(null);
+                          const loc = l.attributes && l.attributes['Địa điểm'] ? l.attributes['Địa điểm'] : '';
+                          setEditLocation(loc);
+                          setIsInlineEditingDetail(true);
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-bold hover:bg-amber-100 transition-all hover:shadow-sm"
+                      >
+                        ✏️ Chỉnh sửa thông tin
+                      </button>
+                      {(selectedLessonForDetail.status === 'LOCAL' || selectedLessonForDetail.status === 'REJECTED') && (
+                        <button
+                          onClick={() => {
+                            const l = selectedLessonForDetail;
+                            setSelectedLessonForDetail(null);
+                            openProposeModal(l);
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:opacity-95 text-white font-bold transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                        >
+                          🌐 Đề xuất công khai
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {selectedLessonForDetail.file_path || selectedLessonForDetail.file_url ? (
+                    <a
+                      href={getLessonFileUrl(selectedLessonForDetail)}
+                      download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-all hover:shadow-md flex items-center justify-center gap-2"
+                    >
+                      ↓ Tải tài liệu về máy
+                    </a>
+                  ) : (
+                    <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-400 font-bold cursor-not-allowed border border-gray-200">
+                      Không có file đính kèm
                     </button>
                   )}
                 </>
-              )}
-
-              {selectedLessonForDetail.file_path || selectedLessonForDetail.file_url ? (
-                <a
-                  href={getLessonFileUrl(selectedLessonForDetail)}
-                  download={getFileName(selectedLessonForDetail.file_url || selectedLessonForDetail.file_path)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold transition-all hover:shadow-md flex items-center justify-center gap-2"
-                >
-                  ↓ Tải tài liệu về máy
-                </a>
-              ) : (
-                <button disabled className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-455 font-bold cursor-not-allowed border border-gray-200">
-                  Không có file đính kèm
-                </button>
               )}
             </div>
           </div>

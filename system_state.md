@@ -2,7 +2,7 @@
 
 Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực tế của hệ thống QLTT trên môi trường local, đặc biệt ghi nhận tiến độ sau pha nâng cấp AI Knowledge Hub, Graph RAG và đồng bộ Obsidian.
 
-*Cập nhật lần cuối: 2026-05-31 20:50 (Giờ Việt Nam)*
+*Cập nhật lần cuối: 2026-06-06 20:10 (Giờ Việt Nam)*
 
 ---
 
@@ -99,10 +99,22 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * Thêm nút **🎯 Về giữa** nằm bên cạnh nút **🔄 Reset** với hiệu ứng hover mượt mà và chuyển cảnh di chuyển `fitView` êm ái thời lượng **800ms**, nâng cao độ cao cấp và trải nghiệm tương tác trực quan cho người dùng.
         * **Tách biệt Sơ đồ vs Tài liệu (Segmented Tabs)**: Thêm state `detailActiveTab` để chia cột xem chi tiết thành 2 tab trực quan riêng biệt (📄 *Xem tài liệu chi tiết* và 🕸️ *Sơ đồ tư duy 4 nhánh*), loại bỏ hoàn toàn việc xếp chồng chiếm không gian cũ.
         * **Nút ẩn/hiện bình luận trong Card**: Thêm state `showComments` và nút "💬 Ẩn/Hiện bình luận" trên thanh tiêu đề của Card chi tiết. Khi bấm ẩn, khung đọc tài liệu tự động mở rộng chiếm 100% chiều rộng màn hình (`lg:w-full`) cực kỳ tối ưu và thoáng mắt.
-    - **Sửa lỗi lặp tệp tin trong Cây Thư mục (Directory Tree Deduplication)**:
-        * Khắc phục lỗi hiển thị tệp tin lặp lại ở cả thư mục cha và thư mục con khi một tệp thuộc về nhiều cấp thư mục.
-        * Viết thêm hàm đệ quy `getDescendantIds` trong `App.tsx` để xác định toàn bộ các thư mục con (descendants) của thư mục hiện tại.
         * Cập nhật `dirFiles` của `DirectoryNode` để tự động lọc bỏ các tệp tin nếu chúng đã được xếp vào các thư mục con cụ thể bên dưới, giúp sơ đồ cây thư mục luôn sạch sẽ, chính xác theo cấu trúc chuẩn.
+*   **2026-06-06**: **Hiển thị Tooltip cây thư mục, Nút nổi AI kéo thả bám biên & Hover Node trên Đồ thị Canvas**:
+    - **Hiển thị Tooltip đầy đủ cho Thư mục & Tệp tin**:
+        * Xây dựng hai component tùy chỉnh `DirectoryTitle` và `FileTreeItem` trong `App.tsx` thay thế cho thẻ `span` hiển thị tên mặc định.
+        * Sử dụng các sự kiện `onMouseEnter`, `onMouseLeave` và `onMouseMove` để tính toán tọa độ chuột thời gian thực.
+        * Hiển thị tooltip dạng `position: fixed` nổi lên trên (`zIndex: 99999`) và căn giữa ngay phía trên con trỏ chuột (`clientY - 35`), hiển thị đầy đủ tên các thư mục/tệp tin bị rút gọn (`truncate`) mà không bị cắt khuất bởi thanh cuộn sidebar.
+        * Áp dụng đồng bộ cho cả 3 cấu trúc cây thư mục: Thư mục Thư viện chung (`DirectoryNode`), Thư mục phân quyền bài giảng của Admin (`PermissionDirTreeNode`), và Thư mục cá nhân (`PersonalDirTreeNode`).
+    - **Nút nổi AI có thể kéo thả và bám dính biên tự động (Magnetic Snap-to-Edge AI Button)**:
+        * Tích hợp cơ chế kéo thả mượt mà trên cả PC (chuột) và di động (cảm ứng) cho nút kích hoạt Trợ lý AI.
+        * Sử dụng bộ tính toán khoảng cách kéo: Nếu khoảng cách di chuyển nhỏ hơn `5px`, hệ thống sẽ coi là thao tác click mở chat; ngược lại, hệ thống sẽ thực hiện di chuyển nút theo tay người dùng.
+        * Khi người dùng thả chuột/tay ra, nút sẽ tự động bám dính (snap) mượt mà vào biên trái hoặc phải màn hình gần nhất (cách biên `24px`) sử dụng hiệu ứng chuyển dịch CSS `cubic-bezier`.
+        * Vị trí bám biên được lưu tự động vào `localStorage` (`kms_ai_btn_pos`) để duy trì trạng thái khi người dùng tải lại trang.
+    - **Tooltip hiển thị tên đầy đủ của Node trong Đồ thị Obsidian**:
+        * Bổ sung tính năng hiển thị tooltip nhãn đầy đủ khi di chuột qua các nút (nodes) trong sơ đồ mạng lưới tri thức RAG (Obsidian).
+        * Sử dụng phép chiếu tọa độ màn hình thực tế (áp dụng `scale` và `translate` từ transform của sơ đồ) để vẽ tooltip trên lớp canvas overlay độc lập.
+        * Tooltip hiển thị dạng hộp tối màu bo góc tinh tế có đổ bóng (`shadowColor`), chứa nhãn đầy đủ (`node.label`) sắc nét mà không bị thay đổi tỷ lệ hay làm xáo trộn sơ đồ bên dưới.
 
 
 
