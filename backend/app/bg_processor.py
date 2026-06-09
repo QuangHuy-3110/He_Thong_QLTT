@@ -33,6 +33,64 @@ class BackgroundProcessManager:
     _worker_thread = None
     _active_tasks = {}  # {lp_id: {'step': str, 'queued_at': datetime}}
     _stats = {'success': 0, 'failed': 0}
+    _cancelled_tasks = set()  # Lưu các task id bị yêu cầu dừng
+
+    @classmethod
+    def cancel_task(cls, lesson_plan_id):
+        """
+        Dừng một tác vụ AI RAG đang chạy hoặc đang chờ.
+        """
+        with cls._lock:
+            cls._cancelled_tasks.add(lesson_plan_id)
+        
+        # Cập nhật database ngay lập tức
+        from .models import LessonPlan
+        try:
+            lp = LessonPlan.objects.get(id=lesson_plan_id)
+            if lp.ai_processing_status in ['PENDING', 'PROCESSING']:
+                lp.ai_processing_status = 'FAILED'
+                lp.ai_processing_step = 'Đã dừng xử lý theo yêu cầu người dùng.'
+                lp.save(update_fields=['ai_processing_status', 'ai_processing_step'])
+        except Exception as e:
+            print(f"[BG Process] Error updating DB for cancelled task {lesson_plan_id}: {e}")
+            
+        # Nếu task chưa chạy (đang chờ trong queue), xóa khỏi active tasks ngay
+        with cls._lock:
+            if lesson_plan_id in cls._active_tasks and cls._active_tasks[lesson_plan_id]['step'] == 'Đang chờ...':
+                del cls._active_tasks[lesson_plan_id]
+                if lesson_plan_id in cls._cancelled_tasks:
+                    cls._cancelled_tasks.remove(lesson_plan_id)
+
+    @classmethod
+    def cancel_all_tasks(cls):
+        """
+        Dừng toàn bộ các tác vụ AI RAG đang chạy và trong hàng chờ.
+        """
+        active_ids = list(cls._active_tasks.keys())
+        for lp_id in active_ids:
+            cls.cancel_task(lp_id)
+            
+        # Xóa sạch queue
+        try:
+            while not cls._queue.empty():
+                cls._queue.get_nowait()
+                cls._queue.task_done()
+        except Exception:
+            pass
+
+    @classmethod
+    def _is_cancelled(cls, lp_id):
+        with cls._lock:
+            return lp_id in cls._cancelled_tasks
+
+    @classmethod
+    def _handle_cancellation(cls, lp_id):
+        with cls._lock:
+            if lp_id in cls._active_tasks:
+                del cls._active_tasks[lp_id]
+            if lp_id in cls._cancelled_tasks:
+                cls._cancelled_tasks.remove(lp_id)
+        print(f"[BG Process] Task {lp_id} successfully stopped & cleaned up.")
 
     @classmethod
     def get_vault_path(cls):
@@ -129,8 +187,20 @@ class BackgroundProcessManager:
     def scan_and_queue_unprocessed(cls):
         """
         Quét database khi startup để tự động queue các bài giảng chưa hoàn thành.
+        Bỏ qua nếu Admin đã tắt AI RAG.
         """
-        from .models import LessonPlan
+        from .models import LessonPlan, SystemSetting
+        # Kiểm tra cấu hình bật/tắt AI RAG trước khi quét
+        try:
+            config = SystemSetting.objects.get(key="chunking_config").value
+            use_ai_rag = config.get("use_ai_rag", True)
+        except Exception:
+            use_ai_rag = True
+
+        if not use_ai_rag:
+            print("[BG Process] scan_and_queue_unprocessed: AI RAG đang tắt, bỏ qua quét startup.")
+            return
+
         unprocessed = LessonPlan.objects.filter(~Q(ai_processing_status='COMPLETED'))
         count = unprocessed.count()
         if count > 0:
@@ -167,6 +237,29 @@ class BackgroundProcessManager:
                 del cls._active_tasks[lp_id]
             return
 
+        if cls._is_cancelled(lp_id):
+            cls._handle_cancellation(lp_id)
+            return
+
+        # ── Kiểm tra cài đặt bật/tắt LLM/AI RAG toàn cục TRƯỚC KHI xử lý ──
+        # Dù task đã vào hàng chờ, nếu Admin tắt thì bỏ qua hoàn toàn
+        try:
+            setting_check = SystemSetting.objects.get(key="chunking_config").value
+            use_ai_rag = setting_check.get("use_ai_rag", True)
+        except Exception:
+            use_ai_rag = True
+
+        if not use_ai_rag:
+            print(f"[BG Process] SKIPPED (AI RAG tắt) for: {lp.title} (ID: {lp_id})")
+            # Đánh dấu COMPLETED để không lặp lại, không cần LLM/embedding
+            LessonPlan.objects.filter(id=lp_id).update(
+                ai_processing_status='COMPLETED',
+                ai_processing_step='AI RAG đã tắt — bỏ qua xử lý ngầm.'
+            )
+            if lp_id in cls._active_tasks:
+                del cls._active_tasks[lp_id]
+            return
+
         print(f"[BG Process] Starting processing for: {lp.title} (ID: {lp_id})")
         cls._active_tasks[lp_id]['step'] = 'Đang chuyển đổi văn bản .docx sang Markdown (Phase 1)...'
         
@@ -191,6 +284,10 @@ class BackgroundProcessManager:
 
             if not markdown_content.strip():
                 raise ValueError("Tài liệu trống, không thể trích xuất nội dung Markdown.")
+
+            if cls._is_cancelled(lp_id):
+                cls._handle_cancellation(lp_id)
+                return
 
             # --- PHASE 2: Semantic Chunking ---
             cls._active_tasks[lp_id]['step'] = 'Đang chia nhỏ văn bản (Phase 2: Semantic Chunking)...'
@@ -256,6 +353,10 @@ class BackgroundProcessManager:
                     start += (chunk_size - chunk_overlap)
                     idx += 1
 
+            if cls._is_cancelled(lp_id):
+                cls._handle_cancellation(lp_id)
+                return
+
             # --- PHASE 3: Embedding Generation with Metadata Prepend ---
             total_chunks = len(chunks_to_create)
             cls._active_tasks[lp_id]['step'] = f'Đang sinh Vector nhúng RAG (Phase 3: Khởi tạo... 0/{total_chunks} chunks)'
@@ -263,6 +364,9 @@ class BackgroundProcessManager:
             lp.save(update_fields=['ai_processing_step'])
 
             for idx, chk in enumerate(chunks_to_create):
+                if cls._is_cancelled(lp_id):
+                    cls._handle_cancellation(lp_id)
+                    return
                 chk_content = chk['content']
                 chk_heading = chk['heading']
 
@@ -292,6 +396,10 @@ class BackgroundProcessManager:
                         'timestamp': datetime.now().isoformat()
                     }
                 )
+
+            if cls._is_cancelled(lp_id):
+                cls._handle_cancellation(lp_id)
+                return
 
             # --- PHASE 4: Concept & Relation Extraction ---
             cls._active_tasks[lp_id]['step'] = 'Đang trích xuất thực thể đồ thị tri thức (Phase 4: Concept Extraction)...'
@@ -349,6 +457,10 @@ class BackgroundProcessManager:
             lp.attributes["knowledge_tags"] = extracted_tags[:12]
             lp.save(update_fields=['attributes'])
 
+            if cls._is_cancelled(lp_id):
+                cls._handle_cancellation(lp_id)
+                return
+
             # --- PHASE 5: Obsidian Vault Sync ---
             cls._active_tasks[lp_id]['step'] = 'Đang đồng bộ dữ liệu vào Obsidian Vault (Phase 5)...'
             lp.ai_processing_step = 'Đang đồng bộ dữ liệu vào Obsidian Vault (Phase 5)...'
@@ -368,6 +480,50 @@ class BackgroundProcessManager:
             clean_filename = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lp.title).strip()
             note_filename = f"{clean_filename}.md"
             note_path = os.path.join(vault_dir, note_filename)
+
+            # Dọn dẹp các tag cũ không còn sử dụng trong lượt trích xuất này
+            old_tags = []
+            if os.path.exists(note_path):
+                try:
+                    with open(note_path, 'r', encoding='utf-8', errors='replace') as f:
+                        old_content = f.read()
+                    yaml_match = re.search(r'^---\n(.+?)\n---', old_content, re.DOTALL)
+                    if yaml_match:
+                        yaml_content = yaml_match.group(1)
+                        tags_section_match = re.search(r'tags:\s*\n((?:\s*-\s*.*?\n)+)', yaml_content)
+                        if tags_section_match:
+                            for tag_line in tags_section_match.group(1).splitlines():
+                                t_match = re.search(r'-\s*["\']?([^"\']+)["\']?', tag_line)
+                                if t_match:
+                                    old_tags.append(t_match.group(1).strip())
+                except Exception as e:
+                    print(f"[BG Process] Error reading old tags: {e}")
+
+            # Tìm các tag cũ không còn trong extracted_tags mới để dọn dẹp các ghi chú mồ côi
+            for old_tag in old_tags:
+                if old_tag not in extracted_tags:
+                    old_concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', old_tag).strip()}.md"
+                    old_concept_path = os.path.join(vault_dir, old_concept_filename)
+                    if os.path.exists(old_concept_path):
+                        try:
+                            with open(old_concept_path, 'r', encoding='utf-8') as f:
+                                concept_content = f.read()
+                            
+                            link_line = f"- [[{lp.title}]]"
+                            links = re.findall(r'- \[\[(.*?)\]\]', concept_content)
+                            
+                            # Nếu note khái niệm chỉ liên kết đến bài giảng này, xóa hoàn toàn để tránh mồ côi
+                            if len(links) <= 1 and (len(links) == 0 or links[0] == lp.title):
+                                os.remove(old_concept_path)
+                                print(f"[BG Process] Deleted old orphan concept note: {old_concept_path}")
+                            else:
+                                # Ngược lại, chỉ xóa dòng liên kết đến bài giảng này
+                                updated_lines = [line for line in concept_content.splitlines() if link_line not in line]
+                                with open(old_concept_path, 'w', encoding='utf-8') as f:
+                                    f.write('\n'.join(updated_lines) + '\n')
+                                print(f"[BG Process] Removed link to reprocessed lesson from old concept: {old_tag}")
+                        except Exception as e:
+                            print(f"[BG Process] Error cleaning old tag {old_tag}: {e}")
 
             # YAML Front Matter
             front_matter = (
@@ -394,16 +550,59 @@ class BackgroundProcessManager:
                 concept_path = os.path.join(vault_dir, concept_filename)
                 
                 if not os.path.exists(concept_path):
+                    # Dùng LLM tạo mô tả học thuật ngắn gọn cho khái niệm
+                    concept_description = ""
+                    try:
+                        subject = lp.attributes.get('Môn học', 'giáo dục')
+                        prompt_concept = (
+                            f"Viết 2-3 câu mô tả học thuật súc tích về khái niệm \"{tag}\" "
+                            f"trong bối cảnh môn học \"{subject}\" và bài học \"{lp.title}\". "
+                            f"Chỉ mô tả bản chất/định nghĩa của khái niệm, không giải thích bài giảng. "
+                            f"Bắt buộc viết 100% bằng tiếng Việt chuẩn, học thuật, ngắn gọn, không dùng gạch đầu dòng. "
+                            f"Tuyệt đối không sử dụng bất kỳ từ ngữ hay ký tự tiếng nước ngoài nào (đặc biệt là chữ Hán/tiếng Trung như 硅藻门, tiếng Anh...)."
+                        )
+                        
+                        # Đọc cấu hình model của người dùng từ attributes
+                        model_config = lp.attributes.get('ai_model_config', {}) if isinstance(lp.attributes, dict) else {}
+                        ai_mode = model_config.get('ai_mode', 'local')
+                        local_model = model_config.get('local_model', '3b')
+                        api_key = model_config.get('api_key', None)
+                        api_model = model_config.get('api_model', None)
+                        
+                        model_choice = 'api' if ai_mode == 'api' else local_model
+
+                        concept_description = generate_llm_response(
+                            prompt=prompt_concept,
+                            system_prompt=(
+                                "Bạn là chuyên gia học thuật Việt Nam. Nhiệm vụ: viết định nghĩa/mô tả học thuật "
+                                "ngắn gọn (2-3 câu) cho một khái niệm khoa học/giáo dục. "
+                                "Bắt buộc trả về câu trả lời hoàn toàn bằng tiếng Việt phổ thông. "
+                                "Tuyệt đối không chèn chữ Hán, tiếng Trung, tiếng Anh hay ký tự lạ. "
+                                "Không dùng bullet points. Chỉ trả về đoạn văn mô tả, không thêm tiêu đề hay giải thích."
+                            ),
+                            model_choice=model_choice,
+                            api_key=api_key if ai_mode == 'api' else None,
+                            model_name=api_model if ai_mode == 'api' else None
+                        ).strip()
+                        # Loại bỏ các prefix không cần thiết
+                        for prefix in ["Khái niệm:", "Định nghĩa:", f"{tag}:", "**", "*"]:
+                            if concept_description.lower().startswith(prefix.lower()):
+                                concept_description = concept_description[len(prefix):].strip()
+                    except Exception as e:
+                        print(f"[BG Process] Concept description generation failed for '{tag}': {e}")
+                        concept_description = f"{tag} là một khái niệm quan trọng trong lĩnh vực giáo dục và học tập."
+
                     with open(concept_path, 'w', encoding='utf-8') as f:
                         f.write(
                             f"---\n"
                             f"type: \"concept\"\n"
                             f"name: \"{tag}\"\n"
+                            f"subject: \"{lp.attributes.get('Môn học', '')}\"\n"
                             f"---\n\n"
-                            f"# Khái niệm: {tag}\n\n"
-                            f"Khái niệm tri thức sư phạm được trích xuất tự động từ hệ thống KMS.\n\n"
+                            f"# {tag}\n\n"
+                            f"{concept_description}\n\n"
                             f"## Các bài học liên quan:\n"
-                            f"- [[{lp.title}]]\n"
+                            f"- 📚 [[{lp.title}]]\n"
                         )
                 else:
                     # Nếu note khái niệm đã có, đọc và append thêm bài giảng mới liên quan

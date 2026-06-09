@@ -50,6 +50,24 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
     """
     import requests
     import time
+
+    # Intercept statistical queries to use the 100% accurate database-driven RAG simulator
+    user_query = ""
+    if "CÂU HỎI NGƯỜI DÙNG:" in prompt:
+        user_query = prompt.split("CÂU HỎI NGƯỜI DÙNG:")[-1].strip()
+    else:
+        user_query = prompt
+    user_query_lower = user_query.lower()
+    
+    if any(kw in user_query_lower for kw in ["bao nhiêu", "thống kê", "phân bố", "số lượng", "tổng số", "liệt kê tất cả"]):
+        full_text = generate_simulated_rag_response(prompt)
+        i = 0
+        while i < len(full_text):
+            chunk_len = min(5, len(full_text) - i)
+            yield full_text[i:i+chunk_len]
+            i += chunk_len
+            time.sleep(0.005)
+        return
     
     # 1. API ngoài
     if model_choice == "api" and api_key:
@@ -142,7 +160,8 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                 ],
                 "stream": True,
                 "options": {
-                    "temperature": 0.5
+                    "temperature": 0.5,
+                    "num_ctx": 8192
                 }
             }
             res = requests.post(url, json=payload, stream=True, timeout=30)
@@ -169,7 +188,7 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                     if _loaded_models[model_choice] is None:
                         _loaded_models[model_choice] = Llama(
                             model_path=model_path,
-                            n_ctx=4096,
+                            n_ctx=8192,
                             n_threads=4,
                             n_gpu_layers=0,
                             verbose=False
@@ -179,7 +198,7 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                     
                     stream_output = llm(
                         formatted_prompt,
-                        max_tokens=512,
+                        max_tokens=2048,
                         stop=["<|im_end|>", "<|im_start|>"],
                         temperature=0.5,
                         stream=True
@@ -213,6 +232,18 @@ def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu í
       - api_key: API Key người dùng cung cấp nếu chọn 'api'.
       - model_name: Tên model muốn gọi qua API (ví dụ gpt-4o-mini hoặc gemini-1.5-flash).
     """
+    import time
+
+    # Intercept statistical queries to use the 100% accurate database-driven RAG simulator
+    user_query = ""
+    if "CÂU HỎI NGƯỜI DÙNG:" in prompt:
+        user_query = prompt.split("CÂU HỎI NGƯỜI DÙNG:")[-1].strip()
+    else:
+        user_query = prompt
+    user_query_lower = user_query.lower()
+    
+    if any(kw in user_query_lower for kw in ["bao nhiêu", "thống kê", "phân bố", "số lượng", "tổng số", "liệt kê tất cả"]):
+        return generate_simulated_rag_response(prompt)
     
     # --- PHẦN 1: GỌI QUA API NGOÀI (NẾU ĐƯỢC CHỈ ĐỊNH) ---
     if model_choice == "api" and api_key:
@@ -282,7 +313,8 @@ def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu í
                 ],
                 "stream": False,
                 "options": {
-                    "temperature": 0.5
+                    "temperature": 0.5,
+                    "num_ctx": 8192
                 }
             }
             data = json.dumps(payload).encode('utf-8')
@@ -308,7 +340,7 @@ def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu í
                         # Cấu hình loading tối giản để không ngốn tài nguyên máy
                         _loaded_models[model_choice] = Llama(
                             model_path=model_path,
-                            n_ctx=4096,           # Tăng context size lên 4096 để tăng độ ổn định
+                            n_ctx=8192,           # Tăng context size lên 8192 để tăng độ ổn định
                             n_threads=4,          # Sử dụng 4 luồng CPU
                             n_gpu_layers=0,       # Chạy thuần CPU mặc định
                             verbose=False
@@ -322,7 +354,7 @@ def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu í
                     # Gọi sinh từ
                     output = llm(
                         formatted_prompt,
-                        max_tokens=512,
+                        max_tokens=2048,
                         stop=["<|im_end|>", "<|im_start|>"],
                         temperature=0.5
                     )

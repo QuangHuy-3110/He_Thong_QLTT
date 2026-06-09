@@ -1419,12 +1419,25 @@ export default function App() {
     }
   }, []);
 
+  // Stop all active background tasks when exiting/closing the web page
+  useEffect(() => {
+    const handleUnload = () => {
+      const data = new Blob([JSON.stringify({ all: true })], { type: 'application/json' });
+      navigator.sendBeacon('/api/bg-tasks/stop/', data);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, []);
+
   const [directories, setDirectories] = useState<Directory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'home' | 'upload' | 'admin'>('home');
   const [homeTab, setHomeTab] = useState<'library' | 'history' | 'personal'>('library');
   const [focusLessonIdForChat, setFocusLessonIdForChat] = useState<number | null>(null);
+  const [chatbotOpenTrigger, setChatbotOpenTrigger] = useState<number>(0);
   const [uploadMode, setUploadMode] = useState<'personal' | 'public'>('public');
   const [lessonHighlightQuery, setLessonHighlightQuery] = useState<string>('');
 
@@ -2251,7 +2264,24 @@ export default function App() {
       formData.append('description', upDesc);
       formData.append('target_student', upGrade);
       formData.append('status', 'LOCAL');
-      formData.append('attributes', upAttrs);
+      
+      let parsedAttrs = {};
+      try {
+        parsedAttrs = JSON.parse(upAttrs);
+      } catch {
+        parsedAttrs = {};
+      }
+      const mergedAttrs = {
+        ...parsedAttrs,
+        ai_model_config: {
+          ai_mode: localStorage.getItem('kms_ai_mode') || 'local',
+          local_model: localStorage.getItem('kms_local_model') || '3b',
+          api_key: localStorage.getItem('kms_api_key') || '',
+          api_model: localStorage.getItem('kms_api_model') || 'gemini-1.5-flash'
+        }
+      };
+      formData.append('attributes', JSON.stringify(mergedAttrs));
+
       if (upDirId) formData.append('directory_id', upDirId);
       formData.append('file', upFile);
 
@@ -3991,6 +4021,7 @@ export default function App() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setFocusLessonIdForChat(lesson.id);
+                                  setChatbotOpenTrigger(prev => prev + 1);
                                 }}
                                 className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
                                 title="Hỏi Trợ lý AI về bài học này"
@@ -4205,7 +4236,10 @@ export default function App() {
                             </button>
                             {useAiRag && (
                               <button
-                                onClick={() => setFocusLessonIdForChat(lesson.id)}
+                                onClick={() => {
+                                  setFocusLessonIdForChat(lesson.id);
+                                  setChatbotOpenTrigger(prev => prev + 1);
+                                }}
                                 className="px-4 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors flex items-center gap-1 hover:scale-105 active:scale-95 duration-100"
                                 title="Hỏi Trợ lý AI về bài học này"
                               >
@@ -4527,6 +4561,7 @@ export default function App() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setFocusLessonIdForChat(lesson.id);
+                                      setChatbotOpenTrigger(prev => prev + 1);
                                     }}
                                     className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 transition-all px-2.5 py-1 bg-blue-50 hover:bg-blue-100 rounded-xl text-[11px] border border-blue-100 shadow-sm shadow-blue-50/50 hover:scale-105 active:scale-95 duration-100"
                                     title="Hỏi Trợ lý AI về bài học này"
@@ -6396,6 +6431,7 @@ export default function App() {
           lessonPlans={lessonPlans}
           focusLessonId={focusLessonIdForChat}
           setFocusLessonId={setFocusLessonIdForChat}
+          chatbotOpenTrigger={chatbotOpenTrigger}
           onViewLessonDetail={(lesson, highlightQuery) => {
             setSelectedLessonForDetail(lesson);
             setLessonHighlightQuery(highlightQuery || '');

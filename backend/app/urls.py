@@ -12,7 +12,8 @@ from .views import (
     AIChatSessionListCreateAPIView, AIChatSessionDetailAPIView,
     AIChatSendMessageAPIView, AIChatGraphDataAPIView,
     SystemSettingAPIView, BackgroundTasksStatusAPIView, ObsidianStatusAPIView,
-    BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView
+    BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView,
+    ObsidianNotesByLessonAPIView, BackgroundTasksStopAPIView, BackgroundTasksResumeAPIView
 )
 
 urlpatterns = [
@@ -49,7 +50,10 @@ urlpatterns = [
     path('system-settings/', SystemSettingAPIView.as_view(), name='system-settings'),
     path('bg-tasks/status/', BackgroundTasksStatusAPIView.as_view(), name='bg-tasks-status'),
     path('bg-tasks/reprocess/', BackgroundTasksReprocessAPIView.as_view(), name='bg-tasks-reprocess'),
+    path('bg-tasks/stop/', BackgroundTasksStopAPIView.as_view(), name='bg-tasks-stop'),
+    path('bg-tasks/resume/', BackgroundTasksResumeAPIView.as_view(), name='bg-tasks-resume'),
     path('obsidian/status/', ObsidianStatusAPIView.as_view(), name='obsidian-status'),
     path('obsidian/notes/', ObsidianNotesListAPIView.as_view(), name='obsidian-notes-list'),
     path('obsidian/notes/content/', ObsidianNoteContentAPIView.as_view(), name='obsidian-note-content'),
-]
+    path('obsidian/notes/by-lesson/', ObsidianNotesByLessonAPIView.as_view(), name='obsidian-notes-by-lesson'),
+]

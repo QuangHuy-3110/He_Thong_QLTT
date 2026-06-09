@@ -191,6 +191,56 @@ def delete_old_lesson_plan_file_on_update(sender, instance, **kwargs):
         except Exception as e:
             print(f"Error deleting old physical file {old_file}: {e}")
 
+@receiver(pre_save, sender=LessonPlan)
+def clean_old_obsidian_note_on_title_change(sender, instance, **kwargs):
+    """
+    Nếu tiêu đề bài giảng thay đổi, xóa nốt Obsidian cũ và các liên kết khái niệm tương ứng.
+    """
+    if not instance.pk:
+        return
+
+    try:
+        old_instance = LessonPlan.objects.get(pk=instance.pk)
+        if old_instance.title != instance.title:
+            import re
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_dir = os.path.dirname(app_dir)
+            workspace_dir = os.path.dirname(backend_dir)
+            vault_dir = os.path.join(workspace_dir, "obsidian_vault")
+            
+            old_clean_filename = re.sub(r'[\/:*?"<>|\r\n\t]', '_', old_instance.title).strip()
+            old_note_path = os.path.join(vault_dir, f"{old_clean_filename}.md")
+            
+            if os.path.exists(old_note_path):
+                os.remove(old_note_path)
+                print(f"[Signal] Deleted old title Obsidian note: {old_note_path}")
+                
+            # Dọn dẹp liên kết trong các Note khái niệm (Concept Notes) của tiêu đề cũ
+            raw_tags = old_instance.attributes.get("Từ khóa kiến thức", []) or old_instance.attributes.get("knowledge_tags", [])
+            if isinstance(raw_tags, list):
+                for tag in raw_tags:
+                    concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', tag).strip()}.md"
+                    concept_path = os.path.join(vault_dir, concept_filename)
+                    if os.path.exists(concept_path):
+                        with open(concept_path, 'r', encoding='utf-8') as f:
+                            concept_content = f.read()
+                        
+                        link_line = f"- [[{old_instance.title}]]"
+                        links = re.findall(r'- \[\[(.*?)\]\]', concept_content)
+                        
+                        # Nếu note khái niệm chỉ chứa liên kết đến bài giảng này, xóa hoàn toàn để tránh mồ côi
+                        if len(links) <= 1 and (len(links) == 0 or links[0] == old_instance.title):
+                            os.remove(concept_path)
+                            print(f"[Signal] Deleted orphan concept note for old title: {concept_path}")
+                        else:
+                            # Chỉ dọn dẹp dòng liên kết đến bài giảng này
+                            updated_lines = [line for line in concept_content.splitlines() if link_line not in line]
+                            with open(concept_path, 'w', encoding='utf-8') as f:
+                                f.write('\n'.join(updated_lines) + '\n')
+                            print(f"[Signal] Removed old title link from concept: {tag}")
+    except Exception as e:
+        print(f"[Signal] Error cleaning old title Obsidian note: {e}")
+
 @receiver(post_save, sender=LessonPlan)
 def index_lesson_plan_chunks(sender, instance, created, **kwargs):
     """

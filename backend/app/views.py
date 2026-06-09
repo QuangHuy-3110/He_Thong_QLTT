@@ -1689,6 +1689,11 @@ class AIChatGraphDataAPIView(APIView):
     def get(self, request):
         user_id = request.query_params.get('user_id')
         lesson_id = request.query_params.get('lesson_id')
+        hop_depth = request.query_params.get('hop_depth', '2')
+        try:
+            hop_depth = int(hop_depth)
+        except ValueError:
+            hop_depth = 2
         
         # Xử lý an toàn tham số để tránh chuỗi 'null', 'undefined' bị coi là ID hợp lệ
         if lesson_id in (None, '', 'null', 'undefined'):
@@ -1700,7 +1705,7 @@ class AIChatGraphDataAPIView(APIView):
                 lesson_id = None
                 
         from .graph_rag_service import build_virtual_knowledge_graph
-        graph_data = build_virtual_knowledge_graph(user_id=user_id, focus_lesson_id=lesson_id)
+        graph_data = build_virtual_knowledge_graph(user_id=user_id, focus_lesson_id=lesson_id, hop_depth=hop_depth)
         return Response(graph_data)
 
 
@@ -1749,30 +1754,218 @@ class BackgroundTasksReprocessAPIView(APIView):
     """
     def post(self, request):
         lesson_id = request.data.get('lesson_id')
-        from .models import LessonPlan
+        ai_mode = request.data.get('ai_mode')
+        local_model = request.data.get('local_model')
+        api_key = request.data.get('api_key')
+        api_model = request.data.get('api_model')
+
+        model_config = {}
+        if ai_mode:
+            model_config['ai_mode'] = ai_mode
+        if local_model:
+            model_config['local_model'] = local_model
+        if api_key:
+            model_config['api_key'] = api_key
+        if api_model:
+            model_config['api_model'] = api_model
+
+        from .models import LessonPlan, DocumentChunk
         from .bg_processor import BackgroundProcessManager
-        
+        import os, re
+
+        def clear_lesson_plan_rag_data(lp):
+            # 1. Xóa các database chunks phục vụ RAG
+            lp.chunks.all().delete()
+            
+            # 2. Xóa các tag trong attributes để Graph lập tức cập nhật
+            if isinstance(lp.attributes, dict):
+                lp.attributes["Từ khóa kiến thức"] = []
+                lp.attributes["knowledge_tags"] = []
+            else:
+                lp.attributes = {"Từ khóa kiến thức": [], "knowledge_tags": []}
+            lp.save(update_fields=['attributes'])
+            
+            # 3. Xóa các note trong Obsidian Vault & dọn dẹp concept notes liên đới
+            vault_dir = BackgroundProcessManager.get_vault_path()
+            if os.path.exists(vault_dir):
+                clean_filename = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lp.title).strip()
+                note_path = os.path.join(vault_dir, f"{clean_filename}.md")
+                
+                # Xóa note chính nếu tồn tại
+                if os.path.exists(note_path):
+                    try:
+                        os.remove(note_path)
+                        print(f"[Clear RAG] Deleted main lesson note: {note_path}")
+                    except Exception as e:
+                        print(f"[Clear RAG] Error deleting note: {e}")
+                        
+                # Quét toàn bộ thư mục vault để tìm và làm sạch các concept note chứa liên kết đến bài giảng này
+                lesson_link_variants = [f"[[{lp.title}]]", f"[[{clean_filename}]]"]
+                try:
+                    for filename in os.listdir(vault_dir):
+                        if not filename.lower().endswith('.md'):
+                            continue
+                        if filename == f"{clean_filename}.md":
+                            continue
+                            
+                        file_path = os.path.join(vault_dir, filename)
+                        if not os.path.exists(file_path):
+                            continue
+                            
+                        try:
+                            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                                content = f.read()
+                            
+                            # Nếu file concept note này chứa liên kết tới bài học
+                            if any(variant in content for variant in lesson_link_variants):
+                                # Lấy tất cả các liên kết trong note
+                                links = re.findall(r'- \[\[(.*?)\]\]', content)
+                                # Nếu chỉ liên kết tới bài học này (hoặc mồ côi), xóa hẳn note concept
+                                if len(links) <= 1 and (len(links) == 0 or links[0] in [lp.title, clean_filename]):
+                                    os.remove(file_path)
+                                    print(f"[Clear RAG] Deleted orphan concept note: {file_path}")
+                                else:
+                                    # Ngược lại, chỉ loại bỏ dòng liên kết tới bài học này
+                                    lines = content.splitlines()
+                                    updated_lines = []
+                                    for line in lines:
+                                        if not any(variant in line for variant in lesson_link_variants):
+                                            updated_lines.append(line)
+                                    with open(file_path, 'w', encoding='utf-8') as f:
+                                        f.write('\n'.join(updated_lines) + '\n')
+                                    print(f"[Clear RAG] Removed link to {lp.title} from concept note: {filename}")
+                        except Exception as e:
+                            print(f"[Clear RAG] Error checking/cleaning concept file {filename}: {e}")
+                except Exception as e:
+                    print(f"[Clear RAG] Error scanning vault directory: {e}")
+
         if lesson_id:
             try:
                 lp = LessonPlan.objects.get(id=lesson_id)
+                # Dọn dẹp sạch sẽ dữ liệu cũ trước khi đưa vào hàng chờ
+                clear_lesson_plan_rag_data(lp)
+                
+                # Lưu cấu hình model của người dùng vào attributes
+                if model_config:
+                    if not isinstance(lp.attributes, dict):
+                        lp.attributes = {}
+                    lp.attributes['ai_model_config'] = model_config
+                
                 # Đưa trạng thái về PENDING
                 lp.ai_processing_status = 'PENDING'
                 lp.ai_processing_step = 'Đang xếp hàng chạy lại xử lý ngầm...'
-                lp.save(update_fields=['ai_processing_status', 'ai_processing_step'])
+                lp.save(update_fields=['ai_processing_status', 'ai_processing_step', 'attributes'])
                 BackgroundProcessManager.queue_task(lp.id)
-                return Response({"message": f"Đã đưa bài học '{lp.title}' vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
+                return Response({"message": f"Đã clear sạch dữ liệu cũ và đưa bài học '{lp.title}' vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
             except LessonPlan.DoesNotExist:
                 return Response({"error": "Không tìm thấy bài học tương ứng"}, status=status.HTTP_400_BAD_REQUEST)
         else:
             # Tái xử lý toàn bộ tài liệu trên hệ thống
+            # 1. Xóa toàn bộ database chunks phục vụ RAG
+            DocumentChunk.objects.all().delete()
+            
+            # 2. Xóa sạch toàn bộ ghi chú markdown trong Obsidian Vault
+            vault_dir = BackgroundProcessManager.get_vault_path()
+            if os.path.exists(vault_dir):
+                for filename in os.listdir(vault_dir):
+                    if filename.lower().endswith('.md'):
+                        file_path = os.path.join(vault_dir, filename)
+                        try:
+                            os.remove(file_path)
+                        except Exception as e:
+                            print(f"[Clear All RAG] Error deleting file {file_path}: {e}")
+                print("[Clear All RAG] Cleared all markdown files in Obsidian Vault.")
+                
             lps = LessonPlan.objects.all()
             count = lps.count()
             for lp in lps:
+                # 3. Xóa các tag trong attributes để Graph lập tức cập nhật
+                if isinstance(lp.attributes, dict):
+                    lp.attributes["Từ khóa kiến thức"] = []
+                    lp.attributes["knowledge_tags"] = []
+                else:
+                    lp.attributes = {"Từ khóa kiến thức": [], "knowledge_tags": []}
+                
+                # Lưu cấu hình model của người dùng vào attributes
+                if model_config:
+                    lp.attributes['ai_model_config'] = model_config
+                
                 lp.ai_processing_status = 'PENDING'
                 lp.ai_processing_step = 'Đang xếp hàng chạy lại xử lý ngầm...'
-                lp.save(update_fields=['ai_processing_status', 'ai_processing_step'])
+                lp.save(update_fields=['ai_processing_status', 'ai_processing_step', 'attributes'])
                 BackgroundProcessManager.queue_task(lp.id)
-            return Response({"message": f"Đã đưa toàn bộ {count} bài học vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
+            return Response({"message": f"Đã clear sạch toàn bộ hệ thống và đưa toàn bộ {count} bài học vào hàng chờ chạy lại thành công!"}, status=status.HTTP_200_OK)
+
+
+class BackgroundTasksStopAPIView(APIView):
+    """
+    API View cho phép dừng một bài học cụ thể đang chạy
+    hoặc dừng tất cả (khi thoát web).
+    """
+    def post(self, request):
+        lesson_id = request.data.get('lesson_id')
+        stop_all = request.data.get('all') or request.query_params.get('all') == 'true'
+
+        from .bg_processor import BackgroundProcessManager
+        
+        if stop_all:
+            BackgroundProcessManager.cancel_all_tasks()
+            return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
+            
+        if lesson_id:
+            try:
+                BackgroundProcessManager.cancel_task(int(lesson_id))
+                return Response({"message": f"Đã gửi yêu cầu dừng xử lý bài học ID {lesson_id} thành công!"}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": f"Lỗi khi dừng: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        return Response({"error": "Vui lòng cung cấp lesson_id hoặc tham số all=true"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BackgroundTasksResumeAPIView(APIView):
+    """
+    API View cho phép tiếp tục chạy các bài giảng bị dừng hoặc bị lỗi, 
+    bắt đầu tại điểm đã dừng mà không xóa dữ liệu các bài giảng đã COMPLETED.
+    """
+    def post(self, request):
+        ai_mode = request.data.get('ai_mode')
+        local_model = request.data.get('local_model')
+        api_key = request.data.get('api_key')
+        api_model = request.data.get('api_model')
+
+        model_config = {}
+        if ai_mode:
+            model_config['ai_mode'] = ai_mode
+        if local_model:
+            model_config['local_model'] = local_model
+        if api_key:
+            model_config['api_key'] = api_key
+        if api_model:
+            model_config['api_model'] = api_model
+
+        from .models import LessonPlan
+        from .bg_processor import BackgroundProcessManager
+
+        # Tìm các bài chưa xử lý hoàn tất (không phải COMPLETED)
+        unprocessed_lps = LessonPlan.objects.filter(~Q(ai_processing_status='COMPLETED'))
+        count = unprocessed_lps.count()
+        
+        if count == 0:
+            return Response({"message": "Không có bài học nào cần xử lý tiếp tục!"}, status=status.HTTP_200_OK)
+
+        for lp in unprocessed_lps:
+            # Lưu cấu hình model mới nếu người dùng thay đổi
+            if model_config:
+                if not isinstance(lp.attributes, dict):
+                    lp.attributes = {}
+                lp.attributes['ai_model_config'] = model_config
+            
+            lp.ai_processing_status = 'PENDING'
+            lp.ai_processing_step = 'Đang xếp hàng tiếp tục xử lý...'
+            lp.save(update_fields=['ai_processing_status', 'ai_processing_step', 'attributes'])
+            BackgroundProcessManager.queue_task(lp.id)
+
+        return Response({"message": f"Đã khôi phục và đưa {count} bài học chưa hoàn thành vào hàng chờ tiếp tục chạy!"}, status=status.HTTP_200_OK)
 
 
 class ObsidianStatusAPIView(APIView):
@@ -1835,5 +2028,80 @@ class ObsidianNoteContentAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Lỗi đọc file: {str(e)}"}, status=500)
 
+
+class ObsidianNotesByLessonAPIView(APIView):
+    """
+    API trả về danh sách các note Obsidian liên quan đến một bài giảng cụ thể:
+    - Note chính của bài giảng (có tên trùng title)
+    - Các concept note chứa [[{lesson_title}]]
+    """
+    def get(self, request):
+        import os, re
+        from .bg_processor import BackgroundProcessManager
+
+        lesson_id = request.query_params.get('lesson_id')
+        if not lesson_id:
+            return Response({"error": "Vui lòng cung cấp lesson_id"}, status=400)
+
+        try:
+            lesson = LessonPlan.objects.get(id=lesson_id)
+        except LessonPlan.DoesNotExist:
+            return Response({"error": "Không tìm thấy bài giảng"}, status=404)
+
+        vault_path = BackgroundProcessManager.get_vault_path()
+        if not os.path.exists(vault_path):
+            return Response({"error": "Không tìm thấy thư mục Vault"}, status=400)
+
+        clean_title = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lesson.title).strip()
+        lesson_link_variants = [
+            f"[[{lesson.title}]]",
+            f"[[{clean_title}]]",
+        ]
+
+        notes = []
+        for file in os.listdir(vault_path):
+            if not file.lower().endswith('.md'):
+                continue
+
+            file_path = os.path.join(vault_path, file)
+            title = file[:-3]  # strip .md
+
+            # Điều kiện 1: Note chính của bài giảng (filename trùng title)
+            if title == clean_title:
+                notes.append({
+                    "filename": file,
+                    "title": title,
+                    "type": "lesson",
+                    "size": os.path.getsize(file_path)
+                })
+                continue
+
+            # Điều kiện 2: Concept note chứa liên kết đến bài giảng này
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+
+                if any(link in content for link in lesson_link_variants):
+                    # Đọc type từ YAML front matter
+                    note_type = "concept"
+                    yaml_match = re.search(r'^---\n(.+?)\n---', content, re.DOTALL)
+                    if yaml_match:
+                        yaml_content = yaml_match.group(1)
+                        type_match = re.search(r'type:\s*["\']?([^"\' \n]+)', yaml_content)
+                        if type_match:
+                            note_type = type_match.group(1).strip()
+
+                    notes.append({
+                        "filename": file,
+                        "title": title,
+                        "type": note_type,
+                        "size": os.path.getsize(file_path)
+                    })
+            except Exception:
+                continue
+
+        # Sắp xếp: note chính lên đầu, concept notes theo tên
+        notes.sort(key=lambda x: (0 if x['type'] == 'lesson' else 1, x['title'].lower()))
+        return Response(notes, status=200)
 
 

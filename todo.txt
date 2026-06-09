@@ -93,11 +93,17 @@ minerU
 - Session-level ratings cache: lần đầu mở card mới fetch từ server, lần sau trong cùng phiên đọc thẳng từ cache (0 request) => xong
 - Sau khi gửi / sửa đánh giá: cập nhật ratingsCache cục bộ, loại bỏ hoàn toàn GET /ratings/ thứ 2 sau POST => xong
 - Sắp xếp theo đánh giá: dùng total_ratings làm tiebreaker khi cùng số sao (nhiều đánh giá hơn ưu tiên hiển thị trước) => xong
-
-
-
-
-
+- Lọc WikiNotes theo bài giảng cụ thể (chỉ hiển thị các ghi chú và khái niệm liên quan đến tài liệu đang focus) => xong
+- Lọc khoảng cách liên kết (BFS Hop Distance: 1, 2, 3 hops) trên đồ thị tri thức => xong
+- Định nghĩa khái niệm (Concept Notes) học thuật tự động bằng LLM thay cho mô tả mặc định cũ => xong
+- Cho phép người dùng tùy chọn cấu hình model (3b, 7b, api) để sinh Concept Notes theo thiết lập cá nhân => xong
+- Hợp nhất tất cả các tài liệu kỹ thuật .md thành 2 file duy nhất: he_thong.md và he_thong_rag_llm.md => xong
+- Sửa lỗi click đúp mở giáo án trên Đồ thị tri thức (Graph Canvas) => xong
+- Tích hợp nút Dừng xử lý (Stop Task) cho luồng ngầm AI RAG => xong
+- Thiết lập cơ chế Beacon tự động dừng toàn bộ tiến trình khi người dùng tắt/thoát web => xong
+- Tách biệt hành vi click card xem chi tiết với nút kích hoạt và liên kết trợ lý AI tập trung, sửa lỗi hộp thoại "Lịch sử trò chuyện" (Chat history dialog) xuất hiện sai ngữ cảnh ở trang chủ => xong
+- Sửa lỗi click/double click trên Đồ thị tri thức (Graph Canvas) không mở được giáo án khi giáo án không nằm trong cache local => xong
+- Khóa hoàn toàn lỗi Zoom Đồ thị kéo theo Zoom Trang web và loại bỏ hiện tượng cuộn kép (Scroll Chaining) bằng overscroll-behavior: contain => xong
 
 - Thứ 1 là không có 2 file mẫu cho 2 đối tượng học sinh thành thị/nông thôn (chuyên biệt cho từng đối tượng)
 - Thứ 2 là do đã thống nhât từ trước là 1 file đưa lên hệ thống sẽ là file KH bài giảng hoàn chỉnh 

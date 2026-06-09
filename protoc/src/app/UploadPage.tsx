@@ -458,7 +458,13 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         'Môn học': 'Hoạt động trải nghiệm Sinh học',
         'Địa điểm': selectedLocation,
         knowledge_tags: selectedBiologyConnections,
-        tien_trinh_day_hoc: parsedActivities
+        tien_trinh_day_hoc: parsedActivities,
+        ai_model_config: {
+          ai_mode: localStorage.getItem('kms_ai_mode') || 'local',
+          local_model: localStorage.getItem('kms_local_model') || '3b',
+          api_key: localStorage.getItem('kms_api_key') || '',
+          api_model: localStorage.getItem('kms_api_model') || 'gemini-1.5-flash'
+        }
       }));
       if (selectedDirId) formData.append('directory_id', selectedDirId.toString());
       formData.append('file', file);

@@ -3,62 +3,15 @@ from .models import LessonPlan, Directory, User, DocumentChunk
 from .embedding_service import get_embedding
 import re
 
-def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None):
+def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=2):
     """
     Xây dựng toàn bộ Đồ thị Tri thức dưới dạng danh sách Nodes và Edges.
-    - Nếu focus_lesson_id được truyền vào: Trả về đồ thị sơ đồ tư duy (mindmap) của riêng tài liệu đó.
+    - Nếu focus_lesson_id được truyền vào: Trả về đồ thị sơ đồ tư duy (mindmap) của riêng tài liệu đó theo hop_depth.
     - Nếu không: Trả về toàn bộ đồ thị tri thức hệ thống.
     """
     nodes = []
     edges = []
     
-    # --- CHẾ ĐỘ 1: SƠ ĐỒ TƯ DUY (MINDMAP) CỦA RIÊNG TÀI LIỆU FOCUS ---
-    if focus_lesson_id:
-        try:
-            lp = LessonPlan.objects.get(id=focus_lesson_id)
-            # Nút trung tâm duy nhất là Bài giảng
-            nodes.append({
-                "id": f"lesson_{lp.id}",
-                "label": lp.title,
-                "type": "lesson",
-                "val": 35, # Kích thước nổi bật nhất của mindmap
-                "color": "#f59e0b", # Amber
-                "details": f"Tài liệu trọng tâm | Môn: {lp.attributes.get('Môn học', 'Chưa rõ')}"
-            })
-
-            # Lấy các từ khóa/khái niệm chuyên sâu của riêng tài liệu (bóc tách chi tiết hơn cho mindmap)
-            raw_tags = lp.attributes.get("Từ khóa kiến thức", []) or lp.attributes.get("knowledge_tags", [])
-            if isinstance(raw_tags, str):
-                raw_tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
-            
-            # Nếu rỗng, tự sinh dựa trên nội dung hoặc tiêu đề
-            if not raw_tags:
-                keywords = ["Mục tiêu", "Phương pháp", "Tiến trình dạy", "Hoạt động cốt lõi", "Hình thức kiểm tra"]
-                raw_tags = keywords
-
-            # Thêm các nút khái niệm xung quanh bài học (sơ đồ tư duy 1-hop chuyên sâu biệt lập)
-            for idx, tag in enumerate(raw_tags):
-                tag_slug = f"tag_focus_{idx}_{tag.strip().lower()}"
-                nodes.append({
-                    "id": tag_slug,
-                    "label": tag.strip(),
-                    "type": "tag",
-                    "val": 16, # Nhánh sơ đồ tư duy
-                    "color": "#8b5cf6", # Purple
-                    "details": f"Khái niệm chuyên sâu của tài liệu: {tag.strip()}"
-                })
-                edges.append({
-                    "source": f"lesson_{lp.id}",
-                    "target": tag_slug,
-                    "type": "HAS_CONCEPT",
-                    "color": "#c084fc"
-                })
-            
-            return {"nodes": nodes, "edges": edges}
-        except LessonPlan.DoesNotExist:
-            pass
-
-    # --- CHẾ ĐỘ 2: TOÀN BỘ ĐỒ THỊ HỆ THỐNG ---
     # 1. Thu thập Nodes Thư mục
     dirs = Directory.objects.all()
     for d in dirs:
@@ -126,13 +79,42 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None):
                 continue
             if tag_slug not in tags_seen:
                 tags_seen.add(tag_slug)
+                
+                # Cố gắng đọc định nghĩa/mô tả khái niệm từ Obsidian Vault
+                details = "Khái niệm kiến thức / Chủ đề"
+                try:
+                    from .bg_processor import BackgroundProcessManager
+                    import os
+                    vault_dir = BackgroundProcessManager.get_vault_path()
+                    concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', tag.strip()).strip()}.md"
+                    concept_path = os.path.join(vault_dir, concept_filename)
+                    if os.path.exists(concept_path):
+                        with open(concept_path, 'r', encoding='utf-8', errors='replace') as f:
+                            note_content = f.read()
+                        # Loại bỏ YAML front matter
+                        content_no_yaml = re.sub(r'^---\n.+?\n---\n*', '', note_content, flags=re.DOTALL).strip()
+                        # Lấy phần mô tả (bỏ phần tiêu đề # và phần các bài học liên quan)
+                        desc_lines = []
+                        for line in content_no_yaml.splitlines():
+                            line_stripped = line.strip()
+                            if line_stripped.startswith('#'):
+                                continue
+                            if 'các bài học liên quan' in line_stripped.lower() or line_stripped.startswith('-') or line_stripped.startswith('*'):
+                                break
+                            if line_stripped:
+                                desc_lines.append(line_stripped)
+                        if desc_lines:
+                            details = ' '.join(desc_lines)[:200]
+                except Exception as e:
+                    print(f"Error reading concept details for graph: {e}")
+
                 nodes.append({
                     "id": f"tag_{tag_slug}",
                     "label": tag.strip(),
                     "type": "tag",
                     "val": 12,
                     "color": "#8b5cf6", # Purple
-                    "details": "Từ khóa kiến thức / Chủ đề"
+                    "details": details
                 })
             edges.append({
                 "source": f"lesson_{lp.id}",
@@ -141,6 +123,35 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None):
                 "color": "#c084fc"
             })
             
+    # Lọc BFS theo hop_depth nếu ở chế độ focus bài giảng
+    if focus_lesson_id:
+        target_id = f"lesson_{focus_lesson_id}"
+        # Đảm bảo bài giảng focus tồn tại
+        if not any(n["id"] == target_id for n in nodes):
+            return {"nodes": [], "edges": []}
+            
+        visited = {target_id}
+        for _ in range(hop_depth):
+            next_nodes = set()
+            for edge in edges:
+                if edge["source"] in visited:
+                    next_nodes.add(edge["target"])
+                if edge["target"] in visited:
+                    next_nodes.add(edge["source"])
+            visited.update(next_nodes)
+            
+        filtered_nodes = []
+        for node in nodes:
+            if node["id"] in visited:
+                node_copy = dict(node)
+                if node["id"] == target_id:
+                    node_copy["val"] = 35 # Nút trung tâm nổi bật nhất
+                    node_copy["details"] = f"Tài liệu trọng tâm | " + node_copy.get("details", "")
+                filtered_nodes.append(node_copy)
+                
+        filtered_edges = [edge for edge in edges if edge["source"] in visited and edge["target"] in visited]
+        return {"nodes": filtered_nodes, "edges": filtered_edges}
+        
     return {"nodes": nodes, "edges": edges}
 
 

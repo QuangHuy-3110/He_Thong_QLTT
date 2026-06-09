@@ -1,0 +1,497 @@
+[
+  {
+    "id": 124,
+    "title": "Nhật ký cảm xúc và Cơ sở sinh học của hành vi",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Khám phá bản thân",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "1 tiết",
+      "knowledge_tags": [
+        "Hệ thần kinh",
+        "Hormone cảm xúc",
+        "Adrenaline",
+        "Serotonin",
+        "Dopamine"
+      ],
+      "Địa điểm": "Lớp học tiêu chuẩn",
+      "Mạch kiến thức": "Hoạt động hướng vào bản thân",
+      "Từ khóa kiến thức": [
+        "Hệ thần kinh",
+        "Hormone cảm xúc",
+        "Adrenaline",
+        "Serotonin",
+        "Dopamine"
+      ],
+      "Kiến thức sinh học liên quan": "Hệ thần kinh, hormone (serotonin, adrenaline), cơ sở sinh học của cảm xúc"
+    }
+  },
+  {
+    "id": 131,
+    "title": "Tham quan vườn thực vật – Phân loại đa dạng sinh học và tiến hóa thực vật",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Tìm hiểu và bảo tồn cảnh quan thiên nhiên",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "3 tiết",
+      "knowledge_tags": [
+        "Khóa lưỡng phân",
+        "Sơ đồ tiến hóa",
+        "Phân loại thực vật",
+        "Biện pháp bảo tồn đa dạng sinh học",
+        "Lưới thức ăn"
+      ],
+      "Địa điểm": "Bảo tàng / Thực địa",
+      "Mạch kiến thức": "Hoạt động hướng đến tự nhiên",
+      "Từ khóa kiến thức": [
+        "Khóa lưỡng phân",
+        "Sơ đồ tiến hóa",
+        "Phân loại thực vật",
+        "Biện pháp bảo tồn đa dạng sinh học",
+        "Lưới thức ăn"
+      ],
+      "Kiến thức sinh học liên quan": "Phân loại thực vật, đa dạng sinh học, tiến hóa"
+    }
+  },
+  {
+    "id": 137,
+    "title": "CÁC MẠCH KIẾN THỨC CỦA HOẠT ĐỘNG TRẢI NGHIỆM",
+    "attributes": {
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
+      "Loại hình": "Lý thuyết",
+      "knowledge_tags": [
+        "Hoạt động hướng vào bản thân",
+        "Khám phá bản thân",
+        "Rèn luyện bản thân",
+        "Tự phục vụ",
+        "Tự quản lý",
+        "Tự tin",
+        "Điều chỉnh hành vi",
+        "Lối sống lành mạnh",
+        "Năng lực tự học",
+        "Năng lực tự rèn luyện",
+        "Trách nhiệm",
+        "Chăm chỉ"
+      ],
+      "Địa điểm": "Lớp học tiêu chuẩn",
+      "tien_trinh_day_hoc": [
+        {
+          "tom_tat": "Các hoạt động trong nội dung này sẽ tập trung vào việc giúp học sinh nhận diện và hiểu rõ bản thân, từ hình ảnh cá nhân đến tính cách. Thông qua các hoạt động rèn luyện thói quen, nề nếp và ý thức trách nhiệm, học sinh dần hình thành khả năng tự phục vụ, tự quản lý và phát triển sự tự tin.",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "Hoạt động hướng vào bản thân"
+        },
+        {
+          "tom_tat": "Các hoạt động trong nội dung này sẽ tập trung vào việc giúp học sinh nhận diện và hiểu rõ bản thân, từ hình ảnh cá nhân đến tính cách. Thông qua các hoạt động rèn luyện thói quen, nề nếp và ý thức trách nhiệm, học sinh dần hình thành khả năng tự phục vụ, tự quản lý và phát triển sự tự tin.",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "Hoạt động hướng vào bản thân"
+        },
+        {
+          "tom_tat": "Các hoạt động trong nội dung này sẽ tập trung vào việc giúp học sinh nhận diện và hiểu rõ bản thân, từ hình ảnh cá nhân đến tính cách. Thông qua các hoạt động rèn luyện thói quen, nề nếp và ý thức trách nhiệm, học sinh dần hình thành khả năng tự phục vụ, tự quản lý và phát triển sự tự tin.",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "Hoạt động hướng vào bản thân"
+        },
+        {
+          "tom_tat": "Các hoạt động trong nội dung này sẽ tập trung vào việc giúp học sinh nhận diện và hiểu rõ bản thân, từ hình ảnh cá nhân đến tính cách. Thông qua các hoạt động rèn luyện thói quen, nề nếp và ý thức trách nhiệm, học sinh dần hình thành khả năng tự phục vụ, tự quản lý và phát triển sự tự tin.",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "Hoạt động hướng vào bản thân"
+        },
+        {
+          "tom_tat": "Các hoạt động trong nội dung này giúp học sinh mở rộng mối quan hệ, gắn kết với gia đình, nhà trường và cộng đồng. Các hoạt động bao gồm chăm sóc người thân, tham gia công việc gia đình, xây dựng tình bạn, gắn bó với thầy cô, cũng như tham gia các hoạt động xã hội, truyền thống và pháp luật.",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "Hoạt động hướng đến xã hội"
+        }
+      ],
+      "Mạch kiến thức": "Hoạt động hướng nghiệp",
+      "Từ khóa kiến thức": [
+        "Hoạt động hướng vào bản thân",
+        "Khám phá bản thân",
+        "Rèn luyện bản thân",
+        "Tự phục vụ",
+        "Tự quản lý",
+        "Tự tin",
+        "Điều chỉnh hành vi",
+        "Lối sống lành mạnh",
+        "Năng lực tự học",
+        "Năng lực tự rèn luyện",
+        "Trách nhiệm",
+        "Chăm chỉ"
+      ],
+      "Kiến thức sinh học liên quan": ""
+    }
+  },
+  {
+    "id": 125,
+    "title": "Sức khỏe tâm – sinh lý tuổi dậy thì: Hiểu để tự chăm sóc bản thân",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Khám phá bản thân",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "Hormone GnRH",
+        "Testosterone",
+        "Estrogen",
+        "Hệ sinh sản",
+        "Thay đổi tâm trạng"
+      ],
+      "Địa điểm": "Lớp học tiêu chuẩn",
+      "Mạch kiến thức": "Hoạt động hướng vào bản thân",
+      "Từ khóa kiến thức": [
+        "Hormone GnRH",
+        "Testosterone",
+        "Estrogen",
+        "Hệ sinh sản",
+        "Thay đổi tâm trạng"
+      ],
+      "Kiến thức sinh học liên quan": "Sinh học hành vi: hormone tuổi dậy thì, sức khỏe tâm – sinh lý"
+    }
+  },
+  {
+    "id": 126,
+    "title": "Dinh dưỡng học đường – Thiết kế thực đơn cân đối calo cho học sinh THPT",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Rèn luyện bản thân",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "Thực đơn cân đối dinh dưỡng",
+        "Năng lượng calo",
+        "Glucid",
+        "Lipid",
+        "Protein"
+      ],
+      "Địa điểm": "Phòng đa năng / Nhà ăn",
+      "Mạch kiến thức": "Hoạt động hướng vào bản thân",
+      "Từ khóa kiến thức": [
+        "Thực đơn cân đối dinh dưỡng",
+        "Năng lượng calo",
+        "Glucid",
+        "Lipid",
+        "Protein"
+      ],
+      "Kiến thức sinh học liên quan": "Dinh dưỡng học, chuyển hóa năng lượng, vai trò vitamin/khoáng chất"
+    }
+  },
+  {
+    "id": 130,
+    "title": "Chiến dịch vệ sinh cộng đồng nông thôn – Vi sinh vật rác thải và phòng bệnh truyền nhiễm",
+    "attributes": {
+      "lop": [
+        "Lớp 12"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Xây dựng cộng đồng",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "Vi sinh vật phân hủy",
+        "Bệnh truyền nhiễm",
+        "Rác thải hữu cơ",
+        "Vi khuẩn hiếu khí",
+        "Compost hữu cơ"
+      ],
+      "Địa điểm": "Ngoài trời / Thực địa",
+      "Mạch kiến thức": "Hoạt động hướng đến xã hội",
+      "Từ khóa kiến thức": [
+        "Vi sinh vật phân hủy",
+        "Bệnh truyền nhiễm",
+        "Rác thải hữu cơ",
+        "Vi khuẩn hiếu khí",
+        "Compost hữu cơ"
+      ],
+      "Kiến thức sinh học liên quan": "Vi sinh vật gây bệnh trong rác thải, ảnh hưởng ô nhiễm đến sức khỏe cộng đồng"
+    }
+  },
+  {
+    "id": 136,
+    "title": "DINH DƯỠNG HỌC ĐƯỜNG",
+    "attributes": {
+      "lop": [
+        "Lớp 12",
+        "Lớp 11",
+        "Lớp 10"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Rèn luyện bản thân",
+      "Loại hình": "Lý thuyết",
+      "knowledge_tags": [
+        "Trải Nghiệm",
+        "Hướng Nghiệp",
+        "Kỹ Năng",
+        "Năng Lực",
+        "Phẩm Chất",
+        "Tự Học",
+        "Hợp Tác",
+        "Bản Thân",
+        "Dinh Dưỡng",
+        "Sức Khỏe",
+        "Dinh dưỡng học đường",
+        "Khẩu phần ăn"
+      ],
+      "Địa điểm": "Lớp học tiêu chuẩn",
+      "tien_trinh_day_hoc": [
+        {
+          "tom_tat": "Khởi động: Thực phẩm yêu thích và sức khỏe",
+          "thoi_gian": "10 phút",
+          "ten_hoat_dong": "HĐ 1"
+        },
+        {
+          "tom_tat": "Tìm hiểu các nhóm chất dinh dưỡng",
+          "thoi_gian": "20 phút",
+          "ten_hoat_dong": "HĐ 2"
+        },
+        {
+          "tom_tat": "Xây dựng thực đơn dinh dưỡng",
+          "thoi_gian": "25 phút",
+          "ten_hoat_dong": "HĐ 3"
+        },
+        {
+          "tom_tat": "Chia sẻ và phản biện thực đơn",
+          "thoi_gian": "15 phút",
+          "ten_hoat_dong": "HĐ 4"
+        },
+        {
+          "tom_tat": "Vận dụng thực tế",
+          "thoi_gian": "10 phút",
+          "ten_hoat_dong": "HĐ 5"
+        }
+      ],
+      "Mạch kiến thức": "Hoạt động hướng vào bản thân",
+      "Từ khóa kiến thức": [
+        "Trải Nghiệm",
+        "Hướng Nghiệp",
+        "Kỹ Năng",
+        "Năng Lực",
+        "Phẩm Chất",
+        "Tự Học",
+        "Hợp Tác",
+        "Bản Thân",
+        "Dinh Dưỡng",
+        "Sức Khỏe",
+        "Dinh dưỡng học đường",
+        "Khẩu phần ăn"
+      ],
+      "Kiến thức sinh học liên quan": "Dinh dưỡng học, chuyển hóa năng lượng, vai trò vitamin/khoáng chất"
+    }
+  },
+  {
+    "id": 128,
+    "title": "Chăm sóc vườn rau gia đình – Sinh lý thực vật và phòng trừ sâu bệnh an toàn",
+    "attributes": {
+      "lop": [
+        "Lớp 10"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Chăm sóc gia đình",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "3 tiết",
+      "knowledge_tags": [
+        "quang hợp",
+        "dinh dưỡng cây trồng",
+        "bệnh cây",
+        "chế phẩm sinh học EM",
+        "vi lượng khoáng"
+      ],
+      "Địa điểm": "Thực địa / Nông trại",
+      "Mạch kiến thức": "Hoạt động hướng đến xã hội",
+      "Từ khóa kiến thức": [
+        "quang hợp",
+        "dinh dưỡng cây trồng",
+        "bệnh cây",
+        "chế phẩm sinh học EM",
+        "vi lượng khoáng"
+      ],
+      "Kiến thức sinh học liên quan": "Sinh lý thực vật (quang hợp, dinh dưỡng cây trồng), bệnh học cây trồng"
+    }
+  },
+  {
+    "id": 133,
+    "title": "Khảo sát nguồn nước kênh rạch – Vi sinh vật thủy sinh và chu trình nitơ",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Tìm hiểu và bảo vệ môi trường",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "Vi sinh vật thủy sinh",
+        "Chu trình nitơ",
+        "Phú dưỡng hóa"
+      ],
+      "Địa điểm": "Ngoài trời / Thực địa",
+      "Mạch kiến thức": "Hoạt động hướng đến tự nhiên",
+      "Từ khóa kiến thức": [
+        "Vi sinh vật thủy sinh",
+        "Chu trình nitơ",
+        "Phú dưỡng hóa"
+      ],
+      "Kiến thức sinh học liên quan": "Vi sinh vật nước, chu trình nitơ, ảnh hưởng ô nhiễm đến sinh vật thủy sinh"
+    }
+  },
+  {
+    "id": 134,
+    "title": "Công nghệ gen và ứng dụng y học – Định hướng nghề nghiệp Sinh học phân tử",
+    "attributes": {
+      "lop": [
+        "Lớp 12"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Tìm hiểu nghề nghiệp",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "PCR",
+        "Vector plasmid",
+        "Insulin tái tổ hợp",
+        "Vaccine mRNA",
+        "Công nghệ sinh học phân tử"
+      ],
+      "Địa điểm": "Phòng thí nghiệm Sinh học",
+      "Mạch kiến thức": "Hoạt động hướng nghiệp",
+      "Từ khóa kiến thức": [
+        "PCR",
+        "Vector plasmid",
+        "Insulin tái tổ hợp",
+        "Vaccine mRNA",
+        "Công nghệ sinh học phân tử"
+      ],
+      "Kiến thức sinh học liên quan": "Công nghệ gen, sinh học phân tử, ứng dụng y học/nông nghiệp"
+    }
+  },
+  {
+    "id": 135,
+    "title": "Thực hành nông nghiệp công nghệ cao – Nuôi cấy mô, thủy canh và chọn giống di truyền",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "3 tiết",
+      "knowledge_tags": [
+        "Nuôi cấy mô",
+        "Thủy canh",
+        "Dung dịch MS",
+        "Callus",
+        "Phôi soma"
+      ],
+      "Địa điểm": "Nông nghiệp công nghệ cao / Thực địa",
+      "Mạch kiến thức": "Hoạt động hướng nghiệp",
+      "Từ khóa kiến thức": [
+        "Nuôi cấy mô",
+        "Thủy canh",
+        "Dung dịch MS",
+        "Callus",
+        "Phôi soma"
+      ],
+      "Kiến thức sinh học liên quan": "Sinh lý thực vật, nuôi cấy mô, di truyền chọn giống"
+    }
+  },
+  {
+    "id": 132,
+    "title": "Ô nhiễm không khí đô thị và tác động đến hệ hô hấp người – Sinh thái học đô thị",
+    "attributes": {
+      "lop": [
+        "Lớp 12"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Tìm hiểu và bảo vệ môi trường",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "1 tiết",
+      "knowledge_tags": [
+        "AQI",
+        "Hệ hô hấp",
+        "Trao đổi khí",
+        "Fume PM2.5",
+        "NOx"
+      ],
+      "Địa điểm": "Phòng thí nghiệm Sinh học",
+      "Mạch kiến thức": "Hoạt động hướng đến tự nhiên",
+      "Từ khóa kiến thức": [
+        "AQI",
+        "Hệ hô hấp",
+        "Trao đổi khí",
+        "Fume PM2.5",
+        "NOx"
+      ],
+      "Kiến thức sinh học liên quan": "Hệ hô hấp người, tác động khí độc, sinh thái đô thị"
+    }
+  },
+  {
+    "id": 129,
+    "title": "Âm nhạc học đường và sinh học cảm giác thần kinh – Cơ chế nghe và dopamine",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Xây dựng nhà trường",
+      "Loại hình": "Lý thuyết",
+      "Tiết dạy": "1 tiết",
+      "knowledge_tags": [
+        "sóng âm",
+        "vật lý thính giác",
+        "hệ limbic",
+        "dopamine",
+        "núcleus accumbens"
+      ],
+      "Địa điểm": "Hội trường / Sân khấu",
+      "Mạch kiến thức": "Hoạt động hướng đến xã hội",
+      "Từ khóa kiến thức": [
+        "sóng âm",
+        "vật lý thính giác",
+        "hệ limbic",
+        "dopamine",
+        "núcleus accumbens"
+      ],
+      "Kiến thức sinh học liên quan": "Cơ chế nghe – nhìn, ảnh hưởng âm nhạc đến não bộ, sinh học vận động"
+    }
+  },
+  {
+    "id": 127,
+    "title": "Rèn luyện thể chất – Sinh học vận động và cơ chế tổng hợp ATP trong cơ bắp",
+    "attributes": {
+      "lop": [
+        "Lớp 11"
+      ],
+      "Môn học": "Hoạt động trải nghiệm Sinh học",
+      "Chủ đề": "Rèn luyện bản thân",
+      "Loại hình": "Thực hành",
+      "Tiết dạy": "2 tiết",
+      "knowledge_tags": [
+        "Cơ chế co cơ",
+        "Tổng hợp ATP",
+        "Mô hình myosin-actin",
+        "Hô hấp tế bào hiếu khí",
+        "Nhịp tim"
+      ],
+      "Địa điểm": "Sân trường / Khu vực thể thao",
+      "Mạch kiến thức": "Hoạt động hướng vào bản thân",
+      "Từ khóa kiến thức": [
+        "Cơ chế co cơ",
+        "Tổng hợp ATP",
+        "Mô hình myosin-actin",
+        "Hô hấp tế bào hiếu khí",
+        "Nhịp tim"
+      ],
+      "Kiến thức sinh học liên quan": "Hệ cơ – xương – khớp, tim mạch, hô hấp, năng lượng ATP"
+    }
+  }
+]

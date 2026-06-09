@@ -1,3 +1,11 @@
+# Hệ thống RAG LLM - Tài liệu Chi tiết
+
+Tài liệu này là bản hợp nhất các tài liệu kỹ thuật liên quan của hệ thống.
+
+---
+
+## Tài liệu nguồn: `ai_system_detail.md`
+
 # Hệ thống AI Knowledge Hub & Đồ thị Tri thức (Graph RAG) Chi tiết
 
 Tài liệu này cung cấp cái nhìn chi tiết và chuyên sâu nhất về thiết kế kiến trúc, các thành phần công nghệ, bộ điều phối luồng chạy ngầm (asynchronous roadmaps), thuật toán truy xuất Graph RAG kết hợp Vector Search, và các cải tiến kỹ thuật đột phá trong Hệ thống AI Tri thức của dự án **He_Thong_QLTT**.
@@ -24,10 +32,19 @@ graph LR
     *   *Heading-based Semantic Chunking*: Tự động phân tách dựa trên các thẻ H1/H2/H3 trong giáo án, giúp giữ nguyên ngữ cảnh sư phạm của từng hoạt động giảng dạy.
     *   *Fixed Character Strategy*: Chia văn bản theo khung cửa sổ ký tự cố định và chồng lặp (overlap) để phục vụ tra cứu ngữ nghĩa.
 3.  **Phase 3: Embedding Generation (embedding_service.py)**: Ghép siêu dữ liệu (metadata prepend) vào đầu mỗi chunk văn bản để tăng cường ngữ nghĩa sâu, sau đó gọi sinh Vector nhúng 1536 chiều qua Ollama (`nomic-embed-text`) hoặc bộ tạo mã hóa Hash ngữ nghĩa offline độc lập, lưu trữ trực tiếp vào cột `embedding` của bảng `DocumentChunk` (`pgvector`).
-4.  **Phase 4: Concept & Relation Extraction (Qwen 2.5 7B Local)**: 
-    *   Kích hoạt mô hình **Qwen 2.5 7B GGUF** chạy cục bộ để thực thi phân tích chuyên môn sư phạm sâu.
-    *   **Trích xuất tối đa 12 thực thể đa mục tiêu (Subject-Agnostic)**: Hệ thống được thiết kế tổng quát để bóc tách cả các khái niệm chuyên môn nội dung của từng bài học tương ứng (ví dụ: các chủ đề khoa học, xã hội, công nghệ, hướng nghiệp, đời sống...) lẫn các năng lực & phẩm chất cốt lõi đi kèm (*Năng lực tự học, Năng lực hợp tác, Giải quyết vấn đề, Trách nhiệm, Tự chủ...*), đảm bảo hỗ trợ 100% tất cả các môn học và Hoạt động Trải nghiệm & Hướng nghiệp tổng quát chứ không bị giới hạn cứng ở môn Sinh học.
+4.  **Phase 4: Concept & Relation Extraction (Cấu hình Model linh hoạt)**: 
+    *   **Lựa chọn Model theo thiết lập của người dùng**: Không cứng nhắc sử dụng một model duy nhất, hệ thống cho phép người dùng tùy chọn cấu hình AI Engine khi đăng tải hoặc reprocess tài liệu (chọn chạy cục bộ **Qwen 2.5 Local 3B**, **Qwen 2.5 Local 7B**, hoặc gọi **External API Key** như Gemini/OpenAI). Cấu hình này được lưu trực tiếp vào CSDL trong JSON field `attributes.ai_model_config` của `LessonPlan` (tránh thay đổi database schema) và được `bg_processor.py` đọc ra để điều hướng suy luận thích hợp.
+    *   **Trích xuất học thuật nâng cao**: Kích hoạt model đã chọn để tự động trích xuất **8-12 thực thể** bao gồm cả các khái niệm khoa học chuyên ngành lẫn phẩm chất, năng lực sư phạm.
+    *   **Sinh định nghĩa học thuật tự động**: Thay vì gán mô tả mặc định tĩnh như trước, LLM được chọn sẽ tự động sinh đoạn mô tả định nghĩa học thuật súc tích (2-3 câu) đặc thù cho từng khái niệm trong ngữ cảnh bài giảng, đưa thẳng vào note khái niệm tương ứng trong Obsidian Vault.
 5.  **Phase 5: Obsidian Vault Sync Integration**: Tự động sinh file nốt `.md` tương thích 100% Obsidian, đính kèm YAML Front Matter metadata, tiến trình hoạt động dạy học, và bao bọc các từ khóa bằng WikiLinks chéo `[[Khái niệm]]` để đồng bộ mạng lưới đồ thị 3D trên Obsidian Desktop.
+
+### 🛑 Cơ chế Dừng tác vụ & Dọn dẹp Hàng chờ (Task Cancellation & Cleanups)
+Để tối ưu hóa tài nguyên hệ thống (đặc biệt khi chạy các tác vụ nặng như nhúng Vector hoặc chạy LLM suy luận), hệ thống cung cấp giải pháp kiểm soát dừng tác vụ thời gian thực:
+*   **Nút Dừng (Stop button) trên giao diện**: Trong bảng quản trị tiến trình (Timeline Roadmap), người dùng có thể nhấp nút **"Dừng"** màu đỏ để hủy bỏ tác vụ đang chạy. Frontend sẽ gửi yêu cầu `POST` tới `/api/bg-tasks/stop/` kèm theo ID bài giảng.
+*   **Tự động Dừng khi Thoát Web (Auto-stop on Page Exit)**: Khi người dùng đóng tab hoặc thoát trình duyệt, Frontend tự động lắng nghe sự kiện `beforeunload` và sử dụng **`navigator.sendBeacon`** để gửi tín hiệu dừng toàn bộ hàng chờ ngầm lên Backend một cách tin cậy và không đồng bộ, giải phóng ngay lập tức CPU/GPU cho máy chủ.
+*   **Tầng xử lý Backend (`BackgroundProcessManager`)**:
+    *   Hàng chờ ngầm duy trì một tập hợp thread-safe `_cancelled_tasks`. Khi yêu cầu dừng được gửi đến, task ID tương ứng sẽ được đưa vào tập hợp này.
+    *   Trong luồng chạy của từng bài giảng (`_process_lesson_plan`), các điểm kiểm tra (`cls._is_cancelled(lp_id)`) được tích hợp chặt chẽ trước mỗi Phase và trong vòng lặp sinh embedding. Nếu phát hiện tác vụ đã bị hủy, hệ thống lập tức ngắt tiến trình, đưa trạng thái CSDL về `'FAILED' (Đã dừng xử lý theo yêu cầu người dùng)` và giải phóng tài nguyên.
 
 ---
 
@@ -170,6 +187,24 @@ graph TD
 *   Khi người dùng click vào một Badge liên kết chéo (ví dụ: `[[Chuyển hóa năng lượng]]`), hệ thống tự động xác định ghi chú đích trong Vault và nạp nội dung của ghi chú đó trực tiếp lên màn hình đọc.
 *   Tính năng này tạo ra một mạng lưới **đọc chéo tri thức (Knowledge Hyperlinking)** vô song, giúp người dùng duyệt toàn bộ cơ sở tri thức sư phạm một cách liền mạch, mượt mà y hệt như đang thao tác trực tiếp trên Obsidian Desktop chuyên nghiệp!
 
+### 🔍 Bộ lọc WikiNotes theo ngữ cảnh bài giảng (Focus Lesson Filter):
+*   **Giao diện**: Tích hợp nút toggle chuyển đổi **"Chỉ bài này / Tất cả"** trên Header của WikiNotes tab.
+*   **Logic Hoạt động**: 
+    *   Khi bật **"Chỉ bài này"**, Frontend sẽ gọi API `/api/obsidian/notes/by-lesson/?lesson_id=<id>` thay vì danh sách tất cả các note.
+    *   **Backend (`ObsidianNotesByLessonAPIView`)**: Lọc và trả về danh sách ghi chú rút gọn bao gồm:
+        1. Ghi chú chính của bài giảng (tên file trùng với tiêu đề bài giảng đã chuẩn hóa).
+        2. Các Concept Notes chứa liên kết chéo trỏ đến bài giảng này (dưới dạng `[[Tên bài giảng]]`).
+    *   Giúp giáo viên nhanh chóng nắm bắt toàn bộ thực thể lý thuyết và tài liệu bổ trợ của riêng bài học đó mà không bị phân tâm bởi các kiến thức của bài học khác.
+
+---
+
+### 🕸️ Bộ lọc Khoảng cách liên kết Đồ thị (BFS Hop Distance):
+*   **Ý nghĩa**: Khi vẽ Đồ thị tri thức, việc hiển thị toàn bộ các liên kết trong cơ sở dữ liệu có thể gây quá tải thị giác. Bộ lọc Hop Distance cho phép người dùng lựa chọn khoảng cách BFS (1, 2, hoặc 3 hops) để thu hẹp hoặc mở rộng phạm vi hiển thị quanh nút đang chọn.
+*   **Luồng xử lý**:
+    *   Frontend truyền tham số `hop_distance` (giá trị 1, 2, 3) lên API `/api/chat-graph/` (`AIChatGraphDataAPIView`).
+    *   Backend sử dụng thuật toán duyệt đồ thị **BFS (Breadth-First Search)** từ nút gốc (bài giảng được chọn) đi qua các cạnh liên kết (bài giảng $\leftrightarrow$ khái niệm $\leftrightarrow$ thư mục) để thu thập danh sách nút và cạnh nằm trong bán kính hop được thiết lập.
+    *   Đồ thị 2D Force Graph Canvas tự động vẽ lại chính xác mạng lưới tri thức cục bộ trực quan và tập trung.
+
 ---
 
 ## 5. Cơ chế Tự động Dọn dẹp Vault & Xóa liên kết mồ côi (Signals Database Cleanups)
@@ -198,3 +233,7 @@ graph TD
 3.  **Khử trùng lặp & Dọn dẹp Concept liên đới**: Quét qua tất cả các nốt khái niệm (`Concept Notes` như *Dinh dưỡng, Thực đơn, Quang hợp...*) liên kết với tài liệu bị xóa:
     *   *Nốt khái niệm mồ côi*: Nếu nốt khái niệm đó chỉ chứa duy nhất liên kết đến tài liệu bị xóa, hệ thống sẽ thực hiện xóa hoàn toàn nốt khái niệm đó để tránh làm loãng thư mục.
     *   *Nốt khái niệm dùng chung*: Nếu nốt khái niệm đó vẫn đang liên kết chéo đến các tài liệu active khác, hệ thống sẽ chỉ lọc bỏ dòng liên kết cụ thể của tài liệu vừa xóa (`- [[Tiêu đề xóa]]`), bảo toàn tuyệt đối sự toàn vẹn của Đồ thị Tri thức.
+
+
+---
+

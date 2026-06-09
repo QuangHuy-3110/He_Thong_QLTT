@@ -56,6 +56,7 @@ interface ChatbotWorkspaceProps {
   setFocusLessonId?: (id: number | null) => void;
   onViewLessonDetail?: (lesson: any, highlightQuery?: string) => void;
   isDetailOpen?: boolean;
+  chatbotOpenTrigger?: number;
 }
 
 export default function ChatbotWorkspace({
@@ -68,7 +69,8 @@ export default function ChatbotWorkspace({
   focusLessonId: initialFocusLessonId = null,
   setFocusLessonId,
   onViewLessonDetail,
-  isDetailOpen = false
+  isDetailOpen = false,
+  chatbotOpenTrigger = 0
 }: ChatbotWorkspaceProps) {
   // --- STATES & REFS ---
   const [isOpen, setIsOpen] = useState(false);
@@ -130,6 +132,14 @@ export default function ChatbotWorkspace({
   });
   // --- OBSIDIAN WIKINOTES VIEWER STATES ---
   const [obsidianNotes, setObsidianNotes] = useState<any[]>([]);
+  const [obsidianLessonNotes, setObsidianLessonNotes] = useState<any[]>([]); // Notes lọc theo bài giảng
+  const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'all'>('lesson'); // 'lesson' = chỉ bài này
+  const currentNotes = useMemo(() => {
+    if (focusLessonId && wikiFilterMode === 'lesson') {
+      return obsidianLessonNotes;
+    }
+    return obsidianNotes;
+  }, [focusLessonId, wikiFilterMode, obsidianNotes, obsidianLessonNotes]);
   const [selectedObsidianNote, setSelectedObsidianNote] = useState<any | null>(null);
   const [obsidianNoteContent, setObsidianNoteContent] = useState<string>('');
   const [loadingNote, setLoadingNote] = useState<boolean>(false);
@@ -139,6 +149,8 @@ export default function ChatbotWorkspace({
   const [fullGraph, setFullGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] });
   const [activeRetrievedNodeIds, setActiveRetrievedNodeIds] = useState<string[]>([]);
   const [clickedNodeId, setClickedNodeId] = useState<string | null>(null);
+  const [graphHopDistance, setGraphHopDistance] = useState<number>(2); // Số hop hiển thị
+  const [nodePopup, setNodePopup] = useState<{ node: GraphNode; x: number; y: number } | null>(null); // Popup hover node
   
   // Canvas Graph rendering refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -149,6 +161,7 @@ export default function ChatbotWorkspace({
   const transformRef = useRef({ x: 0, y: 0, scale: 1 });
   const [, setTransformTrigger] = useState(0);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const clickStartPos = useRef<{ x: number; y: number } | null>(null);
   const selectedNodeRef = useRef<GraphNode | null>(null);
   const hoveredNodeRef = useRef<GraphNode | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -438,7 +451,12 @@ export default function ChatbotWorkspace({
             handleCreateSession(focusLessonId);
           }
         } else {
-          loadSessionDetails(allSessions[0].id);
+          const generalSession = allSessions.find(s => !s.lesson_plan);
+          if (generalSession) {
+            loadSessionDetails(generalSession.id);
+          } else {
+            handleCreateSession(undefined);
+          }
         }
       } else if (allSessions.length === 0) {
         // Tạo session mới, có thể kèm lessonId nếu đang trong card context
@@ -453,6 +471,7 @@ export default function ChatbotWorkspace({
 
   // Helper: Open chat with smart context check (for card AI buttons)
   const openWithContext = useCallback(async (lessonId?: number | null) => {
+    setShowContinueDialog(null);
     // If no lesson context or already open, just open normally
     if (!lessonId || !currentUser) {
       setIsOpen(true);
@@ -487,10 +506,9 @@ export default function ChatbotWorkspace({
       if (res.data.suggested_questions) {
         setSuggestedQuestions(res.data.suggested_questions);
       }
-      if (res.data.lesson_plan) {
-        setFocusLessonIdState(res.data.lesson_plan);
-        if (setFocusLessonId) setFocusLessonId(res.data.lesson_plan);
-      }
+      const lId = res.data.lesson_plan || null;
+      setFocusLessonIdState(lId);
+      if (setFocusLessonId) setFocusLessonId(lId);
     } catch (err) {
       console.error('Error loading session details:', err);
     } finally {
@@ -863,6 +881,16 @@ export default function ChatbotWorkspace({
     }
   };
 
+  const fetchObsidianLessonNotes = async (lessonId: number) => {
+    try {
+      const res = await axios.get(`/api/obsidian/notes/by-lesson/?lesson_id=${lessonId}`);
+      setObsidianLessonNotes(res.data);
+    } catch (err) {
+      console.error('Error fetching lesson obsidian notes:', err);
+      setObsidianLessonNotes([]);
+    }
+  };
+
   const fetchNoteContent = async (note: any) => {
     setLoadingNote(true);
     try {
@@ -925,6 +953,17 @@ export default function ChatbotWorkspace({
     fetchObsidianNotes();
   }, [currentUser, focusLessonId]);
 
+  // Fetch lesson-specific notes khi focusLessonId thay đổi
+  useEffect(() => {
+    if (focusLessonId) {
+      fetchObsidianLessonNotes(focusLessonId);
+      setWikiFilterMode('lesson'); // Tự động chuyển về chế độ lọc bài này
+    } else {
+      setObsidianLessonNotes([]);
+      setWikiFilterMode('all');
+    }
+  }, [focusLessonId]);
+
   // Polling for Asynchronous Background Tasks
   useEffect(() => {
     const fetchTasks = async () => {
@@ -948,12 +987,67 @@ export default function ChatbotWorkspace({
   // Synchronize focusLessonId from parent prop
   useEffect(() => {
     setFocusLessonIdState(initialFocusLessonId);
+    if (!initialFocusLessonId) {
+      setShowContinueDialog(null);
+    }
   }, [initialFocusLessonId]);
+
+  // Auto-open chatbot with context when "Hỏi AI" is clicked from outside (monitored via chatbotOpenTrigger)
+  useEffect(() => {
+    if (chatbotOpenTrigger > 0 && initialFocusLessonId) {
+      openWithContext(initialFocusLessonId);
+    }
+  }, [chatbotOpenTrigger, initialFocusLessonId, openWithContext]);
+
+  // Reset focus lesson ID when chatbot is closed and user is on the homepage (detail view is closed)
+  useEffect(() => {
+    if (!isOpen && !isDetailOpen) {
+      setFocusLessonIdState(null);
+      if (setFocusLessonId) {
+        setFocusLessonId(null);
+      }
+      setShowContinueDialog(null);
+    }
+  }, [isOpen, isDetailOpen, setFocusLessonId]);
+
+  // Prevent browser zoom and page scroll when wheeling over the Canvas graph natively
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomIntensity = 0.1;
+      const scaleFactor = e.deltaY < 0 ? (1 + zoomIntensity) : (1 - zoomIntensity);
+      
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const newScale = Math.min(Math.max(transformRef.current.scale * scaleFactor, 0.2), 4.0);
+      const graphX = (mouseX - transformRef.current.x) / transformRef.current.scale;
+      const graphY = (mouseY - transformRef.current.y) / transformRef.current.scale;
+
+      transformRef.current = {
+        scale: newScale,
+        x: mouseX - graphX * newScale,
+        y: mouseY - graphY * newScale
+      };
+      setTransformTrigger(p => p + 1);
+    };
+
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener('wheel', onWheel);
+    };
+  }, [activeTab, widgetSize]);
 
   // Synchronize active chat session when focusLessonId or isOpen changes
   useEffect(() => {
-    if (focusLessonId && isOpen) {
-      setActiveTab('chat');
+    if (!isOpen) return;
+
+    setActiveTab('chat');
+    if (focusLessonId) {
       const existing = sessions.find(s => s.lesson_plan === focusLessonId);
       if (existing) {
         if (!activeSession || activeSession.id !== existing.id) {
@@ -962,6 +1056,16 @@ export default function ChatbotWorkspace({
       } else {
         // Tự động tạo cuộc trò chuyện mới cho bài giảng này khi mở chatbot
         handleCreateSession(focusLessonId);
+      }
+    } else {
+      // Nếu ở trang chủ (không có focusLessonId) và đang mở chat, đảm bảo dùng session chung (không gán lesson)
+      if (!activeSession || activeSession.lesson_plan) {
+        const generalSession = sessions.find(s => !s.lesson_plan);
+        if (generalSession) {
+          loadSessionDetails(generalSession.id);
+        } else {
+          handleCreateSession(undefined);
+        }
       }
     }
   }, [focusLessonId, isOpen, sessions.length]);
@@ -1240,6 +1344,8 @@ export default function ChatbotWorkspace({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    clickStartPos.current = { x: e.clientX, y: e.clientY };
+
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX - rect.left;
     const clientY = e.clientY - rect.top;
@@ -1302,7 +1408,24 @@ export default function ChatbotWorkspace({
         }
       }
       hoveredNodeRef.current = hoveredNode;
+      // Hiển thị popup khi hover lên node
+      if (hoveredNode) {
+        const canvas = canvasRef.current!;
+        const rect = canvas.getBoundingClientRect();
+        setNodePopup({
+          node: hoveredNode,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        });
+      } else {
+        setNodePopup(null);
+      }
     }
+  };
+
+  const handleCanvasMouseLeave = () => {
+    hoveredNodeRef.current = null;
+    setNodePopup(null);
   };
 
   const handleCanvasMouseUp = () => {
@@ -1310,88 +1433,101 @@ export default function ChatbotWorkspace({
     dragStart.current = null;
   };
 
-  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
 
-    const zoomIntensity = 0.1;
-    const scaleFactor = e.deltaY < 0 ? (1 + zoomIntensity) : (1 - zoomIntensity);
-    
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const newScale = Math.min(Math.max(transformRef.current.scale * scaleFactor, 0.2), 4.0);
-    const graphX = (mouseX - transformRef.current.x) / transformRef.current.scale;
-    const graphY = (mouseY - transformRef.current.y) / transformRef.current.scale;
-
-    transformRef.current = {
-      scale: newScale,
-      x: mouseX - graphX * newScale,
-      y: mouseY - graphY * newScale
-    };
-    setTransformTrigger(p => p + 1);
-  };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    const graphX = (clientX - transformRef.current.x) / transformRef.current.scale;
-    const graphY = (clientY - transformRef.current.y) / transformRef.current.scale;
-
-    const nodes = graphNodesRef.current;
-    let clickedAnyNode = false;
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      const dx = n.x! - graphX;
-      const dy = n.y! - graphY;
-      if (Math.sqrt(dx * dx + dy * dy) < 15) {
-        setClickedNodeId(n.id);
-        clickedAnyNode = true;
-        if (n.type === 'tag') {
-          setInputMessage(`Tìm kiếm tài liệu có từ khóa: ${n.label}`);
-        } else if (n.type === 'directory') {
-          setInputMessage(`Tìm tài liệu trong thư mục: ${n.label}`);
-        }
-        break;
+    // Phân biệt thao tác kéo/thả đồ thị (drag/pan) với thao tác click thật sự
+    if (clickStartPos.current) {
+      const dx = e.clientX - clickStartPos.current.x;
+      const dy = e.clientY - clickStartPos.current.y;
+      const dragDistance = Math.sqrt(dx * dx + dy * dy);
+      if (dragDistance > 6) {
+        // Nếu chuột di chuyển quá 6px thì đây là drag/pan, không kích hoạt click
+        return;
       }
     }
 
-    if (!clickedAnyNode) {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    // Tìm node gần nhất trong screen space (đảm bảo phóng to/thu nhỏ đều click siêu nhạy)
+    const nodes = graphNodesRef.current;
+    let clickedNode: GraphNode | null = null;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      // Chuyển đổi tọa độ từ graph space sang screen space
+      const nodeScreenX = n.x! * transformRef.current.scale + transformRef.current.x;
+      const nodeScreenY = n.y! * transformRef.current.scale + transformRef.current.y;
+      
+      const dx = nodeScreenX - clickX;
+      const dy = nodeScreenY - clickY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      // Cho phép bán kính bấm thoải mái là 25px trên màn hình
+      if (dist < 25 && dist < minDistance) {
+        minDistance = dist;
+        clickedNode = n;
+      }
+    }
+
+    if (clickedNode) {
+      setClickedNodeId(clickedNode.id);
+
+      if (clickedNode.type === 'lesson') {
+        const lessonId = parseInt(clickedNode.id.split('_')[1]);
+        const targetLesson = lessonPlans.find(lp => lp.id === lessonId);
+        if (targetLesson && onViewLessonDetail) {
+          onViewLessonDetail(targetLesson);
+          setIsOpen(false);
+        } else if (!targetLesson) {
+          axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
+            .then(res => {
+              if (onViewLessonDetail) {
+                onViewLessonDetail(res.data);
+                setIsOpen(false);
+              }
+            })
+            .catch(err => {
+              console.error("Lỗi khi tải chi tiết bài giảng từ đồ thị:", err);
+              alert("Không thể tải giáo án này.");
+            });
+        }
+      } else if (clickedNode.type === 'tag') {
+        const tagLabel = clickedNode.label;
+        const targetNote = obsidianNotes.find(n => n.title.toLowerCase() === tagLabel.toLowerCase());
+        if (targetNote) {
+          fetchNoteContent(targetNote);
+          setActiveTab('wiki');
+        } else {
+          // Thử gọi lại API lấy danh sách note mới nhất
+          axios.get('/api/obsidian/notes/')
+            .then(res => {
+              const notesList = res.data;
+              setObsidianNotes(notesList);
+              const found = notesList.find((n: any) => n.title.toLowerCase() === tagLabel.toLowerCase());
+              if (found) {
+                fetchNoteContent(found);
+                setActiveTab('wiki');
+              } else {
+                alert(`Không tìm thấy ghi chú khái niệm cho "${tagLabel}"`);
+              }
+            })
+            .catch(() => {
+              alert(`Không tìm thấy ghi chú khái niệm cho "${tagLabel}"`);
+            });
+        }
+      } else if (clickedNode.type === 'directory') {
+        setInputMessage(`Tìm tài liệu trong thư mục: ${clickedNode.label}`);
+        setActiveTab('chat');
+      }
+    } else {
       setClickedNodeId(null);
-    }
-  };
-
-  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    const graphX = (clientX - transformRef.current.x) / transformRef.current.scale;
-    const graphY = (clientY - transformRef.current.y) / transformRef.current.scale;
-
-    const nodes = graphNodesRef.current;
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      const dx = n.x! - graphX;
-      const dy = n.y! - graphY;
-      if (Math.sqrt(dx * dx + dy * dy) < 15) {
-        if (n.type === 'lesson') {
-          const lessonId = parseInt(n.id.split('_')[1]);
-          const targetLesson = lessonPlans.find(lp => lp.id === lessonId);
-          if (targetLesson && onViewLessonDetail) {
-            onViewLessonDetail(targetLesson);
-            setIsOpen(false);
-          }
-        }
-        break;
-      }
     }
   };
 
@@ -2012,6 +2148,9 @@ export default function ChatbotWorkspace({
                   setActiveTab(tab.key);
                   if (tab.key === 'wiki') {
                     fetchObsidianNotes();
+                    if (focusLessonId) {
+                      fetchObsidianLessonNotes(focusLessonId);
+                    }
                   }
                 }}
                 style={{
@@ -2091,7 +2230,7 @@ export default function ChatbotWorkspace({
                         <Layers className="w-3.5 h-3.5 text-slate-500" />
                       </button>
                     </div>
-                    <div style={{ flexGrow: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {loadingHistory ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '16px' }}>
                           <div style={{
@@ -2220,7 +2359,7 @@ export default function ChatbotWorkspace({
                       ▶
                     </button>
                   )}
-                  <div style={{ flexGrow: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {loadingHistory ? (
                       <div style={{ display: 'flex', flexGrow: 1, height: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', gap: '12px' }}>
                         <div style={{
@@ -2699,18 +2838,16 @@ export default function ChatbotWorkspace({
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={handleCanvasMouseUp}
-                  onWheel={handleCanvasWheel}
+                  onMouseLeave={handleCanvasMouseLeave}
                   onClick={handleCanvasClick}
-                  onDoubleClick={handleCanvasDoubleClick}
                   style={{
                     width: '100%',
                     height: '100%',
-                    cursor: 'grab',
+                    cursor: nodePopup ? 'pointer' : 'grab',
                     background: '#f8fafc',
                   }}
                 />
-                
+
                 {/* Legend */}
                 <div style={{
                   position: 'absolute', top: '8px', left: '8px',
@@ -2724,6 +2861,7 @@ export default function ChatbotWorkspace({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8b5cf6', display: 'inline-block' }} /> Từ khóa</div>
                 </div>
 
+                {/* Hướng dẫn + Hop distance filter */}
                 <div style={{
                   position: 'absolute', bottom: '8px', left: '8px',
                   background: 'rgba(255,255,255,0.95)', border: '1px solid #e2e8f0',
@@ -2731,24 +2869,147 @@ export default function ChatbotWorkspace({
                   pointerEvents: 'none',
                 }}>
                   <p>🖰 Kéo để Pan | 🛞 Cuộn để Zoom</p>
-                  <p>🖱 Nhấn đúp nút vàng để xem giáo án</p>
+                  <p>🖱 Hover để xem thông tin | Click để mở giáo án</p>
                 </div>
 
-                <button
-                  onClick={() => {
-                    transformRef.current = { x: 0, y: 0, scale: 1.0 };
-                    setTransformTrigger(p => p + 1);
-                  }}
-                  style={{
-                    position: 'absolute', top: '8px', right: '8px',
-                    fontSize: '10px', background: '#fff', border: '1px solid #e2e8f0',
-                    padding: '4px 10px', borderRadius: '6px', color: '#475569',
-                    fontWeight: 600, cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  Reset
-                </button>
+                {/* Hop Distance Filter + Reset - góc trên phải */}
+                <div style={{
+                  position: 'absolute', top: '8px', right: '8px',
+                  display: 'flex', gap: '4px', alignItems: 'center',
+                }}>
+                  {/* Hop distance chỉ hiện khi có focusLessonId */}
+                  {focusLessonId && (
+                    <div style={{
+                      background: 'rgba(255,255,255,0.97)',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      padding: '3px 4px',
+                      display: 'flex',
+                      gap: '2px',
+                      alignItems: 'center',
+                    }}>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#94a3b8', paddingRight: '3px' }}>Liên kết:</span>
+                      {[1, 2, 3].map(hop => (
+                        <button
+                          key={hop}
+                          type="button"
+                          onClick={() => {
+                            setGraphHopDistance(hop);
+                            // Reload graph với hop distance mới
+                            if (focusLessonId) {
+                              axios.get(`/api/chat-graph/?user_id=${currentUser?.id}&lesson_id=${focusLessonId}&hop_depth=${hop}`)
+                                .then(res => setFullGraph(res.data))
+                                .catch(() => {});
+                            }
+                          }}
+                          style={{
+                            padding: '2px 7px',
+                            borderRadius: '5px',
+                            border: 'none',
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            background: graphHopDistance === hop
+                              ? 'linear-gradient(135deg, #3b82f6, #6366f1)'
+                              : '#f1f5f9',
+                            color: graphHopDistance === hop ? '#fff' : '#64748b',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {hop}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      transformRef.current = { x: 0, y: 0, scale: 1.0 };
+                      setTransformTrigger(p => p + 1);
+                    }}
+                    style={{
+                      fontSize: '10px', background: 'rgba(255,255,255,0.97)', border: '1px solid #e2e8f0',
+                      padding: '4px 10px', borderRadius: '6px', color: '#475569',
+                      fontWeight: 600, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    Reset
+                  </button>
+                </div>
+
+                {/* Node Hover Popup */}
+                {nodePopup && (() => {
+                  const n = nodePopup.node;
+                  const typeColor = n.type === 'lesson' ? '#f59e0b' : n.type === 'directory' ? '#3b82f6' : n.type === 'user' ? '#10b981' : '#8b5cf6';
+                  const typeBg = n.type === 'lesson' ? '#fef3c7' : n.type === 'directory' ? '#dbeafe' : n.type === 'user' ? '#d1fae5' : '#ede9fe';
+                  const typeLabel = n.type === 'lesson' ? '📄 Giáo án' : n.type === 'directory' ? '📁 Danh mục' : n.type === 'user' ? '👤 Người dùng' : '🏷️ Từ khóa';
+
+                  // Tính vị trí popup tránh ra ngoài canvas
+                  const canvas = canvasRef.current;
+                  const cW = canvas ? canvas.offsetWidth : 400;
+                  const cH = canvas ? canvas.offsetHeight : 400;
+                  const popupW = 200;
+                  const popupH = 90;
+                  let px = nodePopup.x + 12;
+                  let py = nodePopup.y - popupH / 2;
+                  if (px + popupW > cW) px = nodePopup.x - popupW - 12;
+                  if (py < 4) py = 4;
+                  if (py + popupH > cH) py = cH - popupH - 4;
+
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      left: px,
+                      top: py,
+                      width: popupW,
+                      background: 'rgba(255,255,255,0.98)',
+                      border: `1.5px solid ${typeColor}40`,
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      boxShadow: `0 4px 20px ${typeColor}20, 0 2px 8px rgba(0,0,0,0.08)`,
+                      pointerEvents: 'none',
+                      zIndex: 50,
+                      backdropFilter: 'blur(4px)',
+                    }}>
+                      {/* Type badge */}
+                      <span style={{
+                        display: 'inline-block',
+                        fontSize: '7px', fontWeight: 800, textTransform: 'uppercase',
+                        background: typeBg, color: typeColor,
+                        padding: '1px 5px', borderRadius: '4px', marginBottom: '4px',
+                        letterSpacing: '0.3px',
+                      }}>
+                        {typeLabel}
+                      </span>
+                      {/* Node name */}
+                      <p style={{
+                        margin: 0, fontSize: '11px', fontWeight: 800, color: '#1e293b',
+                        lineHeight: 1.3, wordBreak: 'break-word',
+                        overflow: 'hidden', display: '-webkit-box',
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      }}>
+                        {n.label}
+                      </p>
+                      {/* Details nếu có */}
+                      {n.details && n.details !== n.label && (
+                        <p style={{
+                          margin: '3px 0 0 0', fontSize: '9px', color: '#64748b',
+                          lineHeight: 1.4, wordBreak: 'break-word',
+                          overflow: 'hidden', display: '-webkit-box',
+                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                        }}>
+                          {n.details}
+                        </p>
+                      )}
+                      {/* Action hint */}
+                      {n.type === 'lesson' && (
+                        <p style={{ margin: '4px 0 0 0', fontSize: '8px', color: '#94a3b8', fontStyle: 'italic' }}>
+                          🖱 Nhấn để mở giáo án
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -2765,17 +3026,63 @@ export default function ChatbotWorkspace({
                   overflow: 'hidden',
                 }}>
                   <div style={{ padding: '12px 10px', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
-                    <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <FolderOpen className="w-4 h-4 text-blue-500" /> Tài liệu RAG ({obsidianNotes.length})
+                    <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <FolderOpen className="w-4 h-4 text-blue-500" /> Tài liệu RAG ({currentNotes.length})
                     </h3>
+                    {focusLessonId && (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        background: '#f1f5f9',
+                        padding: '2px',
+                        borderRadius: '6px',
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => setWikiFilterMode('lesson')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            background: wikiFilterMode === 'lesson' ? '#fff' : 'transparent',
+                            color: wikiFilterMode === 'lesson' ? '#3b82f6' : '#64748b',
+                            boxShadow: wikiFilterMode === 'lesson' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          Chỉ bài này
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWikiFilterMode('all')}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            background: wikiFilterMode === 'all' ? '#fff' : 'transparent',
+                            color: wikiFilterMode === 'all' ? '#3b82f6' : '#64748b',
+                            boxShadow: wikiFilterMode === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          Tất cả
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ flexGrow: 1, overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {obsidianNotes.length === 0 ? (
+                  <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {currentNotes.length === 0 ? (
                       <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
                         Không có tài liệu nào trong vault.
                       </div>
                     ) : (
-                      obsidianNotes.map((note, nIdx) => {
+                      currentNotes.map((note, nIdx) => {
                         const isSelected = selectedObsidianNote?.filename === note.filename;
                         return (
                           <button
@@ -2851,6 +3158,7 @@ export default function ChatbotWorkspace({
                       <div style={{
                         flexGrow: 1,
                         overflowY: 'auto',
+                        overscrollBehavior: 'contain',
                         padding: '18px 24px',
                         fontSize: '13px',
                         lineHeight: 1.65,
@@ -2911,7 +3219,7 @@ export default function ChatbotWorkspace({
 
             {/* TAB 3: SETTINGS */}
             {activeTab === 'settings' && (
-              <div style={{ flexGrow: 1, overflowY: 'auto', padding: '14px', fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '14px', fontSize: '12px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 
                 {/* SECTION 1: AI PROCESSING HUB (BACKGROUND PROCESS TASK MANAGER) */}
                 <div style={{
@@ -2964,19 +3272,52 @@ export default function ChatbotWorkspace({
                       {/* Active Task Timeline Roadmap */}
                       {bgTasksStatus.active_task ? (
                         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                            <div style={{
-                              width: '14px',
-                              height: '14px',
-                              border: '2px solid #3b82f6',
-                              borderTop: '2px solid transparent',
-                              borderRadius: '50%',
-                              animation: 'spin 1s linear infinite',
-                              flexShrink: 0
-                            }} />
-                            <p style={{ margin: 0, fontSize: '10px', color: '#1e293b', lineHeight: 1.3, fontWeight: 700 }}>
-                              🎯 Đang xử lý: <span style={{ color: '#2563eb' }}>{bgTasksStatus.active_task.title}</span>
-                            </p>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{
+                                width: '12px',
+                                height: '12px',
+                                border: '2px solid #3b82f6',
+                                borderTop: '2px solid transparent',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite',
+                                flexShrink: 0
+                              }} />
+                              <p style={{ margin: 0, fontSize: '10px', color: '#1e293b', lineHeight: 1.3, fontWeight: 700 }}>
+                                🎯 Đang xử lý: <span style={{ color: '#2563eb' }}>{bgTasksStatus.active_task.title}</span>
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (window.confirm(`Bạn có chắc chắn muốn dừng quá trình xử lý bài giảng "${bgTasksStatus.active_task.title}" không?`)) {
+                                  try {
+                                    await axios.post('/api/bg-tasks/stop/', { lesson_id: bgTasksStatus.active_task.id });
+                                  } catch (err) {
+                                    console.error('Error stopping task:', err);
+                                  }
+                                }
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                padding: '3px 8px',
+                                background: '#fee2e2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '6px',
+                                color: '#dc2626',
+                                fontSize: '8.5px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                flexShrink: 0
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fca5a5'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#fee2e2'; }}
+                            >
+                              🛑 Dừng
+                            </button>
                           </div>
                           
                           <div style={{
@@ -3099,14 +3440,20 @@ export default function ChatbotWorkspace({
                           ⚡️ Công cụ chạy lại (Reprocess AI RAG)
                         </span>
                         
-                        <div style={{ display: 'grid', gridTemplateColumns: focusLessonId ? '1fr 1fr' : '1fr', gap: '6px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px' }}>
                           {focusLessonId && (
                             <button
                               type="button"
                               onClick={async () => {
                                 if (confirm(`Bạn có chắc chắn muốn chạy lại phân tích AI RAG cho riêng bài giảng "${focusLesson?.title}" này?`)) {
                                   try {
-                                    await axios.post('/api/bg-tasks/reprocess/', { lesson_id: focusLessonId });
+                                    await axios.post('/api/bg-tasks/reprocess/', {
+                                      lesson_id: focusLessonId,
+                                      ai_mode: aiMode,
+                                      local_model: localModel,
+                                      api_key: apiKey,
+                                      api_model: apiModel
+                                    });
                                     alert('Đã đưa tài liệu này vào hàng chờ tái xử lý!');
                                   } catch (err) {
                                     alert('Chạy lại thất bại. Vui lòng kiểm tra kết nối.');
@@ -3135,39 +3482,82 @@ export default function ChatbotWorkspace({
                             </button>
                           )}
                           
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (confirm('Bạn có chắc chắn muốn chạy lại phân tích AI RAG cho TOÀN BỘ tài liệu trong hệ thống?')) {
-                                try {
-                                  await axios.post('/api/bg-tasks/reprocess/', {});
-                                  alert('Đã xếp hàng chạy lại toàn hệ thống thành công!');
-                                } catch (err) {
-                                  alert('Chạy lại thất bại. Vui lòng kiểm tra kết nối.');
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (confirm('Bạn có chắc chắn muốn chạy lại phân tích AI RAG cho TOÀN BỘ tài liệu trong hệ thống?')) {
+                                  try {
+                                    await axios.post('/api/bg-tasks/reprocess/', {
+                                      ai_mode: aiMode,
+                                      local_model: localModel,
+                                      api_key: apiKey,
+                                      api_model: apiModel
+                                    });
+                                    alert('Đã xếp hàng chạy lại toàn hệ thống thành công!');
+                                  } catch (err) {
+                                    alert('Chạy lại thất bại. Vui lòng kiểm tra kết nối.');
+                                  }
                                 }
-                              }
-                            }}
-                            style={{
-                              padding: '6px 8px',
-                              background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              color: '#fff',
-                              fontSize: '9px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '3px',
-                              boxShadow: '0 2px 6px rgba(99, 102, 241, 0.2)',
-                              transition: 'opacity 0.15s'
-                            }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                          >
-                            🚀 Chạy lại toàn hệ thống
-                          </button>
+                              }}
+                              style={{
+                                padding: '6px 8px',
+                                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                color: '#fff',
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '3px',
+                                boxShadow: '0 2px 6px rgba(99, 102, 241, 0.2)',
+                                transition: 'opacity 0.15s'
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                            >
+                              🚀 Chạy lại toàn hệ thống
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await axios.post('/api/bg-tasks/resume/', {
+                                    ai_mode: aiMode,
+                                    local_model: localModel,
+                                    api_key: apiKey,
+                                    api_model: apiModel
+                                  });
+                                  alert('Đã xếp hàng tiếp tục xử lý RAG tại các điểm đã dừng!');
+                                } catch (err) {
+                                  alert('Tiếp tục chạy thất bại. Vui lòng kiểm tra kết nối.');
+                                }
+                              }}
+                              style={{
+                                padding: '6px 8px',
+                                background: '#f0fdf4',
+                                border: '1px solid #bbf7d0',
+                                borderRadius: '6px',
+                                color: '#16a34a',
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '3px',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#dcfce7'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f0fdf4'; }}
+                            >
+                              ▶️ Tiếp tục chạy từ điểm dừng
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -3391,35 +3781,102 @@ export default function ChatbotWorkspace({
                         </div>
                       )}
 
-                      {/* Bật tắt AI RAG toàn hệ thống dành cho Admin */}
+                      {/* ═══ TOGGLE BẬT/TẮT LLM KHI NHẬP LIỆU ═══ */}
                       <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '6px 8px',
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        marginTop: '2px'
+                        background: chunkingConfig.use_ai_rag !== false
+                          ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'
+                          : 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)',
+                        border: `1.5px solid ${chunkingConfig.use_ai_rag !== false ? '#86efac' : '#fdba74'}`,
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        marginTop: '2px',
+                        transition: 'all 0.3s ease',
                       }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', textAlign: 'left' }}>
-                          <span style={{ fontSize: '9px', fontWeight: 800, color: '#1e293b' }}>🧠 Kích hoạt AI RAG</span>
-                          <span style={{ fontSize: '7px', color: '#64748b' }}>Tắt AI nếu Server yếu để chạy tối ưu</span>
+                        {/* Header row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '14px' }}>{chunkingConfig.use_ai_rag !== false ? '🧠' : '⚡'}</span>
+                            <div>
+                              <span style={{ fontSize: '10px', fontWeight: 800, color: '#1e293b', display: 'block' }}>
+                                LLM & AI RAG khi nhập liệu
+                              </span>
+                              <span style={{
+                                display: 'inline-block',
+                                fontSize: '7px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                marginTop: '1px',
+                                background: chunkingConfig.use_ai_rag !== false ? '#bbf7d0' : '#fed7aa',
+                                color: chunkingConfig.use_ai_rag !== false ? '#15803d' : '#c2410c',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.4px',
+                              }}>
+                                {chunkingConfig.use_ai_rag !== false ? '● ĐANG BẬT' : '○ ĐÃ TẮT'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Toggle Switch */}
+                          <button
+                            type="button"
+                            id="llm-import-toggle"
+                            onClick={() => {
+                              const newVal = chunkingConfig.use_ai_rag === false ? true : false;
+                              setChunkingConfig((prev: any) => ({ ...prev, use_ai_rag: newVal }));
+                            }}
+                            style={{
+                              position: 'relative',
+                              width: '40px',
+                              height: '22px',
+                              borderRadius: '11px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              background: chunkingConfig.use_ai_rag !== false
+                                ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                                : '#cbd5e1',
+                              transition: 'background 0.3s ease',
+                              boxShadow: chunkingConfig.use_ai_rag !== false
+                                ? '0 0 10px rgba(34, 197, 94, 0.4)'
+                                : '0 1px 3px rgba(0,0,0,0.1)',
+                              flexShrink: 0,
+                              padding: 0,
+                            }}
+                          >
+                            <span style={{
+                              position: 'absolute',
+                              top: '3px',
+                              left: chunkingConfig.use_ai_rag !== false ? '21px' : '3px',
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              background: '#fff',
+                              transition: 'left 0.25s ease',
+                              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                              display: 'block',
+                            }} />
+                          </button>
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={chunkingConfig.use_ai_rag !== false}
-                          onChange={(e) => {
-                            const val = e.target.checked;
-                            setChunkingConfig((prev: any) => ({ ...prev, use_ai_rag: val }));
-                          }}
-                          style={{
-                            width: '14px',
-                            height: '14px',
-                            cursor: 'pointer',
-                            accentColor: '#6366f1'
-                          }}
-                        />
+
+                        {/* Mô tả hành vi */}
+                        <div style={{
+                          fontSize: '8.5px',
+                          color: chunkingConfig.use_ai_rag !== false ? '#166534' : '#9a3412',
+                          lineHeight: 1.45,
+                          borderTop: `1px solid ${chunkingConfig.use_ai_rag !== false ? '#bbf7d0' : '#fed7aa'}`,
+                          paddingTop: '5px',
+                          marginTop: '2px',
+                        }}>
+                          {chunkingConfig.use_ai_rag !== false ? (
+                            <>
+                              ✅ <strong>Đang bật:</strong> Khi thầy cô tải lên giáo án, hệ thống sẽ tự động chạy AI để phân tích, tạo embedding vector, trích xuất từ khóa và đồng bộ Obsidian Vault.
+                            </>
+                          ) : (
+                            <>
+                              ⚠️ <strong>Đã tắt:</strong> Khi tải lên, hệ thống <strong>chỉ lưu file</strong> — không chạy LLM, không tạo embedding, không xử lý ngầm. Phù hợp máy chủ yếu. Tắt chat AI RAG bên dưới nếu cần.
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       <button
@@ -3428,26 +3885,44 @@ export default function ChatbotWorkspace({
                         disabled={savingConfig}
                         style={{
                           width: '100%',
-                          padding: '6px',
-                          background: 'linear-gradient(135deg, #a855f7, #6366f1)',
-                          color: '#fff',
-                          fontWeight: 700,
+                          padding: '7px',
+                          background: savingConfig
+                            ? '#e2e8f0'
+                            : chunkingConfig.use_ai_rag !== false
+                              ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                              : 'linear-gradient(135deg, #f97316, #ea580c)',
+                          color: savingConfig ? '#94a3b8' : '#fff',
+                          fontWeight: 800,
                           borderRadius: '8px',
                           border: 'none',
                           fontSize: '10px',
-                          cursor: 'pointer',
+                          cursor: savingConfig ? 'not-allowed' : 'pointer',
                           marginTop: '4px',
-                          boxShadow: '0 2px 6px rgba(168, 85, 247, 0.25)',
-                          transition: 'opacity 0.15s'
+                          boxShadow: savingConfig ? 'none' : '0 2px 8px rgba(0,0,0,0.15)',
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
                         }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
+                        onMouseEnter={e => { if (!savingConfig) (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
                       >
-                        {savingConfig ? 'Đang lưu...' : 'Lưu cấu hình hệ thống'}
+                        {savingConfig ? (
+                          <>
+                            <div style={{ width: '10px', height: '10px', border: '2px solid #94a3b8', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            {chunkingConfig.use_ai_rag !== false ? '💾 Lưu cấu hình (AI BẬT)' : '💾 Lưu cấu hình (AI TẮT)'}
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
                 )}
+
 
                 {/* SECTION 4: OBSIDIAN VAULT SYSTEM INTEGRATION */}
                 <div style={{
