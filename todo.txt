@@ -120,6 +120,13 @@ chọn thời gian, phải vẽ hết (cô nói trong ghi âm) các sự lựa c
 khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - cô upload từng file phải lấy được nhiều thông tin
 
-
-
-
+- Khóa cứng lỗi zoom đồ thị và zoom toàn trang, đồng thời tích hợp cơ chế ngăn chặn cuộn kép (overscroll-behavior) => xong
+- Tránh đóng chatbot tự động khi xem chi tiết giáo án hoặc quay lại để người dùng luôn có thể click Quay lại điều hướng từng bước => xong
+- Sửa hành vi double-click vào Thư mục (directory) trên đồ thị để mở/chọn thư mục đó trong cây thư mục thư viện ở trang chủ => xong
+- Ghim bảng tóm tắt thực thể/bài giảng/thư mục lệch khỏi nút gốc để tránh che khuất, kiểm tra giới hạn viền đồ thị và hỗ trợ kéo co giãn từ cả 4 góc của bảng, tự động phóng to/thu nhỏ kích cỡ chữ trong popup tương ứng với tỉ lệ co giãn => xong
+- Thêm nút 'Quay lại' trên thanh tiêu đề chi tiết giáo án (App.tsx) bên cạnh nút close ✕ để quay lại tài liệu đã xem trước đó theo từng bước mà không cần mở chatbot, tự động lưu trữ ngăn xếp lịch sử xem giáo án => xong
+- Sửa lỗi useRef is not defined ở App.tsx bằng cách thêm import useRef từ react => xong
+- Đồng bộ tự động phiên chatbot AI khi di chuyển hoặc quay lại tài liệu nếu chatbot đang mở, và giữ nguyên trạng thái đóng nếu chatbot đang đóng => xong
+- Thiết lập bộ lọc truyền động bật/tắt hiển thị từng loại thực thể (lesson, directory, tag, user) dưới dạng Legend tương tác trên Đồ thị Canvas => xong
+- Sửa lỗi nút Quay lại của thực thể ở popup chi tiết khi click không có tác dụng, chuyển hướng đúng về tab Đồ thị => xong
+- Tích hợp tính năng mở rộng hiển thị theo số cạnh tùy chọn (1-4 Hops) khi click vào một nút trên đồ thị tri thức, tự động tính toán BFS client-side và tô màu theo dải gradient sắc nét (Hop 0: xanh dương, Hop 1: cyan, Hop 2: xanh lá, Hop 3: vàng, Hop 4: cam), làm mờ các phần tử ngoài tầm hiển thị => xong

@@ -57,6 +57,7 @@ interface ChatbotWorkspaceProps {
   onViewLessonDetail?: (lesson: any, highlightQuery?: string) => void;
   isDetailOpen?: boolean;
   chatbotOpenTrigger?: number;
+  onSelectDirectory?: (dirId: number) => void;
 }
 
 export default function ChatbotWorkspace({
@@ -70,7 +71,8 @@ export default function ChatbotWorkspace({
   setFocusLessonId,
   onViewLessonDetail,
   isDetailOpen = false,
-  chatbotOpenTrigger = 0
+  chatbotOpenTrigger = 0,
+  onSelectDirectory
 }: ChatbotWorkspaceProps) {
   // --- STATES & REFS ---
   const [isOpen, setIsOpen] = useState(false);
@@ -83,6 +85,7 @@ export default function ChatbotWorkspace({
   const [inputMessage, setInputMessage] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sending, setSending] = useState(false);
+  const [loadingGraph, setLoadingGraph] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([
     "Tóm tắt các tài liệu Sinh học lớp 10?",
     "Làm thế nào để tránh trùng lặp khi đăng giáo án?",
@@ -151,11 +154,50 @@ export default function ChatbotWorkspace({
   const [clickedNodeId, setClickedNodeId] = useState<string | null>(null);
   const [graphHopDistance, setGraphHopDistance] = useState<number>(2); // Số hop hiển thị
   const [nodePopup, setNodePopup] = useState<{ node: GraphNode; x: number; y: number } | null>(null); // Popup hover node
+  const [pinnedPopup, setPinnedPopup] = useState<{
+    node: GraphNode;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [visibleNodeTypes, setVisibleNodeTypes] = useState<Record<'lesson' | 'directory' | 'tag' | 'user', boolean>>({
+    lesson: true,
+    directory: true,
+    tag: true,
+    user: true
+  });
+  const [clickHopDepth, setClickHopDepth] = useState<number>(1); // Số hop highlight khi click node
+
+  // BFS từ clickedNodeId → map nodeId → hop distance
+  const clickedNodeHopMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!clickedNodeId) return map;
+    map.set(clickedNodeId, 0);
+    let frontier = [clickedNodeId];
+    for (let hop = 1; hop <= clickHopDepth; hop++) {
+      const nextFrontier: string[] = [];
+      for (const nodeId of frontier) {
+        for (const edge of fullGraph.edges) {
+          let neighbor: string | null = null;
+          if (edge.source === nodeId) neighbor = edge.target;
+          else if (edge.target === nodeId) neighbor = edge.source;
+          if (neighbor && !map.has(neighbor)) {
+            map.set(neighbor, hop);
+            nextFrontier.push(neighbor);
+          }
+        }
+      }
+      frontier = nextFrontier;
+    }
+    return map;
+  }, [clickedNodeId, clickHopDepth, fullGraph.edges]);
   
   // Canvas Graph rendering refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphNodesRef = useRef<GraphNode[]>([]);
   const graphEdgesRef = useRef<GraphEdge[]>([]);
+  const simulationAlphaRef = useRef(1.0);
   
   // Zoom & Pan state for Graph Canvas
   const transformRef = useRef({ x: 0, y: 0, scale: 1 });
@@ -164,9 +206,89 @@ export default function ChatbotWorkspace({
   const clickStartPos = useRef<{ x: number; y: number } | null>(null);
   const selectedNodeRef = useRef<GraphNode | null>(null);
   const hoveredNodeRef = useRef<GraphNode | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingMessageText, setEditingMessageText] = useState<string>('');
+
+  // --- NAVIGATION HISTORY STACK ---
+  const [historyStack, setHistoryStack] = useState<{ type: 'lesson' | 'wiki' | 'tab'; data: any }[]>([]);
+  const currentViewRef = useRef({ isDetailOpen, focusLessonId, activeTab, selectedObsidianNote, lessonPlans });
+
+  useEffect(() => {
+    currentViewRef.current = { isDetailOpen, focusLessonId, activeTab, selectedObsidianNote, lessonPlans };
+  }, [isDetailOpen, focusLessonId, activeTab, selectedObsidianNote, lessonPlans]);
+
+  const pushCurrentViewToHistory = useCallback(() => {
+    const { isDetailOpen: dOpen, focusLessonId: fId, activeTab: tab, selectedObsidianNote: note, lessonPlans: plans } = currentViewRef.current;
+    if (tab === 'wiki' && note) {
+      setHistoryStack(prev => {
+        if (prev.length > 0 && prev[prev.length - 1].type === 'wiki' && prev[prev.length - 1].data.filename === note.filename) {
+          return prev;
+        }
+        return [...prev, { type: 'wiki', data: note }];
+      });
+    } else if (dOpen && fId) {
+      const currentLesson = plans.find(lp => lp.id === fId) || { id: fId };
+      setHistoryStack(prev => {
+        if (prev.length > 0 && prev[prev.length - 1].type === 'lesson' && prev[prev.length - 1].data.id === currentLesson.id) {
+          return prev;
+        }
+        return [...prev, { type: 'lesson', data: currentLesson }];
+      });
+    } else {
+      setHistoryStack(prev => {
+        if (prev.length > 0 && prev[prev.length - 1].type === 'tab' && prev[prev.length - 1].data === tab) {
+          return prev;
+        }
+        return [...prev, { type: 'tab', data: tab }];
+      });
+    }
+  }, []);
+
+  const fetchNoteContent = useCallback(async (note: any, skipPush = false) => {
+    if (selectedObsidianNote?.filename === note.filename) return;
+    if (!skipPush) {
+      pushCurrentViewToHistory();
+    }
+    setLoadingNote(true);
+    try {
+      const res = await axios.get(`/api/obsidian/notes/content/?filename=${encodeURIComponent(note.filename)}`);
+      setObsidianNoteContent(res.data.content);
+      setSelectedObsidianNote(note);
+    } catch (err) {
+      console.error('Error loading obsidian note content:', err);
+      alert('Không thể tải nội dung ghi chú.');
+    } finally {
+      setLoadingNote(false);
+    }
+  }, [selectedObsidianNote, pushCurrentViewToHistory]);
+
+  const handleGoBack = useCallback(() => {
+    if (historyStack.length === 0) return;
+    const last = historyStack[historyStack.length - 1];
+    setHistoryStack(prev => prev.slice(0, -1));
+
+    if (last.type === 'lesson') {
+      if (onViewLessonDetail) {
+        if (!last.data.title) {
+          axios.get(`/api/lesson-plans/${last.data.id}/?user_id=${currentUser?.id}`)
+            .then(res => {
+              onViewLessonDetail(res.data);
+            });
+        } else {
+          onViewLessonDetail(last.data);
+        }
+        // Do not call setIsOpen(false) to keep chatbot open
+        setIsOpen(true);
+      }
+    } else if (last.type === 'wiki') {
+      fetchNoteContent(last.data, true);
+      setActiveTab('wiki');
+      setIsOpen(true);
+    } else if (last.type === 'tab') {
+      setActiveTab(last.data);
+      setIsOpen(true);
+    }
+  }, [historyStack, onViewLessonDetail, currentUser, fetchNoteContent]);
 
   // --- RESIZE STATE ---
   const [widgetSize, setWidgetSize] = useState(() => {
@@ -278,6 +400,118 @@ export default function ChatbotWorkspace({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   }, [historySidebarWidth, widgetSize]);
+
+  // --- PINNED POPUP DRAG & RESIZE HANDLERS ---
+  const isDraggingPopup = useRef(false);
+  const dragPopupStart = useRef({ mouseX: 0, mouseY: 0, popupX: 0, popupY: 0 });
+
+  const handlePopupHeaderMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!pinnedPopup) return;
+    isDraggingPopup.current = true;
+    dragPopupStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      popupX: pinnedPopup.x,
+      popupY: pinnedPopup.y
+    };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isDraggingPopup.current) return;
+      const dx = ev.clientX - dragPopupStart.current.mouseX;
+      const dy = ev.clientY - dragPopupStart.current.mouseY;
+      setPinnedPopup(prev => prev ? {
+        ...prev,
+        x: dragPopupStart.current.popupX + dx,
+        y: dragPopupStart.current.popupY + dy
+      } : null);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingPopup.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const isResizingPopup = useRef(false);
+  const resizePopupStart = useRef({ mouseX: 0, mouseY: 0, width: 0, height: 0, x: 0, y: 0 });
+
+  const handlePopupResizeMouseDown = (e: React.MouseEvent, dir: 'tl' | 'tr' | 'bl' | 'br') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!pinnedPopup) return;
+    isResizingPopup.current = true;
+    resizePopupStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      width: pinnedPopup.width,
+      height: pinnedPopup.height,
+      x: pinnedPopup.x,
+      y: pinnedPopup.y
+    };
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isResizingPopup.current) return;
+      const dx = ev.clientX - resizePopupStart.current.mouseX;
+      const dy = ev.clientY - resizePopupStart.current.mouseY;
+      
+      let newW = resizePopupStart.current.width;
+      let newH = resizePopupStart.current.height;
+      let newX = resizePopupStart.current.x;
+      let newY = resizePopupStart.current.y;
+
+      const minW = 200;
+      const minH = 100;
+
+      if (dir === 'br') {
+        newW = Math.max(minW, resizePopupStart.current.width + dx);
+        newH = Math.max(minH, resizePopupStart.current.height + dy);
+      } else if (dir === 'bl') {
+        newW = Math.max(minW, resizePopupStart.current.width - dx);
+        newH = Math.max(minH, resizePopupStart.current.height + dy);
+        if (newW > minW) {
+          newX = resizePopupStart.current.x + dx;
+        }
+      } else if (dir === 'tr') {
+        newW = Math.max(minW, resizePopupStart.current.width + dx);
+        newH = Math.max(minH, resizePopupStart.current.height - dy);
+        if (newH > minH) {
+          newY = resizePopupStart.current.y + dy;
+        }
+      } else if (dir === 'tl') {
+        newW = Math.max(minW, resizePopupStart.current.width - dx);
+        newH = Math.max(minH, resizePopupStart.current.height - dy);
+        if (newW > minW) {
+          newX = resizePopupStart.current.x + dx;
+        }
+        if (newH > minH) {
+          newY = resizePopupStart.current.y + dy;
+        }
+      }
+
+      setPinnedPopup(prev => prev ? {
+        ...prev,
+        width: newW,
+        height: newH,
+        x: newX,
+        y: newY
+      } : null);
+    };
+
+    const handleMouseUp = () => {
+      isResizingPopup.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   // Floating AI Button Drag & Snap Handlers
   const handleBtnMouseDown = (e: React.MouseEvent) => {
@@ -810,16 +1044,21 @@ export default function ChatbotWorkspace({
   };
 
   // 6. Fetch full graph data
-  const fetchGraphData = async () => {
+  const fetchGraphData = async (hopDepthVal?: number) => {
+    const currentHop = hopDepthVal !== undefined ? hopDepthVal : graphHopDistance;
+    setLoadingGraph(true);
     try {
       let url = currentUser ? `/api/chat-graph/?user_id=${currentUser.id}` : '/api/chat-graph/';
       if (focusLessonId) {
         url += (url.includes('?') ? '&' : '?') + `lesson_id=${focusLessonId}`;
+        url += `&hop_depth=${currentHop}`;
       }
       const res = await axios.get(url);
       setFullGraph(res.data);
     } catch (err) {
       console.error('Error loading graph data:', err);
+    } finally {
+      setLoadingGraph(false);
     }
   };
 
@@ -838,13 +1077,13 @@ export default function ChatbotWorkspace({
       }
     });
 
-    const width = 800;
-    const height = 600;
+    const width = widgetSize.width || 800;
+    const height = (widgetSize.height - 120) || 600;
 
     const newNodes = visibleGraph.nodes.map((node: any) => {
       const pos = existingPositions.get(node.id) || {
-        x: width / 2 + (Math.random() - 0.5) * 300,
-        y: height / 2 + (Math.random() - 0.5) * 300
+        x: width / 2 + (Math.random() - 0.5) * 400,
+        y: height / 2 + (Math.random() - 0.5) * 400
       };
       return {
         ...node,
@@ -857,7 +1096,97 @@ export default function ChatbotWorkspace({
 
     graphNodesRef.current = newNodes;
     graphEdgesRef.current = visibleGraph.edges;
-  }, [visibleGraph]);
+
+    // Run a quick pre-simulation (e.g. 80 ticks) to layout the nodes cleanly before rendering
+    if (newNodes.length > 0) {
+      const repulsion = 150;
+      const attraction = 0.02;
+      const gravity = 0.015;
+      const friction = 0.78;
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      for (let step = 0; step < 80; step++) {
+        // Repulsion
+        for (let i = 0; i < newNodes.length; i++) {
+          const n1 = newNodes[i];
+          for (let j = i + 1; j < newNodes.length; j++) {
+            const n2 = newNodes[j];
+            const dx = n2.x! - n1.x!;
+            const dy = n2.y! - n1.y!;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            if (dist < 400) {
+              const clampDist = Math.max(dist, 25);
+              const force = (repulsion * repulsion) / (clampDist * clampDist);
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+              n1.vx! -= fx;
+              n1.vy! -= fy;
+              n2.vx! += fx;
+              n2.vy! += fy;
+            }
+          }
+        }
+        // Attraction
+        visibleGraph.edges.forEach(edge => {
+          const sourceNode = newNodes.find(n => n.id === edge.source);
+          const targetNode = newNodes.find(n => n.id === edge.target);
+          if (sourceNode && targetNode) {
+            const dx = targetNode.x! - sourceNode.x!;
+            const dy = targetNode.y! - sourceNode.y!;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
+            const force = attraction * (dist - 140);
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            sourceNode.vx! += fx;
+            sourceNode.vy! += fy;
+            targetNode.vx! -= fx;
+            targetNode.vy! -= fy;
+          }
+        });
+        // Gravity & Update
+        newNodes.forEach(node => {
+          node.vx! += (centerX - node.x!) * gravity;
+          node.vy! += (centerY - node.y!) * gravity;
+          node.x! += node.vx!;
+          node.y! += node.vy!;
+          node.vx! *= friction;
+          node.vy! *= friction;
+        });
+      }
+
+      // Auto-fit the view to the pre-simulated nodes
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      newNodes.forEach(n => {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+      });
+
+      const padding = 50;
+      const graphW = (maxX - minX) || 100;
+      const graphH = (maxY - minY) || 100;
+      
+      const scaleX = (width - padding * 2) / graphW;
+      const scaleY = (height - padding * 2) / graphH;
+      const nextScale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.45), 1.25);
+
+      const graphCenterX = minX + graphW / 2;
+      const graphCenterY = minY + graphH / 2;
+      const nextX = width / 2 - graphCenterX * nextScale;
+      const nextY = height / 2 - graphCenterY * nextScale;
+
+      transformRef.current = {
+        scale: nextScale,
+        x: nextX,
+        y: nextY
+      };
+      setTransformTrigger(p => p + 1);
+      simulationAlphaRef.current = 1.0;
+    }
+  }, [visibleGraph, widgetSize.width, widgetSize.height]);
 
   // --- INITIALIZATION ---
   const fetchChunkingConfig = async () => {
@@ -891,19 +1220,7 @@ export default function ChatbotWorkspace({
     }
   };
 
-  const fetchNoteContent = async (note: any) => {
-    setLoadingNote(true);
-    try {
-      const res = await axios.get(`/api/obsidian/notes/content/?filename=${encodeURIComponent(note.filename)}`);
-      setObsidianNoteContent(res.data.content);
-      setSelectedObsidianNote(note);
-    } catch (err) {
-      console.error('Error loading obsidian note content:', err);
-      alert('Không thể tải nội dung ghi chú.');
-    } finally {
-      setLoadingNote(false);
-    }
-  };
+
 
   const fetchObsidianStatus = async () => {
     try {
@@ -951,7 +1268,7 @@ export default function ChatbotWorkspace({
     fetchChunkingConfig();
     fetchObsidianStatus();
     fetchObsidianNotes();
-  }, [currentUser, focusLessonId]);
+  }, [currentUser, focusLessonId, graphHopDistance]);
 
   // Fetch lesson-specific notes khi focusLessonId thay đổi
   useEffect(() => {
@@ -984,6 +1301,18 @@ export default function ChatbotWorkspace({
     return () => clearInterval(interval);
   }, []);
 
+  // Global mouseup listener to prevent sticky drag states
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      selectedNodeRef.current = null;
+      dragStart.current = null;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
+
   // Synchronize focusLessonId from parent prop
   useEffect(() => {
     setFocusLessonIdState(initialFocusLessonId);
@@ -993,11 +1322,23 @@ export default function ChatbotWorkspace({
   }, [initialFocusLessonId]);
 
   // Auto-open chatbot with context when "Hỏi AI" is clicked from outside (monitored via chatbotOpenTrigger)
+  const lastHandledTrigger = useRef(0);
   useEffect(() => {
-    if (chatbotOpenTrigger > 0 && initialFocusLessonId) {
-      openWithContext(initialFocusLessonId);
+    if (chatbotOpenTrigger > 0 && chatbotOpenTrigger !== lastHandledTrigger.current) {
+      lastHandledTrigger.current = chatbotOpenTrigger;
+      if (initialFocusLessonId) {
+        openWithContext(initialFocusLessonId);
+        // Explicitly load session for this lesson plan
+        const existing = sessions.find(s => s.lesson_plan === initialFocusLessonId);
+        if (existing) {
+          loadSessionDetails(existing.id);
+        } else {
+          handleCreateSession(initialFocusLessonId);
+        }
+        setActiveTab('chat');
+      }
     }
-  }, [chatbotOpenTrigger, initialFocusLessonId, openWithContext]);
+  }, [chatbotOpenTrigger, initialFocusLessonId, sessions, openWithContext]);
 
   // Reset focus lesson ID when chatbot is closed and user is on the homepage (detail view is closed)
   useEffect(() => {
@@ -1042,11 +1383,10 @@ export default function ChatbotWorkspace({
     };
   }, [activeTab, widgetSize]);
 
-  // Synchronize active chat session when focusLessonId or isOpen changes
+  // Synchronize active chat session when focusLessonId or isOpen changes, but only if chatbot is open
   useEffect(() => {
     if (!isOpen) return;
 
-    setActiveTab('chat');
     if (focusLessonId) {
       const existing = sessions.find(s => s.lesson_plan === focusLessonId);
       if (existing) {
@@ -1054,11 +1394,9 @@ export default function ChatbotWorkspace({
           loadSessionDetails(existing.id);
         }
       } else {
-        // Tự động tạo cuộc trò chuyện mới cho bài giảng này khi mở chatbot
         handleCreateSession(focusLessonId);
       }
     } else {
-      // Nếu ở trang chủ (không có focusLessonId) và đang mở chat, đảm bảo dùng session chung (không gán lesson)
       if (!activeSession || activeSession.lesson_plan) {
         const generalSession = sessions.find(s => !s.lesson_plan);
         if (generalSession) {
@@ -1085,12 +1423,19 @@ export default function ChatbotWorkspace({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const repulsion = 80;
+    const repulsion = 150;
     const attraction = 0.02;
-    const gravity = 0.03;
+    const gravity = 0.015;
     const friction = 0.78;
 
     const simulatePhysics = () => {
+      if (simulationAlphaRef.current < 0.005) {
+        return;
+      }
+      if (selectedNodeRef.current) {
+        simulationAlphaRef.current = 0.25;
+      }
+
       const nodes = graphNodesRef.current;
       const edges = graphEdgesRef.current;
       const width = canvas.width;
@@ -1129,7 +1474,7 @@ export default function ChatbotWorkspace({
           const dy = targetNode.y! - sourceNode.y!;
           const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
           
-          const force = attraction * (dist - 90);
+          const force = attraction * (dist - 140);
           const fx = (dx / dist) * force;
           const fy = (dy / dist) * force;
           
@@ -1154,6 +1499,9 @@ export default function ChatbotWorkspace({
           node.vy = 0;
         }
       });
+
+      // Decay simulation temperature
+      simulationAlphaRef.current *= 0.975;
     };
 
     const drawGraph = () => {
@@ -1169,30 +1517,42 @@ export default function ChatbotWorkspace({
       const nodes = graphNodesRef.current;
       const edges = graphEdgesRef.current;
 
+      // Hop-distance color palette (index = hop distance)
+      const hopColors = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#f97316'];
+      const hopAlphas = ['ff', 'dd', 'bb', '99', '77'];
+
       // Draw Edges
       edges.forEach(edge => {
         const sourceNode = nodes.find(n => n.id === edge.source);
         const targetNode = nodes.find(n => n.id === edge.target);
         
         if (sourceNode && targetNode) {
+          // Skip drawing if either node is of a hidden type
+          if (!visibleNodeTypes[sourceNode.type] || !visibleNodeTypes[targetNode.type]) {
+            return;
+          }
           ctx.beginPath();
           ctx.moveTo(sourceNode.x!, sourceNode.y!);
           ctx.lineTo(targetNode.x!, targetNode.y!);
+
+          const sourceHop = clickedNodeHopMap.get(edge.source);
+          const targetHop = clickedNodeHopMap.get(edge.target);
+          const bothInRange = sourceHop !== undefined && targetHop !== undefined;
           
-          const isRelatedToClicked = clickedNodeId && (edge.source === clickedNodeId || edge.target === clickedNodeId);
-          
-          if (isRelatedToClicked) {
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 3.5;
-            ctx.shadowColor = '#3b82f6';
-            ctx.shadowBlur = 10;
+          if (bothInRange) {
+            const maxHop = Math.max(sourceHop, targetHop);
+            const edgeColor = hopColors[Math.min(maxHop, hopColors.length - 1)];
+            ctx.strokeStyle = edgeColor;
+            ctx.lineWidth = Math.max(1.5, 3.5 - maxHop * 0.5);
+            ctx.shadowColor = edgeColor;
+            ctx.shadowBlur = Math.max(3, 10 - maxHop * 2);
           } else if (edge.highlighted || (activeRetrievedNodeIds.includes(edge.source) && activeRetrievedNodeIds.includes(edge.target))) {
             ctx.strokeStyle = '#f59e0b';
             ctx.lineWidth = 3.5;
             ctx.shadowColor = '#f59e0b';
             ctx.shadowBlur = 10;
           } else {
-            ctx.strokeStyle = clickedNodeId ? 'rgba(226, 232, 240, 0.4)' : '#e2e8f0';
+            ctx.strokeStyle = clickedNodeId ? 'rgba(226, 232, 240, 0.25)' : '#e2e8f0';
             ctx.lineWidth = 1.0;
             ctx.shadowBlur = 0;
           }
@@ -1203,12 +1563,13 @@ export default function ChatbotWorkspace({
 
       // Draw Nodes
       nodes.forEach(node => {
+        if (!visibleNodeTypes[node.type]) {
+          return;
+        }
         const isHighlighted = activeRetrievedNodeIds.includes(node.id);
-        const isClicked = clickedNodeId === node.id;
-        const isRelatedToClicked = clickedNodeId && edges.some(e => 
-          (e.source === clickedNodeId && e.target === node.id) || 
-          (e.target === clickedNodeId && e.source === node.id)
-        );
+        const hopDist = clickedNodeHopMap.get(node.id);
+        const isInHopRange = hopDist !== undefined;
+        const isClicked = hopDist === 0;
         
         const r = node.type === 'lesson' ? 8 : node.type === 'directory' ? 6 : node.type === 'user' ? 5 : 4;
         
@@ -1217,6 +1578,13 @@ export default function ChatbotWorkspace({
         if (isClicked) {
           ctx.arc(node.x!, node.y!, r + 8 + Math.sin(Date.now() / 150) * 2, 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(59, 130, 246, 0.25)';
+          ctx.fill();
+          ctx.beginPath();
+        } else if (isInHopRange) {
+          const hColor = hopColors[Math.min(hopDist!, hopColors.length - 1)];
+          const pulseR = r + 5 + Math.sin(Date.now() / 250 + hopDist! * 0.5) * 2;
+          ctx.arc(node.x!, node.y!, pulseR, 0, 2 * Math.PI);
+          ctx.fillStyle = hColor + '30';
           ctx.fill();
           ctx.beginPath();
         } else if (isHighlighted) {
@@ -1228,24 +1596,40 @@ export default function ChatbotWorkspace({
 
         ctx.arc(node.x!, node.y!, r, 0, 2 * Math.PI);
         
-        if (clickedNodeId && !isClicked && !isRelatedToClicked) {
-          ctx.fillStyle = `${node.color}55`;
+        if (clickedNodeId && !isInHopRange) {
+          ctx.fillStyle = `${node.color}35`;
+        } else if (isInHopRange && !isClicked) {
+          // Tint node color slightly toward the hop color for visual cohesion
+          ctx.fillStyle = node.color;
         } else {
           ctx.fillStyle = node.color;
         }
         ctx.fill();
         
-        ctx.lineWidth = isClicked ? 2.5 : 1.5;
-        ctx.strokeStyle = isClicked ? '#3b82f6' : '#ffffff';
+        if (isClicked) {
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = '#3b82f6';
+        } else if (isInHopRange) {
+          const hColor = hopColors[Math.min(hopDist!, hopColors.length - 1)];
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = hColor;
+        } else {
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = '#ffffff';
+        }
         ctx.stroke();
 
-        const labelIsHighlighted = isClicked || isRelatedToClicked || isHighlighted;
-        ctx.font = labelIsHighlighted ? 'bold 11px sans-serif' : '9px sans-serif';
+        const labelIsActive = isClicked || isInHopRange || isHighlighted;
+        ctx.font = labelIsActive ? 'bold 11px sans-serif' : '9px sans-serif';
         
-        if (clickedNodeId && !isClicked && !isRelatedToClicked) {
+        if (clickedNodeId && !isInHopRange) {
           ctx.fillStyle = '#cbd5e1';
+        } else if (isClicked) {
+          ctx.fillStyle = '#1e293b';
+        } else if (isInHopRange) {
+          ctx.fillStyle = '#334155';
         } else {
-          ctx.fillStyle = labelIsHighlighted ? '#1e293b' : '#64748b';
+          ctx.fillStyle = isHighlighted ? '#1e293b' : '#64748b';
         }
         
         ctx.textAlign = 'center';
@@ -1337,7 +1721,7 @@ export default function ChatbotWorkspace({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [visibleGraph, activeRetrievedNodeIds, clickedNodeId, activeTab, widgetSize]);
+  }, [visibleGraph, activeRetrievedNodeIds, clickedNodeId, activeTab, widgetSize, visibleNodeTypes, clickedNodeHopMap]);
 
   // --- CANVAS EVENT HANDLERS ---
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1356,6 +1740,7 @@ export default function ChatbotWorkspace({
     const nodes = graphNodesRef.current;
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
+      if (!visibleNodeTypes[n.type]) continue;
       const dx = n.x! - graphX;
       const dy = n.y! - graphY;
       if (Math.sqrt(dx * dx + dy * dy) < 15) {
@@ -1384,6 +1769,7 @@ export default function ChatbotWorkspace({
     if (selectedNodeRef.current) {
       selectedNodeRef.current.x = graphX;
       selectedNodeRef.current.y = graphY;
+      simulationAlphaRef.current = 0.25;
     } else if (dragStart.current) {
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
@@ -1398,24 +1784,38 @@ export default function ChatbotWorkspace({
     } else {
       let hoveredNode: GraphNode | null = null;
       const nodes = graphNodesRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      let minDistance = Infinity;
+
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
-        const dx = n.x! - graphX;
-        const dy = n.y! - graphY;
-        if (Math.sqrt(dx * dx + dy * dy) < 12) {
+        if (!visibleNodeTypes[n.type]) continue;
+        // Convert to screen space coordinates to ensure sensitive hovering at any zoom scale
+        const nodeScreenX = n.x! * transformRef.current.scale + transformRef.current.x;
+        const nodeScreenY = n.y! * transformRef.current.scale + transformRef.current.y;
+        
+        const dx = nodeScreenX - clickX;
+        const dy = nodeScreenY - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Use a comfortable constant threshold in screen space
+        if (dist < 20 && dist < minDistance) {
+          minDistance = dist;
           hoveredNode = n;
-          break;
         }
       }
+
       hoveredNodeRef.current = hoveredNode;
-      // Hiển thị popup khi hover lên node
-      if (hoveredNode) {
-        const canvas = canvasRef.current!;
-        const rect = canvas.getBoundingClientRect();
+      // Hiển thị popup khi hover lên node (chỉ khi không trùng với node đang pin)
+      if (hoveredNode && (!pinnedPopup || pinnedPopup.node.id !== hoveredNode.id)) {
+        const canvasEl = canvasRef.current!;
+        const canvasRect = canvasEl.getBoundingClientRect();
         setNodePopup({
           node: hoveredNode,
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
+          x: e.clientX - canvasRect.left,
+          y: e.clientY - canvasRect.top
         });
       } else {
         setNodePopup(null);
@@ -1454,14 +1854,14 @@ export default function ChatbotWorkspace({
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
 
-    // Tìm node gần nhất trong screen space (đảm bảo phóng to/thu nhỏ đều click siêu nhạy)
+    // Tìm node gần nhất trong screen space
     const nodes = graphNodesRef.current;
     let clickedNode: GraphNode | null = null;
     let minDistance = Infinity;
 
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
-      // Chuyển đổi tọa độ từ graph space sang screen space
+      if (!visibleNodeTypes[n.type]) continue;
       const nodeScreenX = n.x! * transformRef.current.scale + transformRef.current.x;
       const nodeScreenY = n.y! * transformRef.current.scale + transformRef.current.y;
       
@@ -1469,7 +1869,67 @@ export default function ChatbotWorkspace({
       const dy = nodeScreenY - clickY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // Cho phép bán kính bấm thoải mái là 25px trên màn hình
+      if (dist < 25 && dist < minDistance) {
+        minDistance = dist;
+        clickedNode = n;
+      }
+    }
+
+    // Single Click chỉ dùng để chọn/bôi đậm nút và các cạnh liên kết tương ứng
+    if (clickedNode) {
+      setClickedNodeId(clickedNode.id);
+      
+      const canvasEl = canvasRef.current!;
+      const canvasRect = canvasEl.getBoundingClientRect();
+      const popupW = 300;
+      const popupH = clickedNode.type === 'tag' ? 180 : 130;
+      
+      let popupX = e.clientX - canvasRect.left + 24;
+      let popupY = e.clientY - canvasRect.top - popupH / 2;
+      
+      const cW = canvasRect.width;
+      const cH = canvasRect.height;
+      if (popupX + popupW > cW) popupX = e.clientX - canvasRect.left - popupW - 24;
+      if (popupY < 8) popupY = 8;
+      if (popupY + popupH > cH) popupY = cH - popupH - 8;
+      
+      setPinnedPopup({
+        node: clickedNode,
+        x: popupX,
+        y: popupY,
+        width: popupW,
+        height: popupH
+      });
+      setNodePopup(null);
+    } else {
+      setClickedNodeId(null);
+      setPinnedPopup(null);
+    }
+  };
+
+  // Double Click dùng để mở tài liệu giáo án hoặc khái niệm Wiki tương ứng
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const nodes = graphNodesRef.current;
+    let clickedNode: GraphNode | null = null;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (!visibleNodeTypes[n.type]) continue;
+      const nodeScreenX = n.x! * transformRef.current.scale + transformRef.current.x;
+      const nodeScreenY = n.y! * transformRef.current.scale + transformRef.current.y;
+      
+      const dx = nodeScreenX - clickX;
+      const dy = nodeScreenY - clickY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
       if (dist < 25 && dist < minDistance) {
         minDistance = dist;
         clickedNode = n;
@@ -1477,20 +1937,21 @@ export default function ChatbotWorkspace({
     }
 
     if (clickedNode) {
-      setClickedNodeId(clickedNode.id);
-
+      setPinnedPopup(null);
       if (clickedNode.type === 'lesson') {
         const lessonId = parseInt(clickedNode.id.split('_')[1]);
+        if (isDetailOpen && focusLessonId === lessonId) {
+          alert("Bạn đang ở trong tài liệu này rồi!");
+          return;
+        }
         const targetLesson = lessonPlans.find(lp => lp.id === lessonId);
         if (targetLesson && onViewLessonDetail) {
           onViewLessonDetail(targetLesson);
-          setIsOpen(false);
         } else if (!targetLesson) {
           axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
             .then(res => {
               if (onViewLessonDetail) {
                 onViewLessonDetail(res.data);
-                setIsOpen(false);
               }
             })
             .catch(err => {
@@ -1500,20 +1961,36 @@ export default function ChatbotWorkspace({
         }
       } else if (clickedNode.type === 'tag') {
         const tagLabel = clickedNode.label;
+        if (activeTab === 'wiki' && selectedObsidianNote?.title.toLowerCase() === tagLabel.toLowerCase()) {
+          alert("Bạn đang xem khái niệm này rồi!");
+          setIsOpen(true);
+          return;
+        }
+        
+        // Explicitly push current active tab to history stack
+        const currentTab = activeTab;
+        setHistoryStack(prev => {
+          if (prev.length > 0 && prev[prev.length - 1].type === 'tab' && prev[prev.length - 1].data === currentTab) {
+            return prev;
+          }
+          return [...prev, { type: 'tab', data: currentTab }];
+        });
+
         const targetNote = obsidianNotes.find(n => n.title.toLowerCase() === tagLabel.toLowerCase());
         if (targetNote) {
-          fetchNoteContent(targetNote);
+          fetchNoteContent(targetNote, true); // skipPush=true
           setActiveTab('wiki');
+          setIsOpen(true);
         } else {
-          // Thử gọi lại API lấy danh sách note mới nhất
           axios.get('/api/obsidian/notes/')
             .then(res => {
               const notesList = res.data;
               setObsidianNotes(notesList);
               const found = notesList.find((n: any) => n.title.toLowerCase() === tagLabel.toLowerCase());
               if (found) {
-                fetchNoteContent(found);
+                fetchNoteContent(found, true); // skipPush=true
                 setActiveTab('wiki');
+                setIsOpen(true);
               } else {
                 alert(`Không tìm thấy ghi chú khái niệm cho "${tagLabel}"`);
               }
@@ -1523,11 +2000,11 @@ export default function ChatbotWorkspace({
             });
         }
       } else if (clickedNode.type === 'directory') {
-        setInputMessage(`Tìm tài liệu trong thư mục: ${clickedNode.label}`);
-        setActiveTab('chat');
+        const dirId = parseInt(clickedNode.id.split('_')[1]);
+        if (onSelectDirectory) {
+          onSelectDirectory(dirId);
+        }
       }
-    } else {
-      setClickedNodeId(null);
     }
   };
 
@@ -1583,14 +2060,18 @@ export default function ChatbotWorkspace({
             key={`link-${match.index}`}
             onClick={() => {
               if (targetLesson && onViewLessonDetail) {
+                pushCurrentViewToHistory();
                 onViewLessonDetail(targetLesson, searchText);
-                setIsOpen(false);
+                // Keep chatbot open
+                setIsOpen(true);
               } else if (!targetLesson) {
+                pushCurrentViewToHistory();
                 axios.get(`/api/lesson-plans/${lessonId}/?user_id=${currentUser?.id}`)
                   .then(res => {
                     if (onViewLessonDetail) {
                       onViewLessonDetail(res.data, searchText);
-                      setIsOpen(false);
+                      // Keep chatbot open
+                      setIsOpen(true);
                     }
                   })
                   .catch(err => {
@@ -2062,6 +2543,36 @@ export default function ChatbotWorkspace({
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {historyStack.length > 0 && (
+                <button
+                  onClick={handleGoBack}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    transition: 'background 0.15s',
+                    marginRight: '6px',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.3)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.15)'; }}
+                  title="Quay lại trang/khái niệm trước"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>
+                  Quay lại ({historyStack.length})
+                </button>
+              )}
               <button
                 onClick={() => setIsOpen(false)}
                 style={{
@@ -2839,6 +3350,7 @@ export default function ChatbotWorkspace({
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
                   onMouseLeave={handleCanvasMouseLeave}
+                  onDoubleClick={handleCanvasDoubleClick}
                   onClick={handleCanvasClick}
                   style={{
                     width: '100%',
@@ -2848,17 +3360,94 @@ export default function ChatbotWorkspace({
                   }}
                 />
 
-                {/* Legend */}
+                {loadingGraph && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(248, 250, 252, 0.75)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    gap: '10px'
+                  }}>
+                    <div style={{
+                      width: '28px',
+                      height: '28px',
+                      border: '3px solid #f3f3f3',
+                      borderTop: '3px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Đang tải đồ thị...</span>
+                  </div>
+                )}
+
+                {/* Interactive Legend with toggle filters */}
                 <div style={{
                   position: 'absolute', top: '8px', left: '8px',
-                  background: 'rgba(255,255,255,0.95)', border: '1px solid #e2e8f0',
-                  borderRadius: '8px', padding: '8px', fontSize: '9px', color: '#64748b',
-                  display: 'flex', flexDirection: 'column', gap: '3px',
-                  pointerEvents: 'none',
+                  background: 'rgba(255,255,255,0.96)', border: '1px solid #e2e8f0',
+                  borderRadius: '10px', padding: '8px 10px', fontSize: '9px',
+                  display: 'flex', flexDirection: 'column', gap: '5px',
+                  zIndex: 20,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                  cursor: 'default',
+                  userSelect: 'none',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} /> Giáo án</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} /> Danh mục</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8b5cf6', display: 'inline-block' }} /> Từ khóa</div>
+                  <p style={{ margin: '0 0 2px 0', fontWeight: 800, fontSize: '8px', textTransform: 'uppercase', color: '#94a3b8', letterSpacing: '0.3px' }}>
+                    Bộ lọc hiển thị
+                  </p>
+                  
+                  {[
+                    { key: 'lesson' as const, color: '#f59e0b', label: 'Giáo án' },
+                    { key: 'directory' as const, color: '#3b82f6', label: 'Danh mục' },
+                    { key: 'tag' as const, color: '#8b5cf6', label: 'Từ khóa' },
+                  ].map(item => {
+                    const isVisible = visibleNodeTypes[item.key];
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setVisibleNodeTypes(prev => ({
+                            ...prev,
+                            [item.key]: !prev[item.key]
+                          }));
+                          if (pinnedPopup && pinnedPopup.node.type === item.key) {
+                            setPinnedPopup(null);
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          margin: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          opacity: isVisible ? 1 : 0.45,
+                          textDecoration: isVisible ? 'none' : 'line-through',
+                          fontWeight: isVisible ? 700 : 500,
+                          color: isVisible ? '#1e293b' : '#94a3b8',
+                          transition: 'all 0.15s'
+                        }}
+                        title={`Click để ${isVisible ? 'ẩn' : 'hiển thị'} loại nút này`}
+                      >
+                        <span style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: item.color,
+                          display: 'inline-block',
+                          boxShadow: isVisible ? `0 0 6px ${item.color}80` : 'none',
+                          transition: 'all 0.15s'
+                        }} />
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Hướng dẫn + Hop distance filter */}
@@ -2869,7 +3458,7 @@ export default function ChatbotWorkspace({
                   pointerEvents: 'none',
                 }}>
                   <p>🖰 Kéo để Pan | 🛞 Cuộn để Zoom</p>
-                  <p>🖱 Hover để xem thông tin | Click để mở giáo án</p>
+                  <p>🖱 Hover để xem thông tin | Click để chọn | Click đúp để mở</p>
                 </div>
 
                 {/* Hop Distance Filter + Reset - góc trên phải */}
@@ -2944,12 +3533,12 @@ export default function ChatbotWorkspace({
                   const typeBg = n.type === 'lesson' ? '#fef3c7' : n.type === 'directory' ? '#dbeafe' : n.type === 'user' ? '#d1fae5' : '#ede9fe';
                   const typeLabel = n.type === 'lesson' ? '📄 Giáo án' : n.type === 'directory' ? '📁 Danh mục' : n.type === 'user' ? '👤 Người dùng' : '🏷️ Từ khóa';
 
-                  // Tính vị trí popup tránh ra ngoài canvas
+                  // Tính vị trí popup tránh ra ngoài canvas (rộng 300px để hiển thị đầy đủ thông tin)
                   const canvas = canvasRef.current;
                   const cW = canvas ? canvas.offsetWidth : 400;
                   const cH = canvas ? canvas.offsetHeight : 400;
-                  const popupW = 200;
-                  const popupH = 90;
+                  const popupW = 300;
+                  const popupH = n.type === 'tag' ? 140 : 100;
                   let px = nodePopup.x + 12;
                   let py = nodePopup.y - popupH / 2;
                   if (px + popupW > cW) px = nodePopup.x - popupW - 12;
@@ -2965,7 +3554,7 @@ export default function ChatbotWorkspace({
                       background: 'rgba(255,255,255,0.98)',
                       border: `1.5px solid ${typeColor}40`,
                       borderRadius: '10px',
-                      padding: '8px 10px',
+                      padding: '8px 12px',
                       boxShadow: `0 4px 20px ${typeColor}20, 0 2px 8px rgba(0,0,0,0.08)`,
                       pointerEvents: 'none',
                       zIndex: 50,
@@ -2984,7 +3573,7 @@ export default function ChatbotWorkspace({
                       {/* Node name */}
                       <p style={{
                         margin: 0, fontSize: '11px', fontWeight: 800, color: '#1e293b',
-                        lineHeight: 1.3, wordBreak: 'break-word',
+                        lineHeight: 1.35, wordBreak: 'break-word',
                         overflow: 'hidden', display: '-webkit-box',
                         WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                       }}>
@@ -2993,20 +3582,304 @@ export default function ChatbotWorkspace({
                       {/* Details nếu có */}
                       {n.details && n.details !== n.label && (
                         <p style={{
-                          margin: '3px 0 0 0', fontSize: '9px', color: '#64748b',
-                          lineHeight: 1.4, wordBreak: 'break-word',
-                          overflow: 'hidden', display: '-webkit-box',
-                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                          margin: '4px 0 0 0', fontSize: '9.5px', color: '#475569',
+                          lineHeight: 1.45, wordBreak: 'break-word',
+                          // Nếu là Từ khóa (tag/thực thể), cho phép hiển thị hết khái niệm không bị cắt xén
+                          overflow: n.type === 'tag' ? 'visible' : 'hidden',
+                          display: n.type === 'tag' ? 'block' : '-webkit-box',
+                          WebkitLineClamp: n.type === 'tag' ? 'none' : 3,
+                          WebkitBoxOrient: 'vertical',
                         }}>
                           {n.details}
                         </p>
                       )}
                       {/* Action hint */}
-                      {n.type === 'lesson' && (
-                        <p style={{ margin: '4px 0 0 0', fontSize: '8px', color: '#94a3b8', fontStyle: 'italic' }}>
-                          🖱 Nhấn để mở giáo án
-                        </p>
-                      )}
+                      <p style={{ margin: '5px 0 0 0', fontSize: '8px', color: '#94a3b8', fontStyle: 'italic' }}>
+                        🖱 Click đúp để mở {n.type === 'lesson' ? 'giáo án' : n.type === 'tag' ? 'khái niệm' : 'thư mục'}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                {/* Pinned Resizable & Draggable Popup */}
+                {pinnedPopup && (() => {
+                  const n = pinnedPopup.node;
+                  const typeColor = n.type === 'lesson' ? '#f59e0b' : n.type === 'directory' ? '#3b82f6' : n.type === 'user' ? '#10b981' : '#8b5cf6';
+                  const typeBg = n.type === 'lesson' ? '#fef3c7' : n.type === 'directory' ? '#dbeafe' : n.type === 'user' ? '#d1fae5' : '#ede9fe';
+                  const typeLabel = n.type === 'lesson' ? '📄 Giáo án' : n.type === 'directory' ? '📁 Danh mục' : n.type === 'user' ? '👤 Người dùng' : '🏷️ Từ khóa';
+                  
+                  const scaleFactor = Math.max(0.6, pinnedPopup.width / 300);
+
+                  return (
+                    <div 
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{
+                      position: 'absolute',
+                      left: pinnedPopup.x,
+                      top: pinnedPopup.y,
+                      width: pinnedPopup.width,
+                      height: pinnedPopup.height,
+                      background: 'rgba(255,255,255,0.98)',
+                      border: `2px solid ${typeColor}`,
+                      borderRadius: `${12 * scaleFactor}px`,
+                      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                      zIndex: 100,
+                      backdropFilter: 'blur(12px)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      userSelect: 'none',
+                    }}>
+                      {/* 4 corner resize handles */}
+                      <div
+                        onMouseDown={(e) => handlePopupResizeMouseDown(e, 'tl')}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: `${12 * scaleFactor}px`,
+                          height: `${12 * scaleFactor}px`,
+                          cursor: 'nwse-resize',
+                          zIndex: 110,
+                        }}
+                      />
+                      <div
+                        onMouseDown={(e) => handlePopupResizeMouseDown(e, 'tr')}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          width: `${12 * scaleFactor}px`,
+                          height: `${12 * scaleFactor}px`,
+                          cursor: 'nesw-resize',
+                          zIndex: 110,
+                        }}
+                      />
+                      <div
+                        onMouseDown={(e) => handlePopupResizeMouseDown(e, 'bl')}
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          width: `${12 * scaleFactor}px`,
+                          height: `${12 * scaleFactor}px`,
+                          cursor: 'nesw-resize',
+                          zIndex: 110,
+                        }}
+                      />
+                      <div
+                        onMouseDown={(e) => handlePopupResizeMouseDown(e, 'br')}
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: `${16 * scaleFactor}px`,
+                          height: `${16 * scaleFactor}px`,
+                          cursor: 'nwse-resize',
+                          zIndex: 110,
+                        }}
+                      />
+
+                      {/* Drag Header */}
+                      <div 
+                        onMouseDown={handlePopupHeaderMouseDown}
+                        style={{
+                          padding: `${6 * scaleFactor}px ${10 * scaleFactor}px`,
+                          background: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0',
+                          cursor: 'move',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          userSelect: 'none',
+                          flexShrink: 0
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-block',
+                          fontSize: `${8 * scaleFactor}px`, fontWeight: 800, textTransform: 'uppercase',
+                          background: typeBg, color: typeColor,
+                          padding: `${1 * scaleFactor}px ${6 * scaleFactor}px`, borderRadius: `${4 * scaleFactor}px`,
+                          letterSpacing: '0.3px',
+                        }}>
+                          {typeLabel}
+                        </span>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: `${4 * scaleFactor}px` }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInputMessage(`Hãy giải thích chi tiết cho tôi về ${n.type === 'lesson' ? 'giáo án' : n.type === 'tag' ? 'khái niệm' : 'thư mục'} "${n.label}"`);
+                              setActiveTab('chat');
+                              setIsOpen(true);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#3b82f6',
+                              fontSize: `${9 * scaleFactor}px`,
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              padding: `${2 * scaleFactor}px ${4 * scaleFactor}px`,
+                              borderRadius: `${4 * scaleFactor}px`,
+                            }}
+                            title="Hỏi AI"
+                          >
+                            🤖 Hỏi AI
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setPinnedPopup(null)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#94a3b8',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <X style={{ width: `${14 * scaleFactor}px`, height: `${14 * scaleFactor}px` }} className="hover:text-slate-600" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Content Body */}
+                      <div style={{
+                        padding: `${10 * scaleFactor}px`,
+                        flexGrow: 1,
+                        overflowY: 'auto',
+                        fontSize: `${11 * scaleFactor}px`,
+                        color: '#334155',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: `${6 * scaleFactor}px`,
+                        position: 'relative'
+                      }}>
+                        {/* Title */}
+                        <h4 style={{
+                          margin: 0,
+                          fontSize: `${12 * scaleFactor}px`,
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          lineHeight: 1.3
+                        }}>
+                          {n.label}
+                        </h4>
+                        
+                        {/* Details */}
+                        {n.details && (
+                          <div style={{
+                            fontSize: `${10 * scaleFactor}px`,
+                            color: '#475569',
+                            lineHeight: 1.45,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word'
+                          }}>
+                            {n.details}
+                          </div>
+                        )}
+                        
+                        {/* Hop Depth Selector */}
+                        <div style={{
+                          marginTop: `${6 * scaleFactor}px`,
+                          padding: `${6 * scaleFactor}px ${8 * scaleFactor}px`,
+                          background: '#f1f5f9',
+                          borderRadius: `${6 * scaleFactor}px`,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: `${4 * scaleFactor}px`,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: `${8 * scaleFactor}px`, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                              🔗 Mở rộng liên kết
+                            </span>
+                            <span style={{ fontSize: `${8 * scaleFactor}px`, color: '#94a3b8' }}>
+                              {clickHopDepth} cạnh
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: `${3 * scaleFactor}px` }}>
+                            {[1, 2, 3, 4].map(hop => {
+                              const hopPalette = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#f97316'];
+                              const isActive = clickHopDepth >= hop;
+                              const hopColor = hopPalette[hop];
+                              return (
+                                <button
+                                  key={hop}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setClickHopDepth(hop);
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    padding: `${3 * scaleFactor}px 0`,
+                                    borderRadius: `${4 * scaleFactor}px`,
+                                    border: 'none',
+                                    fontSize: `${9 * scaleFactor}px`,
+                                    fontWeight: 800,
+                                    cursor: 'pointer',
+                                    background: isActive
+                                      ? `linear-gradient(135deg, ${hopColor}, ${hopColor}cc)`
+                                      : '#e2e8f0',
+                                    color: isActive ? '#fff' : '#94a3b8',
+                                    transition: 'all 0.2s',
+                                    boxShadow: clickHopDepth === hop ? `0 2px 8px ${hopColor}60` : 'none',
+                                    transform: clickHopDepth === hop ? 'scale(1.08)' : 'scale(1)',
+                                  }}
+                                  title={`Hiển thị ${hop} cạnh liên kết`}
+                                >
+                                  {hop}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Mini legend */}
+                          <div style={{ display: 'flex', gap: `${6 * scaleFactor}px`, flexWrap: 'wrap', marginTop: `${2 * scaleFactor}px` }}>
+                            {Array.from({ length: clickHopDepth }, (_, i) => i + 1).map(hop => {
+                              const hopPalette = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#f97316'];
+                              return (
+                                <span key={hop} style={{ display: 'flex', alignItems: 'center', gap: `${2 * scaleFactor}px`, fontSize: `${7 * scaleFactor}px`, color: '#64748b' }}>
+                                  <span style={{
+                                    width: `${6 * scaleFactor}px`, height: `${6 * scaleFactor}px`,
+                                    borderRadius: '50%', background: hopPalette[hop],
+                                    display: 'inline-block',
+                                  }} />
+                                  Cạnh {hop}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Extra Action Helper */}
+                        <div style={{ marginTop: 'auto', paddingTop: `${4 * scaleFactor}px`, fontSize: `${9 * scaleFactor}px`, color: '#94a3b8', fontStyle: 'italic' }}>
+                          💡 Click đúp vào nút để mở trực tiếp
+                        </div>
+                      </div>
+
+                      {/* Resize Handle Graphic at Bottom-Right */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          width: `${14 * scaleFactor}px`,
+                          height: `${14 * scaleFactor}px`,
+                          display: 'flex',
+                          alignItems: 'flex-end',
+                          justifyContent: 'flex-end',
+                          padding: '0 2px 2px 0',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <svg width={`${8 * scaleFactor}`} height={`${8 * scaleFactor}`} viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5 }}>
+                          <path d="M10 0 L0 10 M10 4 L4 10 M10 8 L8 10" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </div>
                     </div>
                   );
                 })()}

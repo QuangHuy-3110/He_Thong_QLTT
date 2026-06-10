@@ -237,3 +237,25 @@ graph TD
 
 ---
 
+## 6. Tính năng Trợ lý thông minh nâng cao & Điều hướng Lịch sử đa nhiệm
+
+Nhằm tối ưu hóa trải nghiệm điều hướng tài liệu kết hợp trợ lý AI RAG trên Đồ thị Tri thức (Force Directed Graph), hệ thống tích hợp các cơ chế sau:
+
+### 🔍 Điều hướng Tách biệt & Lưu trữ Phiên Chat AI (Decoupled Navigation & Chat States):
+*   **Hành vi nhấp đúp**: Nhấp đúp vào một nút Giáo án trên Đồ thị chỉ kích hoạt hiển thị tài liệu đó ở giao diện chi tiết chính bên ngoài. Lịch sử, tab hiện tại và trạng thái đóng/mở của Chatbot AI được bảo toàn tuyệt đối (không bị tự động đổi sang session mới hay tự bật lên gây gián đoạn).
+*   **Đồng bộ tức thì khi đang mở (Auto-sync when open)**: Nếu Chatbot AI đang mở, khi người dùng nhấp đúp xem tài liệu khác hoặc nhấn "Quay lại" trên giao diện chính, Chatbot sẽ phát hiện sự thay đổi ngữ cảnh tập trung và tải ngay lập tức phiên chat của tài liệu đó mà không có độ trễ.
+*   **Cơ chế Hỏi AI chủ động**: Chatbot chỉ tự động chuyển ngữ cảnh và mở lên khi người dùng chủ động bấm vào nút "Hỏi AI" ở các thẻ tiện ích hoặc nút "🤖 Hỏi AI" trong bảng tóm tắt.
+
+### ↩️ Nút Quay lại Tài liệu Đa nhiệm (Global Document History Stack):
+*   **Ngăn xếp lịch sử**: Hệ thống duy trì một `docHistoryStack` ở root component `App.tsx` để ghi nhận chuỗi tài liệu người dùng đã xem.
+*   **Nút "← Quay lại"**: Nằm cạnh nút đóng `✕` trên đầu trang chi tiết tài liệu, hiển thị số bước còn lại (ví dụ: `← Quay lại (2)`). Cho phép giáo viên lùi lại tài liệu đã xem trước đó từng bước một, hoạt động hoàn hảo cho cả các liên kết sơ đồ bên ngoài và liên kết văn bản trong chatbot.
+
+### 📐 Bảng tóm tắt di động co giãn đa hướng (Resizable & Draggable Popup Card):
+*   **Nhấp chuột ghim bảng**: Khi click chọn một thực thể (khái niệm), bài giảng hoặc thư mục trên đồ thị, một bảng tóm tắt thông tin chi tiết sẽ được ghim hiển thị tại vị trí đó (bảng tự động tính toán bù trừ tọa độ để không đè lên nút gốc và đảm bảo không tràn ra ngoài viền màn hình đồ thị).
+*   **Di chuyển & Co giãn 4 góc**: Người dùng có thể giữ kéo header của bảng để di chuyển đi nơi khác, hoặc rê chuột vào **cả 4 góc** để kéo giãn thay đổi chiều rộng, chiều cao của bảng.
+*   **Tự động tỷ lệ cỡ chữ (Font scaling)**: Khi người dùng kéo to bảng, các thành phần bên trong (tiêu đề, nội dung khái niệm, nút Hỏi AI...) sẽ tự động tăng kích thước font chữ, padding tỷ lệ thuận với độ lớn của bảng để tăng khả năng quan sát mà không cần phóng to toàn bộ trang web.
+
+
+
+---
+

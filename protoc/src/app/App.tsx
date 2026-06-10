@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import MindmapFlow from './components/MindmapFlow';
 import axios from 'axios';
 import UploadPage, { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, BIOLOGY_CONNECTIONS, LOCATIONS } from './UploadPage';
@@ -1818,6 +1818,49 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showDirModal, setShowDirModal] = useState(false);
   const [selectedLessonForDetail, setSelectedLessonForDetail] = useState<LessonPlan | null>(null);
+  const [docHistoryStack, setDocHistoryStack] = useState<LessonPlan[]>([]);
+  const prevLessonRef = useRef<LessonPlan | null>(null);
+  const isGoingBackRef = useRef(false);
+
+  useEffect(() => {
+    if (selectedLessonForDetail) {
+      if (isGoingBackRef.current) {
+        isGoingBackRef.current = false;
+      } else {
+        if (prevLessonRef.current && prevLessonRef.current.id !== selectedLessonForDetail.id) {
+          const prev = prevLessonRef.current;
+          setDocHistoryStack(prevStack => {
+            if (prevStack.length > 0 && prevStack[prevStack.length - 1].id === prev.id) {
+              return prevStack;
+            }
+            return [...prevStack, prev];
+          });
+        }
+      }
+    } else {
+      if (!isGoingBackRef.current) {
+        setDocHistoryStack([]);
+      }
+      isGoingBackRef.current = false;
+    }
+    prevLessonRef.current = selectedLessonForDetail;
+  }, [selectedLessonForDetail]);
+
+  const handleGoBackDoc = () => {
+    if (docHistoryStack.length === 0) {
+      setSelectedLessonForDetail(null);
+      setLessonRatings([]);
+      setMyRating(0);
+      setMyComment('');
+      return;
+    }
+    isGoingBackRef.current = true;
+    const prevStack = [...docHistoryStack];
+    const prevLesson = prevStack.pop();
+    setDocHistoryStack(prevStack);
+    setSelectedLessonForDetail(prevLesson || null);
+  };
+
   const [detailCache, setDetailCache] = useState<Record<number, LessonPlan>>({});
   // Session-level ratings cache: avoids re-fetching ratings from server when user revisits same card
   const [ratingsCache, setRatingsCache] = useState<Record<number, { ratings: any[]; average_rating: number; total_ratings: number }>>({});
@@ -5079,6 +5122,16 @@ export default function App() {
                     💬 {showComments ? "Ẩn bình luận" : "Hiện bình luận"}
                   </button>
                 )}
+                {docHistoryStack.length > 0 && (
+                  <button
+                    onClick={handleGoBackDoc}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95"
+                    title="Quay lại tài liệu trước"
+                  >
+                    <span className="text-[14px]">←</span>
+                    <span>Quay lại ({docHistoryStack.length})</span>
+                  </button>
+                )}
                 <button
                   onClick={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
                   className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex items-center justify-center"
@@ -6432,6 +6485,11 @@ export default function App() {
           focusLessonId={focusLessonIdForChat}
           setFocusLessonId={setFocusLessonIdForChat}
           chatbotOpenTrigger={chatbotOpenTrigger}
+          onSelectDirectory={(dirId) => {
+            setSelectedDirs([dirId]);
+            setCurrentView('home');
+            setHomeTab('library');
+          }}
           onViewLessonDetail={(lesson, highlightQuery) => {
             setSelectedLessonForDetail(lesson);
             setLessonHighlightQuery(highlightQuery || '');
