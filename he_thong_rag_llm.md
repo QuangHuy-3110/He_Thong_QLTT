@@ -255,7 +255,25 @@ Nhằm tối ưu hóa trải nghiệm điều hướng tài liệu kết hợp t
 *   **Di chuyển & Co giãn 4 góc**: Người dùng có thể giữ kéo header của bảng để di chuyển đi nơi khác, hoặc rê chuột vào **cả 4 góc** để kéo giãn thay đổi chiều rộng, chiều cao của bảng.
 *   **Tự động tỷ lệ cỡ chữ (Font scaling)**: Khi người dùng kéo to bảng, các thành phần bên trong (tiêu đề, nội dung khái niệm, nút Hỏi AI...) sẽ tự động tăng kích thước font chữ, padding tỷ lệ thuận với độ lớn của bảng để tăng khả năng quan sát mà không cần phóng to toàn bộ trang web.
 
-
-
 ---
 
+## 7. Cơ chế Quản lý Phiên chat Tối ưu & Tự động Đặt tên Thông minh
+
+Để nâng cao trải nghiệm người dùng (UX) và tối ưu hóa tài nguyên cơ sở dữ liệu khi làm việc với Trợ lý AI, hệ thống đã triển khai các cải tiến cốt lõi trong quản lý vòng đời phiên chat:
+
+### 🔄 Tái sử dụng Phiên trò chuyện trống (Empty Session Reuse):
+*   **Vấn đề trước đây**: Mỗi lần người dùng đăng nhập hoặc bật chatbot, hệ thống tự động khởi tạo một phiên chat mới trống, tạo ra hàng loạt cuộc trò chuyện rác `"Cuộc trò chuyện mới"` không có nội dung trong lịch sử.
+*   **Giải pháp tối ưu**:
+    *   Khi chatbot mount, client gọi API lấy lịch sử phiên chat (`fetchSessions`).
+    *   Hệ thống kiểm tra phiên chat gần đây nhất: Nếu phiên chat này trống (chưa có tin nhắn nào từ người dùng, tức `sender_role === 'USER'`), client sẽ **tái sử dụng** phiên chat đó thay vì tạo mới.
+    *   Một phiên chat mới chỉ được tạo tự động khi phiên chat gần nhất đã có tương tác thực tế từ người dùng, bảo đảm lịch sử hội thoại luôn sạch sẽ.
+
+### 🧠 Tự động Đặt tên Thông minh bằng LLM (LLM-based Auto-Naming):
+*   **Luồng hoạt động**:
+    *   Khi người dùng gửi tin nhắn đầu tiên trong phiên chat, backend Django kiểm tra nếu số lượng tin nhắn trước đó của người dùng bằng 0.
+    *   Một truy vấn tóm tắt được gửi trực tiếp tới mô hình LLM đang chọn (Qwen hoặc Gemini/OpenAI API): *"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép) khái quát chủ đề của câu hỏi sau..."*.
+    *   Tiêu đề thông minh được tạo ra sẽ được lưu vào thuộc tính `title` của phiên chat trong cơ sở dữ liệu.
+    *   Tiêu đề này được trả về cho client ngay lập tức qua stream chunk đầu tiên (`meta_payload` chứa trường `session_title`).
+    *   Giao diện người dùng ở thanh lịch sử và header chat tự động cập nhật tên mới theo thời gian thực một cách trực quan, sinh động.
+
+---

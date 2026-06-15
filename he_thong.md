@@ -399,6 +399,27 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
     - **Sửa lỗi Canvas Click mở bài giảng (Fallback Fetch)**:
         * Nâng cấp `handleCanvasClick` trong `ChatbotWorkspace.tsx`. Khi nhấp vào một nút giáo án trên Đồ thị tri thức, nếu bài giảng đó không có sẵn trong cache local của `lessonPlans` (ví dụ do đang được phân trang hoặc lọc ở trang chủ), hệ thống tự động gọi API `/api/lesson-plans/{id}/` để tải thông tin và mở chi tiết giáo án tức thì.
 
+*   **2026-06-14**: **Đồng bộ hóa giao diện Cây thư mục giữa UploadPage & Trang chủ, Bắt buộc chọn Thư mục Cá nhân khi Tải lên & Hỗ trợ Tạo thư mục Inline**:
+    - **Đồng bộ giao diện Cây thư mục (Directory Tree UI Alignment)**:
+        * Đồng bộ hóa giao diện cây thư mục bên trái của `UploadPage.tsx` giống 100% với giao diện bên trang chủ `App.tsx`: sử dụng checkbox lựa chọn trực quan, nút mở rộng/thu gọn dạng `▼`/`▶`, biểu tượng thư mục màu vàng `📁`, và hiệu ứng chọn nền xanh nhạt `bg-blue-50` chuyên nghiệp.
+        * Thiết kế nút `+ Thêm thư mục cá nhân gốc` dạng viền đứt nét màu xanh da trời (`border-dashed border-sky-300`) chuẩn theo ảnh tham chiếu giao diện.
+        * Bổ sung thanh công cụ thao tác nhanh khi di chuột (hover actions) gồm 4 nút: `+` (Tạo thư mục con), `✏` (Đổi tên trực tiếp inline), `🌐`/`🔓` (Chuyển đổi trạng thái Công khai/Riêng tư), và `✕` (Xóa thư mục kèm hộp thoại xác nhận). Các thao tác này gọi trực tiếp API và cập nhật trạng thái cây thư mục tức thời.
+    - **Ràng buộc Thư mục lưu trữ khi Tải lên cá nhân**:
+        * Cập nhật điều kiện xác thực trong `handleSubmit` của `UploadPage.tsx`. Khi tải bài giảng lên Thư viện cá nhân (`uploadMode === 'personal'`), hệ thống bắt buộc người dùng thuộc tất cả mọi vai trò phải chọn một thư mục đích, hiển thị thông báo lỗi màu đỏ trực quan nếu chưa chọn.
+    - **Tích hợp hộp chọn Thư mục trực tiếp ở khung Upload**:
+        * Bổ sung một menu select dropdown hiển thị toàn bộ cây thư mục được phân cấp (visual prefix thụt lề dạng cây `├─` và `└─`) ở bảng thuộc tính bên phải trang `UploadPage.tsx`, cho phép người dùng chọn nhanh thư mục lưu trữ mà không bắt buộc phải click trên cây thư mục bên trái.
+    - **Hỗ trợ Tạo thư mục cá nhân mới tức thì (Inline Folder Creation)**:
+        * Tích hợp form tạo nhanh thư mục cá nhân ngay trên trang Upload (cả ở khu vực trống của cây thư mục bên trái và ở hộp thoại chọn bên phải), cho phép người dùng khởi tạo ngay thư mục đầu tiên nếu tài khoản chưa có thư mục cá nhân nào.
+        * Bổ sung tính năng tạo thư mục con (subfolder) cho các thư mục cá nhân đã có thông qua dropdown chọn thư mục cha ngay trong form tạo nhanh.
+        * Sau khi tạo thành công, hệ thống tự động gọi `onRefreshDirs` đồng bộ danh sách và tự động chọn thư mục mới tạo cho giáo án hiện tại.
+    - **Tối ưu cơ chế tự động tạo phiên chat của Trợ lý AI (Smart Chat Session Creation)**:
+        * Thay đổi logic trong `fetchSessions` của `ChatbotWorkspace.tsx`. Khi khởi tạo chatbot (hoặc thay đổi ngữ cảnh bài giảng), hệ thống tự động kiểm tra phiên trò chuyện gần nhất của người dùng.
+        * Nếu phiên trò chuyện gần nhất là phiên mới và chưa hề có tin nhắn tương tác nào từ phía người dùng (`sender_role === 'USER'`), hệ thống sẽ tái sử dụng phiên này thay vì tự động tạo ra một cuộc trò chuyện trống mới.
+        * Nếu phiên trò chuyện gần nhất đã có tin nhắn tương tác từ người dùng, hệ thống sẽ tự động tạo một phiên chat mới với lời chào phù hợp để sẵn sàng phục vụ cuộc đối thoại mới.
+    - **Tự động đặt tên thông minh cho cuộc trò chuyện (AI Chat Session Auto-Naming)**:
+        * Loại bỏ cơ chế cắt chuỗi thủ công ở phía client. Thay vào đó, khi người dùng gửi tin nhắn đầu tiên (`user_msg_count === 0`), backend Django (`AIChatSendMessageAPIView`) sẽ gọi mô hình LLM (Qwen hoặc API ngoài) với prompt chuyên biệt để tự động tóm tắt và sinh tiêu đề cực kỳ ngắn gọn (dưới 5 từ).
+        * Tiêu đề mới được cập nhật vào cơ sở dữ liệu và truyền ngược về client theo luồng dữ liệu stream (trực tiếp trong payload loại `meta` đầu tiên). Phía client cập nhật tiêu đề trên thanh điều hướng lịch sử và khung tiêu đề chat theo thời gian thực mà không cần tải lại trang.
+
 
 
 

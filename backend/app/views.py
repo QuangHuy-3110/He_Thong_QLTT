@@ -2227,7 +2227,33 @@ class AIChatSendMessageAPIView(APIView):
                     focus_lesson_id = lp.id
                     break
                     
-        # 1. Lưu tin nhắn của User vào Database
+        # 1. Tự động đặt tên tiêu đề cho phiên chat dựa trên tin nhắn đầu tiên của người dùng
+        user_msg_count = AIChatMessage.objects.filter(session=session, sender_role='USER').count()
+        if user_msg_count == 0:
+            title_prompt = (
+                f"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép, không thêm bất kỳ từ giải thích nào khác) "
+                f"khái quát chủ đề của câu hỏi sau:\n"
+                f"\"{user_message_content}\""
+            )
+            try:
+                from .llm_runner import generate_llm_response
+                generated_title = generate_llm_response(
+                    prompt=title_prompt,
+                    system_prompt="Bạn là trợ lý đặt tên tiêu đề ngắn gọn cho cuộc hội thoại bằng tiếng Việt.",
+                    model_choice=model_choice,
+                    api_key=api_key,
+                    model_name=model_name
+                )
+                generated_title = generated_title.strip().strip('"').strip("'").strip('“').strip('”').strip('.').strip()
+                if generated_title and len(generated_title) <= 60:
+                    session.title = generated_title
+                else:
+                    session.title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
+                session.save(update_fields=['title'])
+            except Exception as e:
+                session.title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
+                session.save(update_fields=['title'])
+
         AIChatMessage.objects.create(
             session=session,
             sender_role='USER',
@@ -2325,6 +2351,8 @@ class AIChatSendMessageAPIView(APIView):
                 'retrieved_graph': rag_data['retrieved_graph'],
                 'suggested_questions': rag_data['suggested_questions']
             }
+            if user_msg_count == 0:
+                meta_payload['session_title'] = session.title
             yield f"data: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
 
             # Bước 2: Stream câu trả lời của AI

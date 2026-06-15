@@ -674,27 +674,32 @@ export default function ChatbotWorkspace({
       const res = await axios.get(`/api/chat-sessions/?user_id=${currentUser.id}`);
       const allSessions: ChatSession[] = res.data;
       setSessions(allSessions);
-      if (allSessions.length > 0 && !activeSession) {
-        // Nếu đang trong ngữ cảnh bài giảng, ưu tiên load session của bài giảng đó
-        if (focusLessonId) {
-          const lessonSession = allSessions.find(s => s.lesson_plan === focusLessonId);
-          if (lessonSession) {
-            loadSessionDetails(lessonSession.id);
+
+      const shouldSelectSession = !activeSession || (
+        focusLessonId 
+          ? activeSession.lesson_plan !== focusLessonId 
+          : activeSession.lesson_plan !== null
+      );
+
+      if (shouldSelectSession) {
+        const contextSessions = focusLessonId
+          ? allSessions.filter(s => s.lesson_plan === focusLessonId)
+          : allSessions.filter(s => !s.lesson_plan);
+
+        if (contextSessions.length > 0) {
+          const latestSession = contextSessions[0];
+          const hasInteraction = latestSession.messages && latestSession.messages.some(m => m.sender_role === 'USER');
+          if (hasInteraction) {
+            // Có tương tác trước đó -> tự động tạo cuộc trò chuyện mới để chào người dùng
+            handleCreateSession(focusLessonId || undefined);
           } else {
-            // Không có session cho bài giảng này -> tạo mới với lessonId
-            handleCreateSession(focusLessonId);
+            // Không có tương tác -> không tạo mới, load lại phiên trống trước đó
+            loadSessionDetails(latestSession.id);
           }
         } else {
-          const generalSession = allSessions.find(s => !s.lesson_plan);
-          if (generalSession) {
-            loadSessionDetails(generalSession.id);
-          } else {
-            handleCreateSession(undefined);
-          }
+          // Chưa có phiên nào trong ngữ cảnh này -> tạo mới
+          handleCreateSession(focusLessonId || undefined);
         }
-      } else if (allSessions.length === 0) {
-        // Tạo session mới, có thể kèm lessonId nếu đang trong card context
-        handleCreateSession(focusLessonId || undefined);
       }
     } catch (err) {
       console.error('Error fetching chat sessions:', err);
@@ -819,11 +824,6 @@ export default function ChatbotWorkspace({
     const textToSend = msgText || inputMessage;
     if (!textToSend.trim() || !activeSession || sending) return;
 
-    // Auto-rename session if this is the very first message
-    const isFirstMessage = !activeSession.messages || activeSession.messages.length === 0;
-    if (isFirstMessage) {
-      autoRenameSession(activeSession.id, textToSend);
-    }
 
     setSending(true);
     setInputMessage('');
@@ -904,6 +904,13 @@ export default function ChatbotWorkspace({
                   const sugQuestions = parsed.suggested_questions;
                   if (sugQuestions && sugQuestions.length > 0) {
                     setSuggestedQuestions(sugQuestions);
+                  }
+
+                  // Tự động cập nhật tiêu đề cuộc trò chuyện được LLM sinh ra
+                  if (parsed.session_title) {
+                    const newTitle = parsed.session_title;
+                    setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: newTitle } : s));
+                    setActiveSession(prev => prev && prev.id === activeSession.id ? { ...prev, title: newTitle } : prev);
                   }
 
                   const retrievedGraph = parsed.retrieved_graph;

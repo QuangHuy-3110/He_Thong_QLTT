@@ -130,6 +130,7 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - Thiết lập bộ lọc truyền động bật/tắt hiển thị từng loại thực thể (lesson, directory, tag, user) dưới dạng Legend tương tác trên Đồ thị Canvas => xong
 - Sửa lỗi nút Quay lại của thực thể ở popup chi tiết khi click không có tác dụng, chuyển hướng đúng về tab Đồ thị => xong
 - Tích hợp tính năng mở rộng hiển thị theo số cạnh tùy chọn (1-4 Hops) khi click vào một nút trên đồ thị tri thức, tự động tính toán BFS client-side và tô màu theo dải gradient sắc nét (Hop 0: xanh dương, Hop 1: cyan, Hop 2: xanh lá, Hop 3: vàng, Hop 4: cam), làm mờ các phần tử ngoài tầm hiển thị => xong
+<<<<<<< Updated upstream
 - Xây dựng các chức năng Đăng ký, Tìm tài khoản, Quên mật khẩu ngay trên giao diện Web mà không cần truy cập Keycloak => xong
 - Thiết lập mã OTP thời hạn tối đa 5 phút gửi qua Email để xác thực quên mật khẩu và đổi mật khẩu mới => xong
 - Tích hợp đồng hồ đếm ngược 5 phút cho OTP và tự động vô hiệu hóa các trường nhập khi hết hạn trên UI => xong
@@ -139,3 +140,10 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - Đồng bộ tự động điền tài khoản, tự động điền mật khẩu mới và tự động mở hiển thị mật khẩu khi chuyển hướng về trang đăng nhập sau khi đặt lại mật khẩu thành công => xong
 - Tích hợp và đồng bộ hóa hai chiều (Bidirectional Sync) thời gian thực giữa CSDL cục bộ và Keycloak cho mọi thao tác Thêm, Sửa, Xóa, Đổi mật khẩu của người dùng và Admin => xong
 - Khởi tạo tài liệu độc lập keycloak_integration.md chi tiết cơ chế đồng bộ và tích hợp chéo link vào he_thong.md => xong
+=======
+- Tối ưu hóa giao diện Cây thư mục bên UploadPage giống 100% với trang chủ (checkbox, expand/collapse, icon màu vàng, hover/active background) và tích hợp các công cụ quản lý nhanh (add subfolder inline, rename inline, toggle public/private inline, delete folder) => xong
+- Ràng buộc bắt buộc phải chọn thư mục đích khi tải giáo án lên Thư viện cá nhân, đồng thời hiển thị menu select thụt lề dạng cây phân cấp trực quan và form khởi tạo nhanh thư mục/thư mục con trực tiếp ở giao diện tải lên => xong
+- Tối ưu cơ chế tự động tạo phiên chat của Trợ lý AI (không tự tạo phiên trống mới nếu phiên trước đó chưa có tương tác từ người dùng, tự động tạo mới chào người dùng nếu phiên trước đó đã có tin nhắn tương tác) => xong
+- Tự động đặt tên tiêu đề thông minh cho mỗi cuộc trò chuyện bằng mô hình LLM dựa trên câu hỏi đầu tiên của người dùng ở luồng stream thời gian thực => xong
+
+>>>>>>> Stashed changes

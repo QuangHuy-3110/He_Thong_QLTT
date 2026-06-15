@@ -63,7 +63,74 @@ interface Directory {
   is_public: boolean;
   attributes: any;
   parent: number | null;
+  user?: number | null;
 }
+
+interface DirectoryOption {
+  id: number;
+  name: string;
+  is_public: boolean;
+  depth: number;
+  visualPrefix: string;
+}
+
+const getDirectoriesAsTreeOptions = (
+  dirs: Directory[]
+): DirectoryOption[] => {
+  const childrenMap = new Map<number | null, Directory[]>();
+  dirs.forEach(d => {
+    const parentId = d.parent;
+    if (!childrenMap.has(parentId)) {
+      childrenMap.set(parentId, []);
+    }
+    childrenMap.get(parentId)!.push(d);
+  });
+
+  const result: DirectoryOption[] = [];
+
+  const traverse = (parentId: number | null, depth: number, prefix: string) => {
+    const children = childrenMap.get(parentId) || [];
+    children.sort((a, b) => a.name.localeCompare(b.name));
+
+    children.forEach((child, index) => {
+      const isLast = index === children.length - 1;
+      const currentPrefix = prefix + (isLast ? '└─ ' : '├─ ');
+      const nextPrefix = prefix + (isLast ? '   ' : '│  ');
+
+      result.push({
+        id: child.id,
+        name: child.name,
+        is_public: child.is_public,
+        depth: depth,
+        visualPrefix: currentPrefix
+      });
+
+      traverse(child.id, depth + 1, nextPrefix);
+    });
+  };
+
+  const filteredIds = new Set(dirs.map(d => d.id));
+  const roots = dirs.filter(d => d.parent === null || !filteredIds.has(d.parent));
+  roots.sort((a, b) => a.name.localeCompare(b.name));
+
+  roots.forEach((root, index) => {
+    const isLast = index === roots.length - 1;
+    const currentPrefix = isLast ? '└─ ' : '├─ ';
+    const nextPrefix = isLast ? '   ' : '│  ';
+
+    result.push({
+      id: root.id,
+      name: root.name,
+      is_public: root.is_public,
+      depth: 0,
+      visualPrefix: currentPrefix
+    });
+
+    traverse(root.id, 1, nextPrefix);
+  });
+
+  return result;
+};
 
 interface User {
   id: number;
@@ -117,6 +184,8 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     return ids;
   })();
 
+  const selectableDirs = modeFilteredDirs.filter(d => allowedDirIds.has(d.id));
+
   const toggleExpand = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedIds(prev => {
@@ -142,44 +211,178 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
     const isAllowed = uploadMode === 'personal' ? true : (currentUser?.role !== 'TEACHER' || allowedDirIds.has(dir.id));
     const isManaged = managedDirectoryIds.includes(dir.id);
 
+    const [hovered, setHovered] = useState(false);
+    const [renaming, setRenaming] = useState(false);
+    const [renameVal, setRenameVal] = useState(dir.name);
+
+    const isAllowedToManage = currentUser && (
+      currentUser.role === 'ADMIN' ||
+      dir.user === currentUser.id ||
+      managedDirectoryIds.includes(dir.id)
+    );
+
+    const handleRenameSubmit = async () => {
+      if (renameVal.trim() && renameVal.trim() !== dir.name) {
+        try {
+          await axios.patch(`/api/directories/${dir.id}/`, { name: renameVal.trim() });
+          await onRefreshDirs();
+        } catch (err) {
+          alert('Lỗi đổi tên thư mục.');
+        }
+      }
+      setRenaming(false);
+    };
+
+    const handleDeleteDir = async () => {
+      if (!window.confirm(`Xóa thư mục "${dir.name}"? Tài liệu bên trong sẽ không bị xóa nhưng sẽ mất liên kết.`)) return;
+      try {
+        await axios.delete(`/api/directories/${dir.id}/`);
+        if (selectedDirId === dir.id) {
+          setSelectedDirId(null);
+        }
+        await onRefreshDirs();
+      } catch (err) {
+        alert('Lỗi xóa thư mục.');
+      }
+    };
+
+    const handleTogglePublicDir = async () => {
+      const action = dir.is_public ? 'chuyển sang riêng tư' : 'xuất bản công khai';
+      if (!window.confirm(`Bạn có chắc muốn ${action} thư mục này?`)) return;
+      try {
+        await axios.patch(`/api/directories/${dir.id}/`, { is_public: !dir.is_public });
+        await onRefreshDirs();
+      } catch (err) {
+        alert('Lỗi cập nhật trạng thái thư mục.');
+      }
+    };
+
+    const handleAddChildClick = () => {
+      setNewPersonalDirParentId(dir.id);
+      setShowInlineCreateDir(true);
+      if (!isExpanded) {
+        setExpandedIds(prev => {
+          const next = new Set(prev);
+          next.add(dir.id);
+          return next;
+        });
+      }
+    };
+
     return (
-      <div>
-        <button
-          onClick={() => selectDir(dir)}
-          disabled={!isAllowed}
-          className={`w-full flex items-center gap-1.5 px-2 py-2 rounded-lg text-left text-sm transition-all ${
+      <div className="mt-0.5">
+        <div
+          onClick={() => isAllowed && selectDir(dir)}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          className={`flex items-center gap-1.5 py-1.5 px-2 rounded-md transition-colors cursor-pointer ${
             isSelected
-              ? 'bg-blue-600 text-white shadow-sm'
+              ? 'bg-blue-50 text-blue-700 font-semibold'
               : isAllowed
-              ? 'hover:bg-blue-50 dark:hover:bg-blue-950/45 text-gray-800 dark:text-slate-200'
+              ? 'hover:bg-gray-100 text-gray-700 dark:text-slate-200'
               : 'text-gray-400 dark:text-slate-500 cursor-not-allowed'
           }`}
           style={{ paddingLeft: `${8 + depth * 18}px` }}
         >
-          {/* Expand toggle */}
-          <span
-            onClick={hasChildren ? (e) => toggleExpand(dir.id, e) : undefined}
-            className={`w-4 h-4 flex items-center justify-center flex-shrink-0 rounded transition-transform ${
-              hasChildren ? 'cursor-pointer hover:bg-black/10' : 'opacity-0'
-            } ${isExpanded ? 'rotate-90' : ''}`}
+          {/* Expand/collapse toggle */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleExpand(dir.id, e);
+            }}
+            className={`w-4 h-4 flex items-center justify-center text-xs text-gray-400 hover:text-gray-700 flex-shrink-0 ${
+              !hasChildren ? 'opacity-0 pointer-events-none' : ''
+            }`}
           >
-            {hasChildren && <span className="text-xs">▶</span>}
+            {isExpanded ? '▼' : '▶'}
+          </button>
+
+          {/* Checkbox */}
+          <input
+            type="checkbox"
+            className="rounded border-gray-400 text-blue-600 cursor-pointer flex-shrink-0 w-3.5 h-3.5"
+            checked={isSelected}
+            disabled={!isAllowed}
+            onChange={() => selectDir(dir)}
+            onClick={e => e.stopPropagation()}
+          />
+
+          {/* Folder Icon */}
+          <span className="flex-shrink-0 text-sm">
+            📁
           </span>
-          <span className="text-base leading-none flex-shrink-0">
-            {dir.is_public ? '📂' : '📁'}
-          </span>
-          <span className="flex-grow font-medium truncate">{dir.name}</span>
-          {isManaged && (
+
+          {/* Folder Name */}
+          {renaming ? (
+            <input
+              autoFocus
+              value={renameVal}
+              onChange={e => setRenameVal(e.target.value)}
+              onBlur={handleRenameSubmit}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleRenameSubmit();
+                if (e.key === 'Escape') {
+                  setRenaming(false);
+                  setRenameVal(dir.name);
+                }
+              }}
+              className="flex-grow text-xs border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400 text-gray-900 bg-white"
+              onClick={e => e.stopPropagation()}
+            />
+          ) : (
+            <span className="flex-grow font-medium truncate text-sm">
+              {dir.name}
+            </span>
+          )}
+
+          {/* Action buttons on hover */}
+          {hovered && !renaming && isAllowedToManage && (
+            <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+              {uploadMode === 'personal' && (
+                <button
+                  type="button"
+                  title="Thêm thư mục con"
+                  onClick={handleAddChildClick}
+                  className="w-5 h-5 flex items-center justify-center rounded hover:bg-blue-100 text-blue-500 text-xs font-bold"
+                >+</button>
+              )}
+              <button
+                type="button"
+                title="Đổi tên"
+                onClick={() => { setRenaming(true); setRenameVal(dir.name); }}
+                className="w-5 h-5 flex items-center justify-center rounded hover:bg-yellow-100 text-yellow-600 text-xs"
+              >✏</button>
+              <button
+                type="button"
+                title={dir.is_public ? 'Chuyển sang riêng tư' : 'Xuất bản công khai'}
+                onClick={handleTogglePublicDir}
+                className={`w-5 h-5 flex items-center justify-center rounded text-xs transition-colors ${
+                  dir.is_public ? 'hover:bg-orange-100 text-orange-500' : 'hover:bg-green-100 text-green-600'
+                }`}
+              >
+                {dir.is_public ? '🔓' : '🌐'}
+              </button>
+              <button
+                type="button"
+                title="Xóa thư mục"
+                onClick={handleDeleteDir}
+                className="w-5 h-5 flex items-center justify-center rounded hover:bg-red-100 text-red-500 text-xs"
+              >✕</button>
+            </div>
+          )}
+
+          {isManaged && !hovered && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-              isSelected ? 'bg-white/20 text-white' : 'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
+              isSelected ? 'bg-blue-200 text-blue-800' : 'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
             }`}>Quản lý</span>
           )}
-          {dir.is_public && (
+          {dir.is_public && !hovered && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-              isSelected ? 'bg-white/20 text-white' : 'bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400'
+              isSelected ? 'bg-green-200 text-green-800' : 'bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400'
             }`}>Công khai</span>
           )}
-        </button>
+        </div>
         {hasChildren && isExpanded && (
           <div>
             {children.map(child => (
@@ -197,6 +400,43 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
 
   // Knowledge tag management
   const [tagInput, setTagInput] = useState('');
+
+  // Personal mode folder creation states
+  const [newPersonalDirName, setNewPersonalDirName] = useState('');
+  const [creatingDir, setCreatingDir] = useState(false);
+  const [showInlineCreateDir, setShowInlineCreateDir] = useState(false);
+  const [newPersonalDirParentId, setNewPersonalDirParentId] = useState<number | null>(null);
+
+  const handleCreatePersonalDirInline = async () => {
+    if (!newPersonalDirName.trim() || !currentUser) return;
+    setCreatingDir(true);
+    try {
+      const response = await axios.post('/api/directories/', {
+        user_id: currentUser.id,
+        name: newPersonalDirName.trim(),
+        is_public: false,
+        attributes: '{}',
+        parent: newPersonalDirParentId
+      });
+      alert('Tạo thư mục cá nhân thành công!');
+      setNewPersonalDirName('');
+      setNewPersonalDirParentId(null);
+      setShowInlineCreateDir(false);
+      
+      // Refresh directories list
+      await onRefreshDirs();
+      
+      // Select the newly created directory if we got the id back from backend
+      if (response.data && response.data.id) {
+        setSelectedDirId(response.data.id);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi tạo thư mục cá nhân.');
+    } finally {
+      setCreatingDir(false);
+    }
+  };
 
   // Upload form state (right side)
   const [parsing, setParsing] = useState(false);
@@ -407,10 +647,21 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       return;
     }
     
-    // Only regular users must select a directory (their upload goes to PENDING)
-    if (currentUser.role === 'USER' && !selectedDirId) {
-      setUploadError('Bạn phải chọn một thư mục trước khi tải bài giảng lên để gửi duyệt.');
-      return;
+    if (uploadMode === 'personal') {
+      if (modeFilteredDirs.length === 0) {
+        setUploadError('Bạn chưa có thư mục cá nhân nào. Hãy tạo thư mục cá nhân mới ở phần chọn thư mục trước khi lưu.');
+        return;
+      }
+      if (!selectedDirId) {
+        setUploadError('Vui lòng chọn thư mục cá nhân để lưu tài liệu.');
+        return;
+      }
+    } else {
+      // Only regular users must select a directory (their upload goes to PENDING)
+      if (currentUser.role === 'USER' && !selectedDirId) {
+        setUploadError('Bạn phải chọn một thư mục trước khi tải bài giảng lên để gửi duyệt.');
+        return;
+      }
     }
 
     setUploading(true);
@@ -538,24 +789,88 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
           {/* Directory Tree */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden transition-colors">
             <div className="px-4 py-3 border-b border-gray-100 dark:border-slate-850 flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
-                {uploadMode === 'personal' ? '🔒 Thư mục cá nhân' : '📂 Cây thư mục công khai'}
+              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider font-bold">
+                {uploadMode === 'personal' ? 'CÂY THƯ MỤC CÁ NHÂN' : 'CÂY THƯ MỤC CÔNG KHAI'}
               </p>
               {uploadMode === 'public' && currentUser?.role === 'TEACHER' && managedDirectoryIds.length > 0 && (
                 <p className="text-[10px] text-blue-500">🔒 {allowedDirIds.size} thư mục có quyền</p>
               )}
             </div>
-            <div className="p-2 max-h-[340px] overflow-y-auto">
+            <div className="p-2 max-h-[380px] overflow-y-auto">
+              {uploadMode === 'personal' && (
+                <div className="flex items-center gap-2 py-1.5 px-2 rounded-md mb-1 text-gray-400 dark:text-slate-500 italic select-none">
+                  <span className="w-4"></span>
+                  <span className="text-sky-500">📁</span>
+                  <span className="flex-grow truncate text-sm">Tất cả tài liệu cá nhân</span>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{modeFilteredDirs.length}</span>
+                </div>
+              )}
+
               {rootDirs.length === 0 ? (
-                <p className="px-2 py-4 text-sm text-gray-400 italic text-center">
-                  {uploadMode === 'personal'
-                    ? 'Bạn chưa có thư mục cá nhân nào. Tạo thư mục trong tab Thư viện cá nhân trước.'
-                    : currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Chưa có thư mục nào.'}
-                </p>
+                <div className="px-2 py-4 text-center">
+                  <p className="text-sm text-gray-400 italic mb-3">
+                    {uploadMode === 'personal'
+                      ? 'Bạn chưa có thư mục cá nhân nào.'
+                      : currentUser?.role === 'TEACHER' ? 'Không có thư mục nào bạn được cấp quyền.' : 'Chưa có thư mục nào.'}
+                  </p>
+                </div>
               ) : (
                 rootDirs.map(dir => (
                   <TreeNode key={dir.id} dir={dir} depth={0} />
                 ))
+              )}
+
+              {uploadMode === 'personal' && (
+                <div className="mt-2 pt-2 border-t border-gray-100 dark:border-slate-850">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInlineCreateDir(!showInlineCreateDir);
+                      setNewPersonalDirParentId(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
+                  >
+                    <span>{showInlineCreateDir ? '✕ Hủy tạo' : '+ Thêm thư mục cá nhân gốc'}</span>
+                  </button>
+
+                  {showInlineCreateDir && (
+                    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900 border border-gray-100 dark:border-slate-850 rounded-xl space-y-3">
+                      <p className="text-xs font-bold text-gray-600 dark:text-slate-400">Tạo thư mục cá nhân mới</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Tên thư mục..."
+                          value={newPersonalDirName}
+                          onChange={e => setNewPersonalDirName(e.target.value)}
+                          className="flex-grow text-xs border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-slate-850 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreatePersonalDirInline}
+                          disabled={!newPersonalDirName.trim() || creatingDir}
+                          className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          Tạo
+                        </button>
+                      </div>
+                      <div className="flex flex-col">
+                        <label className="text-[10px] text-gray-400 mb-0.5">Thư mục cha (tùy chọn):</label>
+                        <select
+                          value={newPersonalDirParentId || ''}
+                          onChange={e => setNewPersonalDirParentId(e.target.value ? parseInt(e.target.value) : null)}
+                          className="w-full text-xs bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+                        >
+                          <option value="">-- Thư mục gốc --</option>
+                          {getDirectoriesAsTreeOptions(selectableDirs).map(d => (
+                            <option key={d.id} value={d.id}>
+                              {d.visualPrefix}{d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -635,6 +950,86 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                 <p className="text-sm text-gray-400 dark:text-slate-450 mb-3">hoặc click để chọn file</p>
                 <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-350 px-3 py-1 rounded-full border border-gray-200 dark:border-slate-700">.docx &nbsp; .pdf &nbsp; .ppt</span>
               </>
+            )}
+          </div>
+
+          {/* Destination Directory Selector */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 transition-colors">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-350 mb-2 flex items-center justify-between">
+              <span>
+                {uploadMode === 'personal' ? '📁 Thư mục cá nhân lưu trữ' : '📂 Thư mục công khai lưu trữ'}
+                <span className="text-red-500"> *</span>
+              </span>
+              {uploadMode === 'personal' && modeFilteredDirs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowInlineCreateDir(!showInlineCreateDir)}
+                  className="text-xs text-blue-600 hover:text-blue-800 dark:text-sky-400 dark:hover:text-sky-300 font-bold"
+                >
+                  {showInlineCreateDir ? '✕ Hủy tạo' : '➕ Tạo thư mục mới'}
+                </button>
+              )}
+            </label>
+
+            {uploadMode === 'personal' && (modeFilteredDirs.length === 0 || showInlineCreateDir) ? (
+              <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl space-y-3">
+                <p className="text-xs text-blue-700 dark:text-blue-400 font-medium">
+                  {modeFilteredDirs.length === 0 
+                    ? '⚠️ Bạn chưa có thư mục cá nhân nào. Hãy nhập tên bên dưới để tạo thư mục cá nhân mới bắt buộc.' 
+                    : 'Tạo thư mục cá nhân mới:'}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nhập tên thư mục mới..."
+                    value={newPersonalDirName}
+                    onChange={e => setNewPersonalDirName(e.target.value)}
+                    className="flex-grow text-xs border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-850 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreatePersonalDirInline}
+                    disabled={!newPersonalDirName.trim() || creatingDir}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {creatingDir ? 'Đang tạo...' : 'Tạo & Chọn'}
+                  </button>
+                </div>
+                {modeFilteredDirs.length > 0 && (
+                  <div className="flex flex-col">
+                    <label className="text-[10px] text-gray-500 dark:text-slate-400 mb-1">Thư mục cha (tùy chọn):</label>
+                    <select
+                      value={newPersonalDirParentId || ''}
+                      onChange={e => setNewPersonalDirParentId(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full text-xs bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+                    >
+                      <option value="">-- Thư mục gốc --</option>
+                      {getDirectoriesAsTreeOptions(selectableDirs).map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.visualPrefix}{d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <select
+                value={selectedDirId || ''}
+                onChange={e => setSelectedDirId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full bg-white dark:bg-slate-850 border border-gray-200 dark:border-slate-750 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer"
+              >
+                <option value="">-- Chọn thư mục lưu trữ --</option>
+                {getDirectoriesAsTreeOptions(selectableDirs).map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {file && !selectedDirId && uploadMode === 'personal' && (
+              <p className="text-xs text-red-500 mt-2 font-medium">⚠️ Bạn phải chọn hoặc tạo một thư mục cá nhân để lưu tài liệu này.</p>
             )}
           </div>
 
