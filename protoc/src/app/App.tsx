@@ -7,6 +7,7 @@ import DocViewer, { DocViewerRenderers } from "@cyntler/react-doc-viewer";
 import { saveAs } from 'file-saver';
 import { renderAsync } from 'docx-preview';
 
+// Force Vite cache refresh
 const getFileUrl = (url: string | undefined | null) => {
   if (!url) return '';
 
@@ -1775,7 +1776,33 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [identity, setIdentity] = useState('');
+  const [foundAccount, setFoundAccount] = useState<any | null>(null);
+  const [resetResult, setResetResult] = useState<any | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpNewPassword, setOtpNewPassword] = useState('');
+  const [otpConfirmPassword, setOtpConfirmPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [otpCountdown, setOtpCountdown] = useState<number>(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showOtpNewPassword, setShowOtpNewPassword] = useState(false);
+  const [showOtpConfirmPassword, setShowOtpConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (otpCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setOtpCountdown(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [otpCountdown]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -1908,6 +1935,9 @@ export default function App() {
   const [profileCurrentPassword, setProfileCurrentPassword] = useState<string>('');
   const [profileNewPassword, setProfileNewPassword] = useState<string>('');
   const [profileConfirmNewPassword, setProfileConfirmNewPassword] = useState<string>('');
+  const [showProfileCurrentPassword, setShowProfileCurrentPassword] = useState<boolean>(false);
+  const [showProfileNewPassword, setShowProfileNewPassword] = useState<boolean>(false);
+  const [showProfileConfirmNewPassword, setShowProfileConfirmNewPassword] = useState<boolean>(false);
   const [profileAvatar, setProfileAvatar] = useState<File | null>(null);
   const [profileAvatarPreview, setProfileAvatarPreview] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -2205,22 +2235,149 @@ export default function App() {
     try {
       const response = await axios.post('/api/login/', { username, password });
       sessionStorage.setItem('currentUser', JSON.stringify(response.data.user));
+      if (response.data.token) {
+        sessionStorage.setItem('keycloakToken', response.data.token);
+        sessionStorage.setItem('isMockLogin', 'false');
+      } else {
+        sessionStorage.setItem('isMockLogin', 'true');
+      }
       setCurrentUser(response.data.user);
       setShowAuthModal(false);
       setAuthError(null);
-    } catch (err) {
-      setAuthError('Đăng nhập thất bại. Kiểm tra lại thông tin.');
+      if (response.data.user.must_change_password) {
+        alert('Tài khoản của bạn đang sử dụng mật khẩu tạm thời. Bắt buộc phải đổi mật khẩu ngay để kích hoạt chính thức tài khoản (Mật khẩu tạm thời hết hạn sau 24h).');
+        setShowProfileModal(true);
+      }
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error || 'Đăng nhập thất bại. Kiểm tra lại thông tin.');
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const usernameRegex = /^[a-zA-Z0-9._-]{3,30}$/;
+
+    if (!emailRegex.test(email)) {
+      setAuthError('Email không hợp lệ (ví dụ: name@school.edu.vn).');
+      return;
+    }
+    if (!usernameRegex.test(username)) {
+      setAuthError('Tên đăng nhập không hợp lệ (từ 3-30 ký tự, chỉ chứa chữ, số, dấu chấm, gạch dưới, gạch ngang).');
+      return;
+    }
+
     try {
-      await axios.post('/api/register/', { username, password, full_name: fullName, role: 'USER' });
-      setAuthError('Đăng ký thành công! Đang chuyển sang đăng nhập...');
-      setTimeout(() => setAuthMode('LOGIN'), 1500);
-    } catch (err) {
-      setAuthError('Lỗi đăng ký. Tên người dùng có thể đã tồn tại.');
+      const response = await axios.post('/api/register/', { username, password, email, full_name: fullName, role: 'USER' });
+      setAuthError(`Đăng ký thành công! ${response.data.keycloak || ''} Đang chuyển sang đăng nhập...`);
+      setTimeout(() => {
+        setAuthMode('LOGIN');
+        setAuthError(null);
+      }, 2500);
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error || 'Lỗi đăng ký. Tên người dùng hoặc email có thể đã tồn tại.');
+    }
+  };
+
+  const handleFindAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFoundAccount(null);
+    setAuthError(null);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+    const usernameRegex = /^[a-zA-Z0-9._-]{3,30}$/;
+
+    const isEmail = identity.includes('@');
+    const isPhone = /^\d+$/.test(identity);
+
+    if (isEmail && !emailRegex.test(identity)) {
+      setAuthError('Email không hợp lệ.');
+      return;
+    } else if (isPhone && !phoneRegex.test(identity)) {
+      setAuthError('Số điện thoại không hợp lệ (phải có 10 chữ số bắt đầu bằng 03, 05, 07, 08, 09).');
+      return;
+    } else if (!isEmail && !isPhone && !usernameRegex.test(identity)) {
+      setAuthError('Tên đăng nhập không hợp lệ (từ 3-30 ký tự).');
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/find-account/', { identity });
+      setFoundAccount(response.data);
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error || 'Không tìm thấy tài khoản tương thích.');
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetResult(null);
+    setAuthError(null);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+    const usernameRegex = /^[a-zA-Z0-9._-]{3,30}$/;
+
+    const isEmail = identity.includes('@');
+    const isPhone = /^\d+$/.test(identity);
+
+    if (isEmail && !emailRegex.test(identity)) {
+      setAuthError('Email không hợp lệ.');
+      return;
+    } else if (isPhone && !phoneRegex.test(identity)) {
+      setAuthError('Số điện thoại không hợp lệ (phải có 10 chữ số bắt đầu bằng 03, 05, 07, 08, 09).');
+      return;
+    } else if (!isEmail && !isPhone && !usernameRegex.test(identity)) {
+      setAuthError('Tên đăng nhập không hợp lệ (từ 3-30 ký tự).');
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/forgot-password/', { identity });
+      setResetResult(response.data);
+      setOtpCountdown(300); // 5 minutes countdown
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error || 'Không thể gửi yêu cầu đặt lại mật khẩu.');
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+
+    if (otpCountdown <= 0) {
+      setAuthError('Mã OTP đã hết hạn 5 phút. Vui lòng nhấn nút gửi lại mã OTP mới.');
+      return;
+    }
+
+    if (otpNewPassword !== otpConfirmPassword) {
+      setAuthError('Mật khẩu xác nhận không trùng khớp.');
+      return;
+    }
+    try {
+      const response = await axios.post('/api/verify-otp-reset/', {
+        identity,
+        otp_code: otpCode,
+        new_password: otpNewPassword
+      });
+      setAuthError(`🎉 ${response.data.message} Đang chuyển hướng về màn hình đăng nhập...`);
+      setOtpCountdown(0); // Clear timer
+      setTimeout(() => {
+        setUsername(identity);
+        setPassword(otpNewPassword);
+        setShowPassword(true);
+        setAuthMode('LOGIN');
+        setAuthError(null);
+        setResetResult(null);
+        setOtpCode('');
+        setOtpNewPassword('');
+        setOtpConfirmPassword('');
+      }, 2500);
+    } catch (err: any) {
+      setAuthError(err.response?.data?.error || 'Mã OTP không chính xác hoặc đã hết hạn.');
     }
   };
 
@@ -4650,86 +4807,280 @@ export default function App() {
             <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 text-center text-white">
               <span className="text-3xl block mb-2">🔐</span>
               <h3 className="text-lg font-bold">Xác thực hệ thống KMS</h3>
-              <p className="text-xs text-blue-100/80 mt-1">Hệ thống Đăng nhập Tập trung một lần (SSO)</p>
+              <p className="text-xs text-blue-100/80 mt-1">Cổng đăng nhập và quản lý tài khoản</p>
             </div>
             
             <div className="p-6">
-              {authError && <div className={`mb-4 p-3 rounded-xl text-sm ${authError.includes('thành công') ? 'bg-green-50 text-green-800 border border-green-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>{authError}</div>}
+              {authError && (
+                <div className={`mb-4 p-3 rounded-xl text-sm ${authError.includes('thành công') ? 'bg-green-50 text-green-800 border border-green-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
+                  {authError}
+                </div>
+              )}
               
               <div className="space-y-4">
-                {/* Primary Keycloak SSO Section */}
-                <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = 'http://localhost:8080/realms/kms_realm/protocol/openid-connect/auth?client_id=kms-web-client&redirect_uri=http://localhost:5173/&response_type=code&scope=openid';
-                    }}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-4 py-3 text-sm font-semibold shadow-lg shadow-blue-500/10 transition-all duration-200 transform hover:scale-[1.01]"
-                  >
-                    <span>🌐</span> Đăng nhập qua Keycloak SSO
-                  </button>
-                  <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-                    Khuyên dùng cho Giáo viên & Quản trị viên sử dụng tài khoản ID do Nhà trường cấp.
-                  </p>
-                </div>
+                {/* Dynamic Auth Forms based on authMode */}
+                <div>
+                  {authMode === 'LOGIN' && (
+                    <form className="space-y-4" onSubmit={handleLogin}>
+                      {/* Local Login Form Fields */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Tên đăng nhập</label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">👤</span>
+                          <input 
+                            type="text" 
+                            required 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-xl py-2 pl-9 pr-3 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-slate-50/50 hover:bg-slate-50 transition-all font-medium text-slate-800"
+                            placeholder="Tên đăng nhập của bạn..."
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Mật khẩu</label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-xs">🔒</span>
+                          <input 
+                            type={showPassword ? "text" : "password"} 
+                            required 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            className="w-full border border-slate-200 rounded-xl py-2 pl-9 pr-10 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-slate-50/50 hover:bg-slate-50 transition-all font-medium text-slate-800"
+                            placeholder="Mật khẩu của bạn..."
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {showPassword ? "👁️" : "🙈"}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2 space-y-4">
+                        <button 
+                          type="submit" 
+                          className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 py-2.5 text-white text-xs font-bold shadow-md shadow-blue-500/10 transition-all duration-150 transform active:scale-[0.98]"
+                        >
+                          Đăng nhập
+                        </button>
+                        
+                        <div className="flex justify-between items-center text-[11px] font-bold text-blue-600 border-t border-slate-100 pt-3.5">
+                          <button type="button" onClick={() => { setAuthMode('REGISTER'); setAuthError(null); }} className="hover:text-blue-800 transition-colors">Đăng ký mới</button>
+                          <button type="button" onClick={() => { setAuthMode('FIND_ACCOUNT'); setAuthError(null); setFoundAccount(null); setIdentity(''); }} className="hover:text-blue-800 transition-colors">Tìm tài khoản</button>
+                          <button type="button" onClick={() => { setAuthMode('FORGOT_PASSWORD'); setAuthError(null); setResetResult(null); setIdentity(''); }} className="text-rose-600 hover:text-rose-800 transition-colors">Quên mật khẩu?</button>
+                        </div>
+                      </div>
 
-                {/* Divider for dev options */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDevOptions(!showDevOptions)}
-                    className="w-full flex items-center justify-between py-2 px-1 text-xs font-semibold text-slate-500 hover:text-slate-700 border-t border-slate-100 transition-colors"
-                  >
-                    <span>🛠️ Tùy chọn nhà phát triển / Đăng nhập cũ</span>
-                    <span>{showDevOptions ? '▲' : '▼'}</span>
-                  </button>
-
-                  {/* Dev options collapsible section */}
-                  {showDevOptions && (
-                    <div className="mt-3 space-y-4 pt-2 border-t border-dashed border-slate-100 animate-slideDown">
-                      {/* Keycloak Mock/Demo option */}
-                      <div className="bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/50 space-y-2">
-                        <span className="text-[10px] font-bold text-indigo-700 block uppercase tracking-wider">Trình giả lập Keycloak (Offline)</span>
+                      {/* Keycloak Mock/Demo option for developers (Discreetly at the bottom) */}
+                      <div className="pt-2 border-t border-slate-50">
                         <button
                           type="button"
                           onClick={() => {
                             setShowKeycloakMockModal(true);
                             setShowAuthModal(false);
                           }}
-                          className="w-full py-2 px-3 text-xs font-semibold text-center rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all"
+                          className="w-full text-center text-[9px] font-semibold text-slate-400 hover:text-slate-500 transition-colors"
                         >
-                          🧪 Mở Cổng giả lập Keycloak
+                          🧪 Chạy Giả lập Keycloak Offline
                         </button>
                       </div>
+                    </form>
+                  )}
 
-                      {/* Traditional username/password credential fallback */}
-                      <form className="space-y-3" onSubmit={authMode === 'LOGIN' ? handleLogin : handleRegister}>
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Tài khoản nội bộ hệ thống</span>
-                        {authMode === 'REGISTER' && (
+                  {authMode === 'REGISTER' && (
+                    <form className="space-y-3.5" onSubmit={handleRegister}>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Họ và tên</label>
+                        <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="Nguyễn Văn A" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Email</label>
+                        <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="email@school.edu.vn" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tên đăng nhập</label>
+                        <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="Username đăng nhập..." />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Mật khẩu</label>
+                        <div className="relative">
+                          <input 
+                            type={showRegisterPassword ? "text" : "password"} 
+                            required 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            className="w-full border border-gray-200 rounded-lg py-2 pl-3 pr-10 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" 
+                            placeholder="Mật khẩu tài khoản..." 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {showRegisterPassword ? "👁️" : "🙈"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="pt-2 space-y-2">
+                        <button type="submit" className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 py-2.5 text-white text-xs font-semibold shadow-md transition-all">Tạo tài khoản mới</button>
+                        <button type="button" onClick={() => { setAuthMode('LOGIN'); setAuthError(null); }} className="w-full text-blue-600 text-xs font-semibold hover:underline text-center">Đã có tài khoản? Đăng nhập</button>
+                      </div>
+                    </form>
+                  )}
+
+                  {authMode === 'FIND_ACCOUNT' && (
+                    <form className="space-y-3.5" onSubmit={handleFindAccount}>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tên đăng nhập, Email hoặc SĐT</label>
+                        <input type="text" required value={identity} onChange={e => setIdentity(e.target.value)} className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" placeholder="Nhập username, email hoặc SĐT..." />
+                      </div>
+                      {foundAccount && (
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-[11px] text-emerald-800 space-y-1">
+                          <p className="font-bold text-xs border-b border-emerald-200 pb-1 mb-1">🔍 Kết quả tìm kiếm:</p>
+                          <p><strong>Họ tên:</strong> {foundAccount.full_name || 'N/A'}</p>
+                          <p><strong>Username:</strong> {foundAccount.username}</p>
+                          {foundAccount.email_masked && <p><strong>Email:</strong> {foundAccount.email_masked}</p>}
+                          {foundAccount.phone_masked && <p><strong>SĐT:</strong> {foundAccount.phone_masked}</p>}
+                          <p><strong>Vai trò:</strong> {foundAccount.role}</p>
+                          <p><strong>Trạng thái:</strong> {foundAccount.is_active ? '🔓 Hoạt động' : '🔒 Đã khóa'}</p>
+                        </div>
+                      )}
+                      <div className="pt-2 space-y-2">
+                        <button type="submit" className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-700 py-2.5 text-white text-xs font-semibold shadow-md transition-all">Tìm kiếm tài khoản</button>
+                        <button type="button" onClick={() => { setAuthMode('LOGIN'); setAuthError(null); setFoundAccount(null); }} className="w-full text-blue-600 text-xs font-semibold hover:underline text-center">Quay lại Đăng nhập</button>
+                      </div>
+                    </form>
+                  )}
+
+                  {authMode === 'FORGOT_PASSWORD' && (
+                    <div className="space-y-3.5">
+                      {!resetResult ? (
+                        <form className="space-y-3.5" onSubmit={handleForgotPassword}>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Họ và tên</label>
-                            <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Tên đăng nhập, Email hoặc SĐT</label>
+                            <input 
+                              type="text" 
+                              required 
+                              value={identity} 
+                              onChange={e => setIdentity(e.target.value)} 
+                              className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" 
+                              placeholder="Nhập username, email hoặc SĐT..." 
+                            />
                           </div>
-                        )}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên đăng nhập</label>
-                          <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Mật khẩu</label>
-                          <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full border border-gray-200 rounded-lg py-1.5 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                        </div>
-                        <div className="pt-1">
-                          <button type="submit" className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white text-xs font-semibold hover:bg-slate-900 transition-colors">{authMode === 'LOGIN' ? 'Đăng nhập' : 'Tạo tài khoản'}</button>
-                          <button type="button" onClick={() => { setAuthMode(authMode === 'LOGIN' ? 'REGISTER' : 'LOGIN'); setAuthError(null); }} className="w-full text-blue-600 text-xs font-semibold hover:text-blue-700 mt-2 text-center">{authMode === 'LOGIN' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}</button>
-                        </div>
-                      </form>
+                          <div className="pt-2 space-y-2">
+                            <button type="submit" className="w-full rounded-lg bg-rose-600 hover:bg-rose-700 py-2.5 text-white text-xs font-semibold shadow-md transition-all">Gửi mã OTP</button>
+                            <button type="button" onClick={() => { setAuthMode('LOGIN'); setAuthError(null); setResetResult(null); }} className="w-full text-blue-600 text-xs font-semibold hover:underline text-center">Quay lại Đăng nhập</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <form className="space-y-3.5" onSubmit={handleVerifyOTP}>
+                          <div className="bg-blue-50 border border-blue-150 rounded-xl p-3 text-[11px] text-blue-800 space-y-1">
+                            <p className="font-bold text-xs border-b border-blue-200 pb-1">✨ {resetResult.message}</p>
+                            <p className="leading-relaxed">{resetResult.details}</p>
+                            {otpCountdown > 0 ? (
+                              <p className="text-[11px] font-extrabold text-blue-700 flex items-center gap-1.5 pt-1.5 mt-1 border-t border-blue-200/50">
+                                ⏱️ Mã OTP có hiệu lực trong: <span className="text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded font-mono font-bold text-xs">{formatCountdown(otpCountdown)}</span>
+                              </p>
+                            ) : (
+                              <p className="text-[11px] font-extrabold text-rose-700 flex items-center gap-1.5 pt-1.5 mt-1 border-t border-rose-200/50">
+                                ⚠️ Mã OTP đã hết hạn! Vui lòng nhấn gửi lại mã mới.
+                              </p>
+                            )}
+                            {(() => {
+                              // Log simulated OTP to browser console for developer convenience, hidden from UI
+                              if (resetResult.simulation && resetResult.simulation.otp_code) {
+                                console.log("\n=======================================================");
+                                console.log(`[DEV-SIMULATION] Mã OTP của user ${resetResult.simulation.username} là: ${resetResult.simulation.otp_code}`);
+                                console.log("=======================================================\n");
+                              }
+                              return null;
+                            })()}
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Mã xác thực OTP</label>
+                            <input 
+                              type="text" 
+                              required 
+                              maxLength={6}
+                              autoComplete="one-time-code"
+                              value={otpCode} 
+                              onChange={e => setOtpCode(e.target.value)} 
+                              disabled={otpCountdown <= 0}
+                              className="w-full border border-gray-200 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-mono text-center tracking-widest text-lg disabled:bg-gray-100 disabled:text-gray-400" 
+                              placeholder="------" 
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Mật khẩu mới</label>
+                            <div className="relative">
+                              <input 
+                                type={showOtpNewPassword ? "text" : "password"} 
+                                required 
+                                autoComplete="new-password"
+                                value={otpNewPassword} 
+                                onChange={e => setOtpNewPassword(e.target.value)} 
+                                disabled={otpCountdown <= 0}
+                                className="w-full border border-gray-200 rounded-lg py-2 pl-3 pr-10 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400" 
+                                placeholder="Nhập mật khẩu mới..." 
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowOtpNewPassword(!showOtpNewPassword)}
+                                disabled={otpCountdown <= 0}
+                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                              >
+                                {showOtpNewPassword ? "👁️" : "🙈"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-gray-600 mb-1">Xác nhận mật khẩu mới</label>
+                            <div className="relative">
+                              <input 
+                                type={showOtpConfirmPassword ? "text" : "password"} 
+                                required 
+                                autoComplete="new-password"
+                                value={otpConfirmPassword} 
+                                onChange={e => setOtpConfirmPassword(e.target.value)} 
+                                disabled={otpCountdown <= 0}
+                                className="w-full border border-gray-200 rounded-lg py-2 pl-3 pr-10 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400" 
+                                placeholder="Nhập lại mật khẩu mới..." 
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowOtpConfirmPassword(!showOtpConfirmPassword)}
+                                disabled={otpCountdown <= 0}
+                                className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                              >
+                                {showOtpConfirmPassword ? "👁️" : "🙈"}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 space-y-2">
+                            <button 
+                              type="submit" 
+                              disabled={otpCountdown <= 0}
+                              className="w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 py-2.5 text-white text-xs font-semibold shadow-md transition-all disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                            >
+                              Xác nhận & Đổi mật khẩu
+                            </button>
+                            <button type="button" onClick={() => { setResetResult(null); setOtpCode(''); setAuthError(null); setOtpCountdown(0); }} className="w-full text-slate-500 text-xs font-semibold hover:underline text-center">Gửi lại mã OTP khác</button>
+                          </div>
+                        </form>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <div className="pt-2">
-                  <button type="button" onClick={() => { setShowAuthModal(false); setShowDevOptions(false); }} className="w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors py-1">Đóng</button>
+                <div className="pt-2 border-t border-slate-100">
+                  <button type="button" onClick={() => { setShowAuthModal(false); }} className="w-full text-center text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors py-1">Đóng</button>
                 </div>
               </div>
             </div>
@@ -6392,12 +6743,19 @@ export default function App() {
                         🔒
                       </div>
                       <input
-                        type="password"
+                        type={showProfileNewPassword ? "text" : "password"}
                         value={profileNewPassword}
                         onChange={e => setProfileNewPassword(e.target.value)}
                         placeholder="Nhập mật khẩu mới (nếu muốn đổi)..."
-                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                        className="block w-full pl-10 pr-10 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowProfileNewPassword(!showProfileNewPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showProfileNewPassword ? "👁️" : "🙈"}
+                      </button>
                     </div>
                   </div>
 
@@ -6408,12 +6766,19 @@ export default function App() {
                         🔄
                       </div>
                       <input
-                        type="password"
+                        type={showProfileConfirmNewPassword ? "text" : "password"}
                         value={profileConfirmNewPassword}
                         onChange={e => setProfileConfirmNewPassword(e.target.value)}
                         placeholder="Xác nhận lại mật khẩu mới..."
-                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                        className="block w-full pl-10 pr-10 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowProfileConfirmNewPassword(!showProfileConfirmNewPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showProfileConfirmNewPassword ? "👁️" : "🙈"}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -6428,13 +6793,20 @@ export default function App() {
                         🔑
                       </div>
                       <input
-                        type="password"
+                        type={showProfileCurrentPassword ? "text" : "password"}
                         required={!!profileNewPassword}
                         value={profileCurrentPassword}
                         onChange={e => setProfileCurrentPassword(e.target.value)}
                         placeholder="Nhập mật khẩu hiện tại..."
-                        className="block w-full pl-10 pr-4 py-2.5 text-sm border border-rose-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all font-medium text-slate-700 bg-white"
+                        className="block w-full pl-10 pr-10 py-2.5 text-sm border border-rose-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 transition-all font-medium text-slate-700 bg-white"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowProfileCurrentPassword(!showProfileCurrentPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-rose-400 hover:text-rose-600 transition-colors"
+                      >
+                        {showProfileCurrentPassword ? "👁️" : "🙈"}
+                      </button>
                     </div>
                   </div>
                 )}

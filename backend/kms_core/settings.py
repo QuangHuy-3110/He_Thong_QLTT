@@ -164,6 +164,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 USE_KEYCLOAK = os.environ.get('USE_KEYCLOAK', 'True').lower() in ('true', '1')
 KEYCLOAK_SERVER_URL = os.environ.get('KEYCLOAK_SERVER_URL', 'http://localhost:8080/realms/kms_realm')
 KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID', 'kms-web-client')
+KEYCLOAK_ADMIN_USER = os.environ.get('KEYCLOAK_ADMIN_USER', 'admin')
+KEYCLOAK_ADMIN_PASSWORD = os.environ.get('KEYCLOAK_ADMIN_PASSWORD', 'admin')
 
 # CẤU HÌNH BẬT/TẮT TÍNH NĂNG AI RAG (Thích ứng cấu hình Server yếu)
 USE_AI_RAG = os.environ.get('USE_AI_RAG', 'True').lower() in ('true', '1')
@@ -177,4 +179,15 @@ REST_FRAMEWORK = {
 }
 
 if USE_KEYCLOAK:
-    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].insert(0, 'app.keycloak_auth.KeycloakJWTAuthentication')
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].insert(0, 'app.keycloak_auth.KeycloakJWTAuthentication')
+
+# CẤU HÌNH GỬI EMAIL THỰC TẾ QUA SMTP (Ví dụ Gmail, SendGrid,...)
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@kms.edu.vn')
+
+

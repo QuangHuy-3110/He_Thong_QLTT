@@ -477,6 +477,9 @@ Hệ thống cơ sở dữ liệu đã được tinh gọn hoàn mỹ!
 
 # Bản thiết kế Kiến trúc & Tích hợp Keycloak IAM (Single Sign-On SSO Blueprint)
 
+> [!NOTE]
+> Để xem chi tiết cơ chế đồng bộ CSDL hai chiều thời gian thực (Bidirectional Real-time Sync), luồng ROPC giải mã JWT và cấu hình môi trường, vui lòng xem tài liệu: [Tích hợp Keycloak IAM & Đồng bộ Hai chiều](file:///d:/He_Thong_QLTT/keycloak_integration.md).
+
 Tài liệu này cung cấp sơ đồ kiến trúc, luồng xử lý và cấu hình kỹ thuật chi tiết để tích hợp **Keycloak (Identity and Access Management - IAM)** tập trung vào Hệ thống KMS, thay thế cho cơ chế đăng nhập thủ công cũ theo đúng định hướng thực tế sản xuất của Hội đồng chuyên môn.
 
 ---

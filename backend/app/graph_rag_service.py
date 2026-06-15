@@ -104,7 +104,7 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
                             if line_stripped:
                                 desc_lines.append(line_stripped)
                         if desc_lines:
-                            details = ' '.join(desc_lines)[:200]
+                            details = ' '.join(desc_lines)
                 except Exception as e:
                     print(f"Error reading concept details for graph: {e}")
 

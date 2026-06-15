@@ -692,10 +692,310 @@ class ApprovalRequestDetailAPIView(APIView):
         else:
             return Response({'error': 'Thao tác không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
 
+def get_keycloak_admin_token():
+    import requests
+    from django.conf import settings
+    import os
+    admin_user = os.environ.get('KEYCLOAK_ADMIN_USER') or getattr(settings, 'KEYCLOAK_ADMIN_USER', None)
+    admin_password = os.environ.get('KEYCLOAK_ADMIN_PASSWORD') or getattr(settings, 'KEYCLOAK_ADMIN_PASSWORD', None)
+    if not admin_user or not admin_password:
+        return None
+    
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    token_url = f"{base_url}/realms/master/protocol/openid-connect/token"
+    payload = {
+        'client_id': 'admin-cli',
+        'username': admin_user,
+        'password': admin_password,
+        'grant_type': 'password'
+    }
+    try:
+        response = requests.post(token_url, data=payload, timeout=5)
+        if response.status_code == 200:
+            return response.json().get('access_token')
+    except Exception as e:
+        print(f"Error fetching Keycloak admin token: {e}")
+    return None
+
+def create_keycloak_user(username, email, full_name, password):
+    import requests
+    from django.conf import settings
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    create_url = f"{base_url}/admin/realms/{realm}/users"
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    names = full_name.split(' ')
+    first_name = names[-1] if names else ''
+    last_name = ' '.join(names[:-1]) if len(names) > 1 else ''
+    
+    user_payload = {
+        'username': username,
+        'email': email,
+        'firstName': first_name,
+        'lastName': last_name,
+        'enabled': True,
+        'credentials': [{
+            'type': 'password',
+            'value': password,
+            'temporary': False
+        }]
+    }
+    
+    try:
+        res = requests.post(create_url, json=user_payload, headers=headers, timeout=5)
+        if res.status_code == 201:
+            return True, "Tạo tài khoản Keycloak thành công."
+        else:
+            return False, f"Keycloak response: {res.text}"
+    except Exception as e:
+        return False, str(e)
+
+def send_keycloak_reset_email(username):
+    import requests
+    from django.conf import settings
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    search_url = f"{base_url}/admin/realms/{realm}/users"
+    try:
+        res = requests.get(f"{search_url}?username={username}", headers=headers, timeout=5)
+        users = res.json() if res.status_code == 200 else []
+        if not users:
+            return False, "Không tìm thấy người dùng trên Keycloak."
+            
+        user_id = users[0]['id']
+        execute_url = f"{base_url}/admin/realms/{realm}/users/{user_id}/execute-actions-email"
+        res = requests.put(execute_url, json=["UPDATE_PASSWORD"], headers=headers, timeout=5)
+        if res.status_code == 204:
+            return True, "Đã gửi email khôi phục mật khẩu từ Keycloak."
+        else:
+            return False, f"Keycloak response: {res.text}"
+    except Exception as e:
+        return False, str(e)
+
+def update_keycloak_password(username, new_password):
+    import requests
+    from django.conf import settings
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    search_url = f"{base_url}/admin/realms/{realm}/users"
+    try:
+        res = requests.get(f"{search_url}?username={username}", headers=headers, timeout=5)
+        users = res.json() if res.status_code == 200 else []
+        if not users:
+            return False, "Không tìm thấy người dùng trên Keycloak."
+            
+        user_id = users[0]['id']
+        reset_pwd_url = f"{base_url}/admin/realms/{realm}/users/{user_id}/reset-password"
+        payload = {
+            'type': 'password',
+            'value': new_password,
+            'temporary': False
+        }
+        res = requests.put(reset_pwd_url, json=payload, headers=headers, timeout=5)
+        if res.status_code == 204:
+            return True, "Cập nhật mật khẩu Keycloak thành công."
+        else:
+            return False, f"Keycloak response: {res.text}"
+    except Exception as e:
+        return False, str(e)
+
+def delete_keycloak_user(username):
+    import requests
+    from django.conf import settings
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    search_url = f"{base_url}/admin/realms/{realm}/users"
+    try:
+        res = requests.get(f"{search_url}?username={username}", headers=headers, timeout=5)
+        users = res.json() if res.status_code == 200 else []
+        exact_user = next((u for u in users if u['username'].lower() == username.lower()), None)
+        if not exact_user:
+            return False, "Không tìm thấy người dùng trên Keycloak."
+            
+        user_id = exact_user['id']
+        delete_url = f"{base_url}/admin/realms/{realm}/users/{user_id}"
+        res = requests.delete(delete_url, headers=headers, timeout=5)
+        if res.status_code == 204:
+            return True, "Xóa tài khoản Keycloak thành công."
+        else:
+            return False, f"Keycloak response: {res.text}"
+    except Exception as e:
+        return False, str(e)
+
+def update_keycloak_user_details(old_username, new_username=None, email=None, full_name=None, is_active=None):
+    import requests
+    from django.conf import settings
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    search_url = f"{base_url}/admin/realms/{realm}/users"
+    try:
+        res = requests.get(f"{search_url}?username={old_username}", headers=headers, timeout=5)
+        users = res.json() if res.status_code == 200 else []
+        exact_user = next((u for u in users if u['username'].lower() == old_username.lower()), None)
+        if not exact_user:
+            return False, "Không tìm thấy người dùng trên Keycloak."
+            
+        user_id = exact_user['id']
+        update_url = f"{base_url}/admin/realms/{realm}/users/{user_id}"
+        
+        payload = {}
+        if new_username:
+            payload['username'] = new_username
+        if email:
+            payload['email'] = email
+        if full_name:
+            names = full_name.split(' ')
+            first_name = names[-1] if names else ''
+            last_name = ' '.join(names[:-1]) if len(names) > 1 else ''
+            payload['firstName'] = first_name
+            payload['lastName'] = last_name
+        if is_active is not None:
+            payload['enabled'] = bool(is_active)
+            
+        res = requests.put(update_url, json=payload, headers=headers, timeout=5)
+        if res.status_code == 204:
+            return True, "Cập nhật tài khoản Keycloak thành công."
+        else:
+            return False, f"Keycloak response: {res.text}"
+    except Exception as e:
+        return False, str(e)
+
+def sync_keycloak_to_local_db():
+    import requests
+    from django.conf import settings
+    if not getattr(settings, 'USE_KEYCLOAK', False):
+        return False, "Chưa bật Keycloak."
+    token = get_keycloak_admin_token()
+    if not token:
+        return False, "Thiếu hoặc sai cấu hình quản trị Keycloak."
+        
+    server_url = settings.KEYCLOAK_SERVER_URL
+    base_url = server_url.split('/realms/')[0] if '/realms/' in server_url else server_url
+    realm = server_url.split('/realms/')[-1] if '/realms/' in server_url else 'kms_realm'
+    
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    }
+    
+    users_url = f"{base_url}/admin/realms/{realm}/users"
+    try:
+        res = requests.get(f"{users_url}?max=1000", headers=headers, timeout=5)
+        if res.status_code != 200:
+            return False, f"Lỗi lấy danh sách từ Keycloak: {res.text}"
+            
+        keycloak_users = res.json()
+        keycloak_usernames = set()
+        
+        for ku in keycloak_users:
+            username = ku.get('username')
+            if not username:
+                continue
+            if username.lower() == 'admin':
+                continue
+                
+            keycloak_usernames.add(username.lower())
+            email = ku.get('email', '')
+            enabled = ku.get('enabled', True)
+            first_name = ku.get('firstName', '')
+            last_name = ku.get('lastName', '')
+            full_name = f"{last_name} {first_name}".strip() if (first_name or last_name) else username
+            
+            local_user = User.objects.filter(username__iexact=username).first()
+            if local_user:
+                changed = False
+                if local_user.email != email:
+                    local_user.email = email
+                    changed = True
+                if local_user.full_name != full_name:
+                    local_user.full_name = full_name
+                    changed = True
+                if local_user.is_active != enabled:
+                    local_user.is_active = enabled
+                    changed = True
+                if changed:
+                    local_user.save()
+            else:
+                from django.utils.crypto import get_random_string
+                User.objects.create_user(
+                    username=username,
+                    email=email,
+                    full_name=full_name,
+                    password=get_random_string(32),
+                    role='USER',
+                    is_active=enabled
+                )
+                
+        # Optional: delete local users that are no longer in Keycloak
+        local_users = User.objects.exclude(username__iexact='admin')
+        for lu in local_users:
+            if lu.username.lower() not in keycloak_usernames:
+                lu.delete()
+                
+        return True, "Đồng bộ Keycloak sang CSDL thành công."
+    except Exception as e:
+        return False, str(e)
+
 class RegisterAPIView(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
+        email = request.data.get('email', '')
         full_name = request.data.get('full_name', '')
         
         if not username or not password:
@@ -703,21 +1003,340 @@ class RegisterAPIView(APIView):
         
         if User.objects.filter(username=username).exists():
             return Response({'error': 'Username đã tồn tại.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if email and User.objects.filter(email=email).exists():
+            return Response({'error': 'Email đã tồn tại.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        from django.conf import settings
+        keycloak_msg = "Chế độ Local/Mock (Không tích hợp Keycloak)."
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            import os
+            admin_user = os.environ.get('KEYCLOAK_ADMIN_USER') or getattr(settings, 'KEYCLOAK_ADMIN_USER', None)
+            if admin_user:
+                success, msg = create_keycloak_user(username, email, full_name, password)
+                if not success:
+                    return Response({'error': f"Lỗi tạo tài khoản trên Keycloak: {msg}"}, status=status.HTTP_400_BAD_REQUEST)
+                keycloak_msg = "Đã tạo tài khoản đồng bộ trên Keycloak."
+            else:
+                keycloak_msg = "Tạo tài khoản cục bộ (Keycloak Admin chưa được cấu hình)."
         
-        user = User.objects.create_user(username=username, password=password, full_name=full_name, role='USER')
+        user = User.objects.create_user(username=username, password=password, email=email, full_name=full_name, role='USER')
         serializer = UserSerializer(user)
-        return Response({'message': 'Đăng ký thành công!', 'user': serializer.data}, status=status.HTTP_201_CREATED)
+        return Response({
+            'message': 'Đăng ký thành công!',
+            'keycloak': keycloak_msg,
+            'user': serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+class FindAccountAPIView(APIView):
+    def post(self, request):
+        identity = request.data.get('identity')
+        if not identity:
+            return Response({'error': 'Vui lòng cung cấp username, email hoặc số điện thoại.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = User.objects.filter(Q(username__iexact=identity) | Q(email__iexact=identity) | Q(phone_number=identity)).first()
+        if not user:
+            return Response({'error': 'Không tìm thấy tài khoản tương ứng trên hệ thống.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        masked_email = ""
+        if user.email:
+            parts = user.email.split('@')
+            if len(parts) == 2:
+                name, domain = parts
+                masked_name = name[0] + '*' * (len(name) - 1) if len(name) > 1 else name + '*'
+                masked_email = f"{masked_name}@{domain}"
+                
+        masked_phone = ""
+        if user.phone_number:
+            phone = user.phone_number
+            if len(phone) > 4:
+                masked_phone = phone[:3] + '*' * (len(phone) - 6) + phone[-3:]
+            else:
+                masked_phone = '*' * len(phone)
+
+        return Response({
+            'username': user.username,
+            'full_name': user.full_name,
+            'email_masked': masked_email,
+            'phone_masked': masked_phone,
+            'role': user.role,
+            'is_active': user.is_active
+        }, status=status.HTTP_200_OK)
+
+class ForgotPasswordAPIView(APIView):
+    def post(self, request):
+        identity = request.data.get('identity')
+        if not identity:
+            return Response({'error': 'Vui lòng cung cấp username, email hoặc số điện thoại.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = User.objects.filter(Q(username__iexact=identity) | Q(email__iexact=identity) | Q(phone_number=identity)).first()
+        if not user:
+            return Response({'error': 'Không tìm thấy tài khoản tương ứng trên hệ thống.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        from django.conf import settings
+        from django.utils import timezone
+        import random
+        import string
+        from django.core.mail import send_mail
+        import os
+        
+        # Generate 6-digit numeric OTP code
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        # Update user OTP locally
+        user.otp_code = otp_code
+        user.otp_created_at = timezone.now()
+        user.save(update_fields=['otp_code', 'otp_created_at'])
+        
+        # Simulated send mail or SMS
+        email_sent = False
+        email_error = ""
+        subject = "[KMS System] Mã OTP khôi phục mật khẩu tài khoản"
+        message = (
+            f"Xin chào {user.full_name or user.username},\n\n"
+            f"Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản của bạn.\n"
+            f"Mã OTP xác thực của bạn là: {otp_code}\n\n"
+            f"LƯU Ý: Mã OTP có hiệu lực tối đa trong vòng 5 phút. Vui lòng nhập mã này trên giao diện web để thiết lập mật khẩu mới.\n\n"
+            f"Trân trọng,\nKMS Administration"
+        )
+        
+        # 1. Send Email if user has email
+        if user.email:
+            try:
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL or 'noreply@kms.edu.vn',
+                    [user.email],
+                    fail_silently=False,
+                )
+                email_sent = True
+            except Exception as e:
+                email_error = f" (Không thể gửi email thực tế: {str(e)})"
+
+        # 2. Send SMS if user has phone number
+        sms_sent = False
+        if user.phone_number:
+            try:
+                # Ghi nhan ra Console Server (hoac tich hop gateway SMS o moi truong production)
+                print(f"\n=======================================================")
+                print(f"[SMS GATEWAY SIMULATOR] Gui toi SDT: {user.phone_number}")
+                print(f"Noi dung: KMS System - Ma OTP khoi phuc mat khau cua ban la: {otp_code}. Co hieu luc trong 5 phut.")
+                print(f"=======================================================\n")
+                sms_sent = True
+            except Exception as e:
+                print(f"Loi gui SMS simulator: {e}")
+
+        details_msg = "Mã OTP khôi phục mật khẩu đã được tạo. "
+        if email_sent and sms_sent:
+            details_msg += f"Hệ thống đã gửi mã OTP qua Email ({user.email}) và SMS tới số điện thoại ({user.phone_number})."
+        elif email_sent:
+            details_msg += f"Hệ thống đã gửi mã OTP qua Email ({user.email})."
+        elif sms_sent:
+            details_msg += f"Hệ thống đã gửi mã OTP qua SMS tới số điện thoại ({user.phone_number})."
+        else:
+            details_msg += "Hệ thống đã cấp phát mã OTP mới. Vui lòng liên hệ quản trị viên."
+            
+        details_msg += " Mã OTP này chỉ có hiệu lực trong vòng 5 phút." + email_error
+                
+        return Response({
+            'message': 'Đã gửi mã OTP thành công!',
+            'details': details_msg,
+            'simulation': {
+                'username': user.username,
+                'email': user.email,
+                'phone': user.phone_number,
+                'otp_code': otp_code,
+                'expires_at': (user.otp_created_at + timezone.timedelta(minutes=5)).isoformat(),
+                'email_sent': email_sent,
+                'sms_sent': sms_sent
+            }
+        }, status=status.HTTP_200_OK)
+
+class VerifyOTPResetAPIView(APIView):
+    def post(self, request):
+        identity = request.data.get('identity')
+        otp_code = request.data.get('otp_code')
+        new_password = request.data.get('new_password')
+        
+        if not identity or not otp_code or not new_password:
+            return Response({'error': 'Vui lòng cung cấp đầy đủ thông tin xác thực, mã OTP và mật khẩu mới.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = User.objects.filter(Q(username__iexact=identity) | Q(email__iexact=identity) | Q(phone_number=identity)).first()
+        if not user:
+            return Response({'error': 'Không tìm thấy tài khoản tương ứng.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Check if OTP matches and is not expired (5 minutes)
+        if not user.otp_code or user.otp_code != otp_code:
+            return Response({'error': 'Mã OTP không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if timezone.now() > user.otp_created_at + timedelta(minutes=5):
+            return Response({'error': 'Mã OTP đã hết hạn hiệu lực (tối đa 5 phút). Vui lòng yêu cầu mã mới.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # Update user password locally
+        user.set_password(new_password)
+        user.otp_code = None
+        user.otp_created_at = None
+        user.password_reset_temp = False
+        user.password_reset_at = None
+        user.is_active = True  # Kích hoạt lại tài khoản nếu bị khóa trước đó
+        user.save()
+        
+        keycloak_msg = ""
+        # Sync to Keycloak if active
+        from django.conf import settings
+        import os
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            admin_user = os.environ.get('KEYCLOAK_ADMIN_USER') or getattr(settings, 'KEYCLOAK_ADMIN_USER', None)
+            if admin_user:
+                success, msg = update_keycloak_password(user.username, new_password)
+                if success:
+                    keycloak_msg = "Đồng bộ mật khẩu mới lên Keycloak thành công."
+                else:
+                    keycloak_msg = f"Lỗi đồng bộ Keycloak: {msg}"
+            else:
+                keycloak_msg = "Chưa cấu hình Keycloak Admin (Đã đổi mật khẩu cục bộ)."
+                    
+        return Response({
+            'message': 'Đặt lại mật khẩu thành công!',
+            'details': 'Mật khẩu của bạn đã được cập nhật thành công. Vui lòng đăng nhập bằng mật khẩu mới.',
+            'keycloak_sync': keycloak_msg
+        }, status=status.HTTP_200_OK)
+
+
 
 class LoginAPIView(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
         
+        # Check if the user is disabled because of expired password reset
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        user_obj = User.objects.filter(username=username).first()
+        if user_obj and user_obj.password_reset_temp and user_obj.password_reset_at:
+            if timezone.now() > user_obj.password_reset_at + timedelta(hours=24):
+                if user_obj.is_active:
+                    user_obj.is_active = False
+                    user_obj.save(update_fields=['is_active'])
+                return Response({
+                    'error': 'Tài khoản của bạn đã bị vô hiệu hóa do không đổi mật khẩu tạm thời trong vòng 24 giờ. Vui lòng gửi yêu cầu đặt lại mật khẩu mới để kích hoạt lại tài khoản.'
+                }, status=status.HTTP_403_FORBIDDEN)
+                
+        if user_obj and not user_obj.is_active and user_obj.password_reset_temp:
+            return Response({
+                'error': 'Tài khoản đã bị khóa do hết hạn đổi mật khẩu tạm thời. Vui lòng gửi lại yêu cầu Đặt lại mật khẩu để kích hoạt lại.'
+            }, status=status.HTTP_403_FORBIDDEN)
+            
+        # 1. Keycloak Direct Authentication (ROPC password grant) if active
+        from django.conf import settings
+        import requests
+        import jwt
+        
+        keycloak_login_success = False
+        keycloak_user = None
+        access_token = None
+        
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            try:
+                token_url = f"{settings.KEYCLOAK_SERVER_URL}/protocol/openid-connect/token"
+                payload = {
+                    'grant_type': 'password',
+                    'client_id': settings.KEYCLOAK_CLIENT_ID,
+                    'username': username,
+                    'password': password
+                }
+                token_res = requests.post(token_url, data=payload, timeout=5)
+                if token_res.status_code == 200:
+                    token_data = token_res.json()
+                    access_token = token_data.get('access_token')
+                    
+                    # Validate and decode access token
+                    jwks_url = f"{settings.KEYCLOAK_SERVER_URL}/protocol/openid-connect/certs"
+                    jwks = requests.get(jwks_url, timeout=5).json()
+                    
+                    unverified_header = jwt.get_unverified_header(access_token)
+                    kid = unverified_header.get('kid')
+                    
+                    public_key = None
+                    for key in jwks['keys']:
+                        if key['kid'] == kid:
+                            public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                            break
+                            
+                    if public_key:
+                        jwt_payload = jwt.decode(
+                            access_token,
+                            public_key,
+                            algorithms=['RS256'],
+                            options={"verify_signature": True, "verify_aud": False}
+                        )
+                        
+                        # Sync user
+                        username_kc = jwt_payload.get('preferred_username') or jwt_payload.get('sub')
+                        email_kc = jwt_payload.get('email', '')
+                        full_name_kc = jwt_payload.get('name', '')
+                        
+                        roles_kc = []
+                        resource_access = jwt_payload.get('resource_access', {})
+                        client_access = resource_access.get(settings.KEYCLOAK_CLIENT_ID, {})
+                        roles_kc = client_access.get('roles', [])
+                        
+                        resolved_role = 'USER'
+                        if 'admin' in roles_kc or 'KMS_ADMIN' in roles_kc:
+                            resolved_role = 'ADMIN'
+                        elif 'teacher' in roles_kc or 'KMS_TEACHER' in roles_kc:
+                            resolved_role = 'TEACHER'
+                            
+                        # Get or create locally
+                        user, created = User.objects.get_or_create(
+                            username=username_kc,
+                            defaults={
+                                'email': email_kc,
+                                'full_name': full_name_kc,
+                                'role': resolved_role,
+                                'is_active': True
+                            }
+                        )
+                        if not created:
+                            user.role = resolved_role
+                            user.full_name = full_name_kc
+                            user.save(update_fields=['role', 'full_name'])
+                            
+                        keycloak_user = user
+                        keycloak_login_success = True
+            except Exception as e:
+                print(f"Keycloak ROPC direct auth failed, falling back to local Django auth: {e}")
+                
+        # 2. Local fallback if Keycloak auth didn't succeed
+        if keycloak_login_success and keycloak_user:
+            serializer = UserSerializer(keycloak_user)
+            data = serializer.data
+            data['role'] = keycloak_user.role
+            # Ensure is_active status
+            if not keycloak_user.is_active:
+                return Response({'error': 'Tài khoản đã bị vô hiệu hóa.'}, status=status.HTTP_403_FORBIDDEN)
+            # Sync temporary pass flags if any (Keycloak direct user resets password via web)
+            if keycloak_user.password_reset_temp:
+                data['must_change_password'] = True
+            return Response({
+                'message': 'Đăng nhập Keycloak trực tiếp thành công!',
+                'user': data,
+                'token': access_token
+            }, status=status.HTTP_200_OK)
+            
+        # Standard local auth
         user = authenticate(username=username, password=password)
         if user is not None:
             serializer = UserSerializer(user)
             data = serializer.data
             data['role'] = user.role
+            if user.password_reset_temp:
+                data['must_change_password'] = True
             return Response({'message': 'Đăng nhập thành công!', 'user': data}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Sai tên đăng nhập hoặc mật khẩu.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -733,6 +1352,11 @@ class AdminUserListAPIView(APIView):
                 return Response({'error': 'Unauthorized'}, status=403)
         except User.DoesNotExist:
             return Response({'error': 'Unauthorized'}, status=403)
+
+        # Sync from Keycloak first
+        from django.conf import settings
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            sync_keycloak_to_local_db()
 
         users = User.objects.all().order_by('username')
         data = []
@@ -769,6 +1393,13 @@ class AdminUserListAPIView(APIView):
 
         if User.objects.filter(username__iexact=username).exists():
             return Response({'error': 'Tên tài khoản này đã tồn tại.'}, status=400)
+
+        # Create on Keycloak if enabled
+        from django.conf import settings
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            success, msg = create_keycloak_user(username, '', full_name, password)
+            if not success:
+                return Response({'error': f"Lỗi tạo tài khoản trên Keycloak: {msg}"}, status=400)
 
         user = User.objects.create_user(
             username=username,
@@ -817,12 +1448,42 @@ class AdminUserDetailAPIView(APIView):
         role = request.data.get('role')
         is_active = request.data.get('is_active')
 
+        original_username = user.username
         if username and username.lower() != user.username.lower():
             if User.objects.filter(username__iexact=username).exists():
                 return Response({'error': 'Tên tài khoản này đã tồn tại.'}, status=400)
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                success, msg = update_keycloak_user_details(
+                    old_username=original_username,
+                    new_username=username,
+                    email=None,
+                    full_name=full_name,
+                    is_active=is_active
+                )
+                if not success:
+                    return Response({'error': f"Lỗi cập nhật tài khoản trên Keycloak: {msg}"}, status=400)
             user.username = username
+        else:
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                if full_name is not None or is_active is not None:
+                    success, msg = update_keycloak_user_details(
+                        old_username=original_username,
+                        new_username=None,
+                        email=None,
+                        full_name=full_name,
+                        is_active=is_active
+                    )
+                    if not success:
+                        return Response({'error': f"Lỗi cập nhật tài khoản trên Keycloak: {msg}"}, status=400)
 
         if password:
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                success, msg = update_keycloak_password(username or original_username, password)
+                if not success:
+                    return Response({'error': f"Lỗi cập nhật mật khẩu trên Keycloak: {msg}"}, status=400)
             user.set_password(password)
 
         if full_name is not None:
@@ -869,6 +1530,11 @@ class AdminUserDetailAPIView(APIView):
 
         if user.role == 'ADMIN':
             return Response({'error': 'Không được phép xóa tài khoản Quản trị viên khác.'}, status=400)
+
+        # Delete on Keycloak if enabled
+        from django.conf import settings
+        if getattr(settings, 'USE_KEYCLOAK', False):
+            delete_keycloak_user(user.username)
 
         user.delete()
         return Response({'message': 'Xóa tài khoản thành công!'})
@@ -1119,8 +1785,23 @@ class UserProfileUpdateAPIView(APIView):
             if not user.check_password(current_password):
                 return Response({'error': 'Mật khẩu cũ không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
             user.set_password(new_password)
+            user.password_reset_temp = False
+            user.password_reset_at = None
+            
+            # Sync to Keycloak if active
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                import os
+                admin_user = os.environ.get('KEYCLOAK_ADMIN_USER') or getattr(settings, 'KEYCLOAK_ADMIN_USER', None)
+                if admin_user:
+                    success, msg = update_keycloak_password(user.username, new_password)
+                    if not success:
+                        return Response({'error': f"Đổi mật khẩu trên Keycloak thất bại: {msg}"}, status=status.HTTP_400_BAD_REQUEST)
 
         if full_name is not None:
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                update_keycloak_user_details(old_username=user.username, full_name=full_name)
             user.full_name = full_name
 
         if avatar_file:

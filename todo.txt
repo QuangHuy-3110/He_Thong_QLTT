@@ -130,3 +130,12 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - Thiết lập bộ lọc truyền động bật/tắt hiển thị từng loại thực thể (lesson, directory, tag, user) dưới dạng Legend tương tác trên Đồ thị Canvas => xong
 - Sửa lỗi nút Quay lại của thực thể ở popup chi tiết khi click không có tác dụng, chuyển hướng đúng về tab Đồ thị => xong
 - Tích hợp tính năng mở rộng hiển thị theo số cạnh tùy chọn (1-4 Hops) khi click vào một nút trên đồ thị tri thức, tự động tính toán BFS client-side và tô màu theo dải gradient sắc nét (Hop 0: xanh dương, Hop 1: cyan, Hop 2: xanh lá, Hop 3: vàng, Hop 4: cam), làm mờ các phần tử ngoài tầm hiển thị => xong
+- Xây dựng các chức năng Đăng ký, Tìm tài khoản, Quên mật khẩu ngay trên giao diện Web mà không cần truy cập Keycloak => xong
+- Thiết lập mã OTP thời hạn tối đa 5 phút gửi qua Email để xác thực quên mật khẩu và đổi mật khẩu mới => xong
+- Tích hợp đồng hồ đếm ngược 5 phút cho OTP và tự động vô hiệu hóa các trường nhập khi hết hạn trên UI => xong
+- Khắc phục lỗi trình duyệt tự động điền thông tin đăng nhập cũ (autofill) vào trường OTP và mật khẩu mới bằng cách dùng thuộc tính autocomplete chuyên biệt => xong
+- Tích hợp nút Ẩn/Hiện mật khẩu (Show/Hide Toggle) cho tất cả các trường nhập mật khẩu (Đăng nhập, Đăng ký, OTP, Hồ sơ cá nhân) => xong
+- Bổ sung bộ lọc xác thực định dạng Regex cho các ô nhập Email, Số điện thoại và Tên đăng nhập trước khi gửi yêu cầu => xong
+- Đồng bộ tự động điền tài khoản, tự động điền mật khẩu mới và tự động mở hiển thị mật khẩu khi chuyển hướng về trang đăng nhập sau khi đặt lại mật khẩu thành công => xong
+- Tích hợp và đồng bộ hóa hai chiều (Bidirectional Sync) thời gian thực giữa CSDL cục bộ và Keycloak cho mọi thao tác Thêm, Sửa, Xóa, Đổi mật khẩu của người dùng và Admin => xong
+- Khởi tạo tài liệu độc lập keycloak_integration.md chi tiết cơ chế đồng bộ và tích hợp chéo link vào he_thong.md => xong

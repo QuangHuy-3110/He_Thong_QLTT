@@ -6,6 +6,12 @@ class User(AbstractUser):
     role = models.CharField(max_length=50, choices=[('ADMIN', 'Quản trị viên'), ('TEACHER', 'Giáo viên'), ('USER', 'Người dùng bình thường')], default='USER')
     full_name = models.CharField(max_length=255, blank=True)
     avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    password_reset_temp = models.BooleanField(default=False)
+    password_reset_at = models.DateTimeField(null=True, blank=True)
+    otp_code = models.CharField(max_length=10, null=True, blank=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+
 
 class Directory(models.Model):
     name = models.CharField(max_length=255)
