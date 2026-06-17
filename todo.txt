@@ -139,3 +139,21 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
 - Đồng bộ tự động điền tài khoản, tự động điền mật khẩu mới và tự động mở hiển thị mật khẩu khi chuyển hướng về trang đăng nhập sau khi đặt lại mật khẩu thành công => xong
 - Tích hợp và đồng bộ hóa hai chiều (Bidirectional Sync) thời gian thực giữa CSDL cục bộ và Keycloak cho mọi thao tác Thêm, Sửa, Xóa, Đổi mật khẩu của người dùng và Admin => xong
 - Khởi tạo tài liệu độc lập keycloak_integration.md chi tiết cơ chế đồng bộ và tích hợp chéo link vào he_thong.md => xong
+- Ngày 17/6/2026
+- Tách WikiNotes thành 2 sub-tab cố định: "Bài giảng này" và "Toàn hệ thống", tích hợp ô tìm kiếm real-time và bộ lọc real-time trên giao diện => xong
+- Loại bỏ tab xem Obsidian Vault Integration (Section 4) khỏi tab Cấu hình (Configuration) để đơn giản hóa giao diện => xong
+- Ẩn nút bật/tắt AI RAG đối với người dùng không phải Admin trong tab Cấu hình để bảo mật phân quyền => xong
+- Điều chỉnh logic click trong WikiNotes: Không đẩy ghi chú Wiki vào lịch sử quay lại (chỉ ghim lịch sử khi di chuyển giữa các tài liệu/thực thể bên ngoài) => xong
+- Thiết lập định dạng hiển thị WikiNotes: Ẩn phần YAML Frontmatter thô (--- ... ---) và trích xuất trường subject thành Badge Môn học màu sắc nổi bật phía dưới tiêu đề => xong
+- Xây dựng API Lưu ghi chú WikiNotes thủ công (POST /api/obsidian/notes/save/) và ghi nhận lịch sử thay đổi => xong
+- Xây dựng API AI tạo lại (POST /api/obsidian/notes/regenerate/) sử dụng cấu hình AI Engine của cá nhân giáo viên/admin truyền động từ localStorage => xong
+- Xây dựng API Xem lịch sử chỉnh sửa (GET /api/obsidian/notes/history/) và Modal popup Lịch sử chỉnh sửa phía Frontend => xong
+- Sửa lỗi Vite compile trùng lặp khai báo biến loadingHistory trong ChatbotWorkspace.tsx thành loadingWikiHistory => xong
+- Tối ưu hóa hiệu năng nhúng vector bằng Batch Processing (get_embeddings_batch) hỗ trợ OpenAI Batch, Ollama /api/embed và ThreadPoolExecutor song song 5 workers => xong
+- Tối ưu hóa Phase 4 (Bóc tách thực thể) sử dụng trực tiếp cấu hình AI Engine cá nhân của người dùng thay vì chạy model 7b local mặc định => xong
+- Xây dựng Axios Interceptor toàn cục tự động đính kèm Token xác thực Bearer (hỗ trợ cả Token thật và Mock Token HS256) cho tất cả các API, đồng thời tự sinh mock token khi đăng nhập local để đồng bộ hoàn toàn => xong
+- Chuyển đổi lưu trữ thông tin đăng nhập sang localStorage để duy trì trạng thái đăng nhập vĩnh viễn cho đến khi Đăng xuất (chống mất session khi reload/tắt tab) => xong
+- Tích hợp cấu hình verify_exp=False khi giải mã token Keycloak ở backend để loại bỏ lỗi hết hạn token sau vài phút => xong
+- Thiết lập bộ theo dõi hoạt động ngầm (idle tracker) tự động đăng xuất sau 1 giờ không hoạt động, đồng thời tự động mở modal và thông báo lý do chi tiết khi hết hạn => xong
+- Nâng cấp Hồ sơ cá nhân: Bổ sung 2 trường Email & Số điện thoại cho phép chỉnh sửa trực tiếp, tự động kiểm tra trùng lặp email và đồng bộ hai chiều sang Keycloak SSO => xong
+

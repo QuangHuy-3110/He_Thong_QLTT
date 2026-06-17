@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'full_name', 'email', 'username', 'role', 'avatar', 'avatar_url', 'is_active']
+        fields = ['id', 'full_name', 'email', 'username', 'role', 'avatar', 'avatar_url', 'is_active', 'phone_number']
 
 class DirectorySerializer(serializers.ModelSerializer):
     class Meta:

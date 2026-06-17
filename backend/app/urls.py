@@ -14,7 +14,8 @@ from .views import (
     AIChatSendMessageAPIView, AIChatGraphDataAPIView,
     SystemSettingAPIView, BackgroundTasksStatusAPIView, ObsidianStatusAPIView,
     BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView,
-    ObsidianNotesByLessonAPIView, BackgroundTasksStopAPIView, BackgroundTasksResumeAPIView
+    ObsidianNotesByLessonAPIView, BackgroundTasksStopAPIView, BackgroundTasksResumeAPIView,
+    ObsidianNoteSaveAPIView, ObsidianNoteRegenerateAPIView, ObsidianNoteHistoryAPIView
 )
 
 urlpatterns = [
@@ -60,4 +61,7 @@ urlpatterns = [
     path('obsidian/notes/', ObsidianNotesListAPIView.as_view(), name='obsidian-notes-list'),
     path('obsidian/notes/content/', ObsidianNoteContentAPIView.as_view(), name='obsidian-note-content'),
     path('obsidian/notes/by-lesson/', ObsidianNotesByLessonAPIView.as_view(), name='obsidian-notes-by-lesson'),
+    path('obsidian/notes/save/', ObsidianNoteSaveAPIView.as_view(), name='obsidian-notes-save'),
+    path('obsidian/notes/regenerate/', ObsidianNoteRegenerateAPIView.as_view(), name='obsidian-notes-regenerate'),
+    path('obsidian/notes/history/', ObsidianNoteHistoryAPIView.as_view(), name='obsidian-notes-history'),
 ]
