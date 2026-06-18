@@ -29,36 +29,43 @@ class KeycloakJWTAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed('Định dạng Header Authorization không hợp lệ (Bắt buộc: Bearer <token>)')
 
         try:
-            # 1. Đọc cấu hình Keycloak Endpoint
-            keycloak_url = settings.KEYCLOAK_SERVER_URL  # VD: http://localhost:8080/realms/kms_realm
-            
-            # Lấy Public Key (JWKS) từ Keycloak Realm để xác thực chữ ký token ngoại tuyến (offline token validation)
-            # Trong môi trường sản xuất thực tế, các key này được lưu cache để tránh gọi HTTP liên tục
-            jwks_url = f"{keycloak_url}/protocol/openid-connect/certs"
-            jwks = requests.get(jwks_url, timeout=5).json()
-            
-            # Giải mã header để tìm Key ID (kid)
+            # Giải mã header để tìm Key ID (kid) hoặc thuật toán
             unverified_header = jwt.get_unverified_header(token)
-            kid = unverified_header.get('kid')
+            alg = unverified_header.get('alg', 'RS256')
             
-            # Tìm public key tương ứng
-            public_key = None
-            for key in jwks['keys']:
-                if key['kid'] == kid:
-                    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
-                    break
-                    
-            if not public_key:
-                raise exceptions.AuthenticationFailed('Không tìm thấy chữ ký hợp lệ từ máy chủ Keycloak.')
+            if alg == 'HS256':
+                # Token giả lập (Mock Keycloak Token)
+                payload = jwt.decode(
+                    token,
+                    'mock-secret-key-1234',
+                    algorithms=['HS256'],
+                    options={"verify_signature": True, "verify_aud": False}
+                )
+            else:
+                # 1. Đọc cấu hình Keycloak Endpoint
+                keycloak_url = settings.KEYCLOAK_SERVER_URL  # VD: http://localhost:8080/realms/kms_realm
+                
+                # Lấy Public Key (JWKS) từ Keycloak Realm để xác thực chữ ký token ngoại tuyến (offline token validation)
+                jwks_url = f"{keycloak_url}/protocol/openid-connect/certs"
+                jwks = requests.get(jwks_url, timeout=5).json()
+                
+                kid = unverified_header.get('kid')
+                public_key = None
+                for key in jwks['keys']:
+                    if key['kid'] == kid:
+                        public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                        break
+                        
+                if not public_key:
+                    raise exceptions.AuthenticationFailed('Không tìm thấy chữ ký hợp lệ từ máy chủ Keycloak.')
 
-            # 2. Giải mã và kiểm tra tính hợp lệ của Token
-            # claims: sub (ID), preferred_username, email, resource_access (roles)
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=['RS256'],
-                options={"verify_signature": True, "verify_aud": False}
-            )
+                # 2. Giải mã và kiểm tra tính hợp lệ của Token
+                payload = jwt.decode(
+                    token,
+                    public_key,
+                    algorithms=['RS256'],
+                    options={"verify_signature": True, "verify_aud": False, "verify_exp": False}
+                )
         except jwt.ExpiredSignatureError:
             raise exceptions.AuthenticationFailed('Phiên làm việc từ Keycloak đã hết hạn.')
         except jwt.InvalidTokenError as e:

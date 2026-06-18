@@ -1385,6 +1385,21 @@ function renderSnippet(content: string | undefined | null, query: string): React
   );
 }
 
+// Add global Axios interceptor to attach Keycloak JWT token to Authorization header
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('keycloakToken');
+    if (token && token !== 'undefined' && token !== 'null') {
+      config.headers = config.headers || {};
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export default function App() {
   const [lessonPlans, setLessonPlans] = useState<LessonPlan[]>([]);
   
@@ -1406,9 +1421,9 @@ export default function App() {
 
           const { user, token } = response.data;
 
-          sessionStorage.setItem('currentUser', JSON.stringify(user));
-          sessionStorage.setItem('keycloakToken', token);
-          sessionStorage.setItem('isMockLogin', 'false');
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          localStorage.setItem('keycloakToken', token);
+          localStorage.setItem('isMockLogin', 'false');
           setCurrentUser(user);
           alert(`🎉 Xác thực thành công qua Máy chủ Keycloak SSO!\nChào mừng ${user.full_name} (${user.username})\nVai trò: ${user.role} (Đã đồng bộ thành công)`);
         } catch (err: any) {
@@ -1445,7 +1460,7 @@ export default function App() {
 
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = sessionStorage.getItem('currentUser');
+    const saved = localStorage.getItem('currentUser');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { return null; }
     }
@@ -1487,9 +1502,9 @@ export default function App() {
         email: kcEmail,
         role: kcRole
       });
-      sessionStorage.setItem('currentUser', JSON.stringify(response.data.user));
-      sessionStorage.setItem('keycloakToken', response.data.token);
-      sessionStorage.setItem('isMockLogin', 'true');
+      localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+      localStorage.setItem('keycloakToken', response.data.token);
+      localStorage.setItem('isMockLogin', 'true');
       setCurrentUser(response.data.user);
       setShowKeycloakMockModal(false);
       setShowAuthModal(false);
@@ -1932,6 +1947,8 @@ export default function App() {
   // Profile Settings States
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
   const [profileFullName, setProfileFullName] = useState<string>('');
+  const [profileEmail, setProfileEmail] = useState<string>('');
+  const [profilePhoneNumber, setProfilePhoneNumber] = useState<string>('');
   const [profileCurrentPassword, setProfileCurrentPassword] = useState<string>('');
   const [profileNewPassword, setProfileNewPassword] = useState<string>('');
   const [profileConfirmNewPassword, setProfileConfirmNewPassword] = useState<string>('');
@@ -1947,6 +1964,8 @@ export default function App() {
   useEffect(() => {
     if (showProfileModal && currentUser) {
       setProfileFullName(currentUser.full_name || '');
+      setProfileEmail(currentUser.email || '');
+      setProfilePhoneNumber(currentUser.phone_number || '');
       setProfileCurrentPassword('');
       setProfileNewPassword('');
       setProfileConfirmNewPassword('');
@@ -2078,6 +2097,8 @@ export default function App() {
       const formData = new FormData();
       formData.append('user_id', currentUser.id.toString());
       formData.append('full_name', profileFullName);
+      formData.append('email', profileEmail);
+      formData.append('phone_number', profilePhoneNumber);
       if (profileNewPassword) {
         formData.append('new_password', profileNewPassword);
       }
@@ -2099,7 +2120,7 @@ export default function App() {
       // Update local storage and currentUser state
       const updatedUser = response.data.user;
       setCurrentUser(updatedUser);
-      sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
 
       // Clear password fields
       setProfileCurrentPassword('');
@@ -2234,12 +2255,12 @@ export default function App() {
     e.preventDefault();
     try {
       const response = await axios.post('/api/login/', { username, password });
-      sessionStorage.setItem('currentUser', JSON.stringify(response.data.user));
+      localStorage.setItem('currentUser', JSON.stringify(response.data.user));
       if (response.data.token) {
-        sessionStorage.setItem('keycloakToken', response.data.token);
-        sessionStorage.setItem('isMockLogin', 'false');
+        localStorage.setItem('keycloakToken', response.data.token);
+        localStorage.setItem('isMockLogin', 'false');
       } else {
-        sessionStorage.setItem('isMockLogin', 'true');
+        localStorage.setItem('isMockLogin', 'true');
       }
       setCurrentUser(response.data.user);
       setShowAuthModal(false);
@@ -2382,10 +2403,10 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    const isMock = sessionStorage.getItem('isMockLogin') === 'true';
-    sessionStorage.removeItem('currentUser');
-    sessionStorage.removeItem('keycloakToken');
-    sessionStorage.removeItem('isMockLogin');
+    const isMock = localStorage.getItem('isMockLogin') === 'true';
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('keycloakToken');
+    localStorage.removeItem('isMockLogin');
     setCurrentUser(null);
     setSearchQuery('');
     setSelectedDirs([]);
@@ -2396,6 +2417,57 @@ export default function App() {
       window.location.href = 'http://localhost:8080/realms/kms_realm/protocol/openid-connect/logout?client_id=kms-web-client&post_logout_redirect_uri=http://localhost:5173/';
     }
   };
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    // Set initial last activity time if not set
+    if (!localStorage.getItem('lastActivityTime')) {
+      localStorage.setItem('lastActivityTime', Date.now().toString());
+    }
+
+    const resetInactivity = () => {
+      const now = Date.now();
+      const last = parseInt(localStorage.getItem('lastActivityTime') || '0', 10);
+      // Throttle localStorage writes to once every 5 seconds to optimize performance
+      if (now - last > 5000) {
+        localStorage.setItem('lastActivityTime', now.toString());
+      }
+    };
+
+    // Listen to user activity events
+    window.addEventListener('mousemove', resetInactivity);
+    window.addEventListener('keydown', resetInactivity);
+    window.addEventListener('mousedown', resetInactivity);
+    window.addEventListener('scroll', resetInactivity);
+    window.addEventListener('click', resetInactivity);
+
+    const interval = setInterval(() => {
+      const last = parseInt(localStorage.getItem('lastActivityTime') || '0', 10);
+      const diffMs = Date.now() - last;
+      const diffSec = Math.floor(diffMs / 1000);
+      const remaining = 3600 - diffSec;
+
+      if (remaining <= 0) {
+        // Log out immediately
+        handleLogout();
+        setShowAuthModal(true);
+        setAuthError('Phiên làm việc đã hết hạn do không hoạt động trong 1 giờ. Vui lòng đăng nhập lại.');
+        localStorage.removeItem('lastActivityTime');
+      }
+    }, 5000); // Check every 5 seconds instead of every second to reduce CPU overhead
+
+    return () => {
+      window.removeEventListener('mousemove', resetInactivity);
+      window.removeEventListener('keydown', resetInactivity);
+      window.removeEventListener('mousedown', resetInactivity);
+      window.removeEventListener('scroll', resetInactivity);
+      window.removeEventListener('click', resetInactivity);
+      clearInterval(interval);
+    };
+  }, [currentUser]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -6723,6 +6795,39 @@ export default function App() {
                       value={profileFullName}
                       onChange={e => setProfileFullName(e.target.value)}
                       placeholder="Nhập họ và tên đầy đủ..."
+                      className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Email liên hệ</label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      ✉️
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={profileEmail}
+                      onChange={e => setProfileEmail(e.target.value)}
+                      placeholder="Nhập địa chỉ email..."
+                      className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Số điện thoại</label>
+                  <div className="relative rounded-xl shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      📞
+                    </div>
+                    <input
+                      type="tel"
+                      value={profilePhoneNumber}
+                      onChange={e => setProfilePhoneNumber(e.target.value)}
+                      placeholder="Nhập số điện thoại..."
                       className="block w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-medium text-slate-700 bg-white"
                     />
                   </div>

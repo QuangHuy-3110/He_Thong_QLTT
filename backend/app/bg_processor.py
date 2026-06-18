@@ -8,6 +8,14 @@ from datetime import datetime
 from django.utils import timezone
 from django.db.models import Q
 
+# Pre-compiled Regex Patterns for Performance
+INVALID_FILE_CHARS = re.compile(r'[\/:*?"<>|\r\n\t]')
+HEADER_PATTERN = re.compile(r'^(#{1,6})\s+(.*)$')
+YAML_PATTERN = re.compile(r'^---\n(.+?)\n---', re.DOTALL)
+TAGS_SECTION_PATTERN = re.compile(r'tags:\s*\n((?:\s*-\s*.*?\n)+)')
+TAG_ITEM_PATTERN = re.compile(r'-\s*["\']?([^"\']+)["\']?')
+WIKILINK_CLEAN_PATTERN = re.compile(r'- \[\[(.*?)\]\]')
+
 import sys
 _original_print = print
 def print(*args, **kwargs):
@@ -25,6 +33,37 @@ def print(*args, **kwargs):
             _original_print(*fallback_args, **kwargs)
         except Exception:
             pass
+
+def get_wikipedia_academic_definition(tag, subject, lesson_title):
+    import requests
+    import urllib.parse
+    
+    tag_clean = tag.strip()
+    url = f"https://vi.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles={urllib.parse.quote(tag_clean)}"
+    try:
+        headers = {'User-Agent': 'KMS-App/1.0 (contact@example.com)'}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            pages = data.get('query', {}).get('pages', {})
+            for page_id, page_data in pages.items():
+                if page_id != "-1":
+                    extract = page_data.get('extract', '').strip()
+                    if extract:
+                        sentences = [s.strip() for s in extract.split('.') if s.strip()]
+                        brief = ". ".join(sentences[:3])
+                        if not brief.endswith('.'):
+                            brief += '.'
+                        return brief
+    except Exception as e:
+        print(f"[Wikipedia Fallback] Failed for '{tag}': {e}")
+        
+    return (
+        f"Trong khoa học và giảng dạy học thuật, \"{tag_clean}\" đại diện cho một khái niệm, thực thể hoặc cơ chế "
+        f"được nghiên cứu chi tiết nhằm giải thích các hiện tượng liên quan trong phân môn \"{subject}\". "
+        f"Kiến thức này đóng vai trò cơ sở lý thuyết giúp định hình nhận thức khoa học của học sinh, "
+        f"tạo tiền đề giải quyết các câu hỏi thực tiễn được đặt ra trong bài giảng \"{lesson_title}\"."
+    )
 
 # Thread-safe global processor queue
 class BackgroundProcessManager:
@@ -209,19 +248,32 @@ class BackgroundProcessManager:
                 cls.queue_task(lp.id)
 
     @classmethod
-    def _worker_loop(cls):
-        while True:
-            try:
-                # Đợi có task trong queue
-                lp_id = cls._queue.get()
-                if lp_id is None:
-                    break
+    def _run_task_wrapper(cls, lp_id):
+        try:
+            cls._process_lesson_plan(lp_id)
+        except Exception as e:
+            print(f"Error processing lesson plan {lp_id} in background: {e}")
+            traceback.print_exc()
+        finally:
+            cls._queue.task_done()
 
-                cls._process_lesson_plan(lp_id)
-                cls._queue.task_done()
-            except Exception as e:
-                print(f"Error in background worker thread: {e}")
-                traceback.print_exc()
+    @classmethod
+    def _worker_loop(cls):
+        from concurrent.futures import ThreadPoolExecutor
+        # Sử dụng ThreadPool với tối đa 2 workers để chạy song song an toàn
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            while True:
+                try:
+                    # Đợi có task trong queue
+                    lp_id = cls._queue.get()
+                    if lp_id is None:
+                        break
+                    
+                    # Submit tác vụ vào ThreadPool để chạy song song
+                    executor.submit(cls._run_task_wrapper, lp_id)
+                except Exception as e:
+                    print(f"Error in background worker loop: {e}")
+                    traceback.print_exc()
 
     @classmethod
     def _process_lesson_plan(cls, lp_id):
@@ -319,10 +371,9 @@ class BackgroundProcessManager:
                 lines = markdown_content.split('\n')
                 current_heading = "Mở đầu / Giới thiệu"
                 current_lines = []
-                header_pattern = re.compile(r'^(#{1,6})\s+(.*)$')
                 
                 for line in lines:
-                    match = header_pattern.match(line)
+                    match = HEADER_PATTERN.match(line)
                     if match:
                         if current_lines:
                             chunks_to_create.append({
@@ -359,9 +410,33 @@ class BackgroundProcessManager:
 
             # --- PHASE 3: Embedding Generation with Metadata Prepend ---
             total_chunks = len(chunks_to_create)
-            cls._active_tasks[lp_id]['step'] = f'Đang sinh Vector nhúng RAG (Phase 3: Khởi tạo... 0/{total_chunks} chunks)'
-            lp.ai_processing_step = f'Đang sinh Vector nhúng RAG (Phase 3: Khởi tạo... 0/{total_chunks} chunks)'
+            cls._active_tasks[lp_id]['step'] = f'Đang chuẩn bị dữ liệu RAG (Phase 3: Khởi tạo... 0/{total_chunks} chunks)'
+            lp.ai_processing_step = f'Đang chuẩn bị dữ liệu RAG (Phase 3: Khởi tạo... 0/{total_chunks} chunks)'
             lp.save(update_fields=['ai_processing_step'])
+
+            # Chuẩn bị toàn bộ enriched texts để batch nhúng
+            enriched_texts = []
+            for chk in chunks_to_create:
+                chk_content = chk['content']
+                chk_heading = chk['heading']
+                prepend_text = f"Tài liệu: {lp.title} | Môn: {lp.attributes.get('Môn học', 'Chưa rõ')} | Mục: {chk_heading}\n\n"
+                enriched_texts.append(prepend_text + chk_content)
+
+            # Cập nhật tiến độ gọi batch nhúng
+            progress_step = f'Đang sinh Vector nhúng RAG bằng Batch API (Phase 3: Nhúng {total_chunks} chunks)...'
+            cls._active_tasks[lp_id]['step'] = progress_step
+            lp.ai_processing_step = progress_step
+            lp.save(update_fields=['ai_processing_step'])
+
+            # Gọi service nhúng hàng loạt
+            from .embedding_service import get_embeddings_batch
+            # Đọc cấu hình model của người dùng từ attributes nếu có
+            model_config = lp.attributes.get('ai_model_config', {}) if isinstance(lp.attributes, dict) else {}
+            ai_mode = model_config.get('ai_mode', 'local')
+            api_key = model_config.get('api_key', None)
+            provider = "api" if ai_mode == "api" else "local"
+
+            emb_vectors = get_embeddings_batch(enriched_texts, api_key=api_key if ai_mode == 'api' else None, provider=provider)
 
             for idx, chk in enumerate(chunks_to_create):
                 if cls._is_cancelled(lp_id):
@@ -369,19 +444,7 @@ class BackgroundProcessManager:
                     return
                 chk_content = chk['content']
                 chk_heading = chk['heading']
-
-                # Cập nhật tiến độ chi tiết từng chunk cho frontend thấy
-                progress_step = f'Đang sinh Vector nhúng RAG (Phase 3: Đang nhúng chunk {idx + 1}/{total_chunks} - {chk_heading[:30]}...)'
-                cls._active_tasks[lp_id]['step'] = progress_step
-                lp.ai_processing_step = progress_step
-                lp.save(update_fields=['ai_processing_step'])
-
-                # Metadata Prepend: Nạp context tài liệu vào đầu văn bản để embedding giàu nghĩa
-                prepend_text = f"Tài liệu: {lp.title} | Môn: {lp.attributes.get('Môn học', 'Chưa rõ')} | Mục: {chk_heading}\n\n"
-                enriched_text = prepend_text + chk_content
-
-                # Gọi service sinh embedding vector 1536 chiều
-                emb_vector = get_embedding(enriched_text, provider="local")
+                emb_vector = emb_vectors[idx] if idx < len(emb_vectors) else [0.0] * 1536
                 
                 DocumentChunk.objects.create(
                     lesson_plan=lp,
@@ -420,10 +483,21 @@ class BackgroundProcessManager:
                     f"3. Trả về kết quả dưới dạng MỘT danh sách JSON duy nhất chứa các chuỗi (ví dụ: [\"Khái niệm 1\", \"Khái niệm 2\", ...]). Không viết thêm bất kỳ văn bản giải thích nào khác."
                 )
 
+                # Đọc cấu hình model của người dùng từ attributes
+                model_config = lp.attributes.get('ai_model_config', {}) if isinstance(lp.attributes, dict) else {}
+                ai_mode = model_config.get('ai_mode', 'local')
+                local_model = model_config.get('local_model', '7b') # Mặc định là 7b cho bóc tách
+                api_key = model_config.get('api_key', None)
+                api_model = model_config.get('api_model', None)
+                
+                model_choice = 'api' if ai_mode == 'api' else local_model
+
                 llm_response = generate_llm_response(
                     prompt=prompt_extract,
                     system_prompt="Bạn là chuyên gia sư phạm và bóc tách thực thể RAG tri thức chuyên nghiệp.",
-                    model_choice="7b"  # Sử dụng model Qwen 2.5 7B mạnh mẽ để bóc tách thực thể tối ưu
+                    model_choice=model_choice,
+                    api_key=api_key if ai_mode == 'api' else None,
+                    model_name=api_model if ai_mode == 'api' else None
                 )
 
                 cleaned_res = llm_response.strip()
@@ -487,13 +561,13 @@ class BackgroundProcessManager:
                 try:
                     with open(note_path, 'r', encoding='utf-8', errors='replace') as f:
                         old_content = f.read()
-                    yaml_match = re.search(r'^---\n(.+?)\n---', old_content, re.DOTALL)
+                    yaml_match = YAML_PATTERN.search(old_content)
                     if yaml_match:
                         yaml_content = yaml_match.group(1)
-                        tags_section_match = re.search(r'tags:\s*\n((?:\s*-\s*.*?\n)+)', yaml_content)
+                        tags_section_match = TAGS_SECTION_PATTERN.search(yaml_content)
                         if tags_section_match:
                             for tag_line in tags_section_match.group(1).splitlines():
-                                t_match = re.search(r'-\s*["\']?([^"\']+)["\']?', tag_line)
+                                t_match = TAG_ITEM_PATTERN.search(tag_line)
                                 if t_match:
                                     old_tags.append(t_match.group(1).strip())
                 except Exception as e:
@@ -502,7 +576,7 @@ class BackgroundProcessManager:
             # Tìm các tag cũ không còn trong extracted_tags mới để dọn dẹp các ghi chú mồ côi
             for old_tag in old_tags:
                 if old_tag not in extracted_tags:
-                    old_concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', old_tag).strip()}.md"
+                    old_concept_filename = f"{INVALID_FILE_CHARS.sub('_', old_tag).strip()}.md"
                     old_concept_path = os.path.join(vault_dir, old_concept_filename)
                     if os.path.exists(old_concept_path):
                         try:
@@ -510,7 +584,7 @@ class BackgroundProcessManager:
                                 concept_content = f.read()
                             
                             link_line = f"- [[{lp.title}]]"
-                            links = re.findall(r'- \[\[(.*?)\]\]', concept_content)
+                            links = WIKILINK_CLEAN_PATTERN.findall(concept_content)
                             
                             # Nếu note khái niệm chỉ liên kết đến bài giảng này, xóa hoàn toàn để tránh mồ côi
                             if len(links) <= 1 and (len(links) == 0 or links[0] == lp.title):
@@ -546,7 +620,7 @@ class BackgroundProcessManager:
 
             # 2. Tạo note khái niệm chéo (Concept Notes) để tạo Knowledge Graph hoàn chỉnh
             for tag in extracted_tags:
-                concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', tag).strip()}.md"
+                concept_filename = f"{INVALID_FILE_CHARS.sub('_', tag.strip()).strip()}.md"
                 concept_path = os.path.join(vault_dir, concept_filename)
                 
                 if not os.path.exists(concept_path):
@@ -584,13 +658,17 @@ class BackgroundProcessManager:
                             api_key=api_key if ai_mode == 'api' else None,
                             model_name=api_model if ai_mode == 'api' else None
                         ).strip()
+
+                        if concept_description.startswith("### 💬 Xin chào!") or "Trợ lý AI" in concept_description or not concept_description.strip():
+                            concept_description = get_wikipedia_academic_definition(tag, subject, lp.title)
+
                         # Loại bỏ các prefix không cần thiết
                         for prefix in ["Khái niệm:", "Định nghĩa:", f"{tag}:", "**", "*"]:
                             if concept_description.lower().startswith(prefix.lower()):
                                 concept_description = concept_description[len(prefix):].strip()
                     except Exception as e:
                         print(f"[BG Process] Concept description generation failed for '{tag}': {e}")
-                        concept_description = f"{tag} là một khái niệm quan trọng trong lĩnh vực giáo dục và học tập."
+                        concept_description = get_wikipedia_academic_definition(tag, subject, lp.title)
 
                     with open(concept_path, 'w', encoding='utf-8') as f:
                         f.write(

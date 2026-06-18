@@ -115,6 +115,15 @@ export default function ChatbotWorkspace({
   const [ragDepth, setRagDepth] = useState<number>(() => {
     return parseInt(localStorage.getItem('kms_rag_depth') || '2');
   });
+  // --- WIKINOTE EDIT & HISTORY STATES ---
+  const [isEditingWiki, setIsEditingWiki] = useState(false);
+  const [wikiEditText, setWikiEditText] = useState('');
+  const [savingWiki, setSavingWiki] = useState(false);
+  const [regeneratingWiki, setRegeneratingWiki] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [wikiHistory, setWikiHistory] = useState<any[]>([]);
+  const [loadingWikiHistory, setLoadingWikiHistory] = useState(false);
+
   const [showHistorySidebar, setShowHistorySidebar] = useState(true);
   const [historySidebarWidth, setHistorySidebarWidth] = useState(() => {
     const saved = localStorage.getItem('kms_history_sidebar_width');
@@ -136,17 +145,33 @@ export default function ChatbotWorkspace({
   // --- OBSIDIAN WIKINOTES VIEWER STATES ---
   const [obsidianNotes, setObsidianNotes] = useState<any[]>([]);
   const [obsidianLessonNotes, setObsidianLessonNotes] = useState<any[]>([]); // Notes lọc theo bài giảng
-  const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'all'>('lesson'); // 'lesson' = chỉ bài này
+  const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'all'>('lesson'); // 'lesson' = chỉ bài này, 'all' = toàn hệ thống
+  const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
   const currentNotes = useMemo(() => {
-    if (focusLessonId && wikiFilterMode === 'lesson') {
-      return obsidianLessonNotes;
+    let notes = (focusLessonId && wikiFilterMode === 'lesson') ? obsidianLessonNotes : obsidianNotes;
+    if (wikiSearchQuery.trim()) {
+      const q = wikiSearchQuery.toLowerCase();
+      notes = notes.filter((n: any) => 
+        (n.title && n.title.toLowerCase().includes(q))
+      );
     }
-    return obsidianNotes;
-  }, [focusLessonId, wikiFilterMode, obsidianNotes, obsidianLessonNotes]);
+    return notes;
+  }, [focusLessonId, wikiFilterMode, obsidianNotes, obsidianLessonNotes, wikiSearchQuery]);
   const [selectedObsidianNote, setSelectedObsidianNote] = useState<any | null>(null);
   const [obsidianNoteContent, setObsidianNoteContent] = useState<string>('');
   const [loadingNote, setLoadingNote] = useState<boolean>(false);
   const [showObsidianViewer, setShowObsidianViewer] = useState<boolean>(false);
+
+  const parsedSubject = useMemo(() => {
+    if (!obsidianNoteContent) return null;
+    const match = obsidianNoteContent.match(/subject:\s*"(.*?)"/);
+    return match ? match[1] : null;
+  }, [obsidianNoteContent]);
+
+  const cleanContentStr = useCallback((content: string) => {
+    if (!content) return '';
+    return content.replace(/^---[\s\S]*?---\s*/, '');
+  }, []);
 
   // Graph state (Full system graph cached)
   const [fullGraph, setFullGraph] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ nodes: [], edges: [] });
@@ -246,7 +271,8 @@ export default function ChatbotWorkspace({
 
   const fetchNoteContent = useCallback(async (note: any, skipPush = false) => {
     if (selectedObsidianNote?.filename === note.filename) return;
-    if (!skipPush) {
+    const shouldSkipPush = skipPush || activeTab === 'wiki';
+    if (!shouldSkipPush) {
       pushCurrentViewToHistory();
     }
     setLoadingNote(true);
@@ -254,13 +280,103 @@ export default function ChatbotWorkspace({
       const res = await axios.get(`/api/obsidian/notes/content/?filename=${encodeURIComponent(note.filename)}`);
       setObsidianNoteContent(res.data.content);
       setSelectedObsidianNote(note);
+      setWikiEditText(res.data.content);
+      setIsEditingWiki(false);
     } catch (err) {
       console.error('Error loading obsidian note content:', err);
       alert('Không thể tải nội dung ghi chú.');
     } finally {
       setLoadingNote(false);
     }
-  }, [selectedObsidianNote, pushCurrentViewToHistory]);
+  }, [selectedObsidianNote, pushCurrentViewToHistory, activeTab]);
+
+  const checkHasEditPermission = useCallback(() => {
+    if (currentUser?.role === 'ADMIN') return true;
+    if (!selectedObsidianNote) return false;
+    
+    // Check if it matches a lesson created by current user
+    const cleanTitle = selectedObsidianNote.title.replace(/[\/:*?"<>|\r\n\t]/g, '_').trim().toLowerCase();
+    const matchingLesson = lessonPlans.find((lp: any) => {
+      const lpClean = lp.title.replace(/[\/:*?"<>|\r\n\t]/g, '_').trim().toLowerCase();
+      return lpClean === cleanTitle || lp.title.toLowerCase() === selectedObsidianNote.title.toLowerCase();
+    });
+    
+    if (matchingLesson && matchingLesson.creator?.id === currentUser?.id) {
+      return true;
+    }
+    
+    // Check if any user lessons are referenced in content
+    if (obsidianNoteContent) {
+      const userLessons = lessonPlans.filter((lp: any) => lp.creator?.id === currentUser?.id);
+      for (const lp of userLessons) {
+        const lpClean = lp.title.replace(/[\/:*?"<>|\r\n\t]/g, '_').trim();
+        if (obsidianNoteContent.includes(`[[${lp.title}]]`) || obsidianNoteContent.includes(`[[${lpClean}]]`)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [currentUser, selectedObsidianNote, lessonPlans, obsidianNoteContent]);
+
+  const handleSaveWikiNote = async () => {
+    if (!selectedObsidianNote) return;
+    setSavingWiki(true);
+    try {
+      await axios.post('/api/obsidian/notes/save/', {
+        filename: selectedObsidianNote.filename,
+        content: wikiEditText,
+        user_id: currentUser?.id
+      });
+      setObsidianNoteContent(wikiEditText);
+      setIsEditingWiki(false);
+      alert('Đã lưu ghi chú thành công!');
+    } catch (err: any) {
+      console.error('Error saving wiki note:', err);
+      alert(err.response?.data?.error || 'Không thể lưu ghi chú.');
+    } finally {
+      setSavingWiki(false);
+    }
+  };
+
+  const handleRegenerateWikiNote = async () => {
+    if (!selectedObsidianNote) return;
+    if (!window.confirm('Bạn có chắc chắn muốn dùng AI tạo lại mô tả cho khái niệm này không?')) return;
+    setRegeneratingWiki(true);
+    try {
+      const res = await axios.post('/api/obsidian/notes/regenerate/', {
+        filename: selectedObsidianNote.filename,
+        user_id: currentUser?.id,
+        ai_mode: aiMode,
+        local_model: localModel,
+        api_key: apiKey,
+        api_model: apiModel
+      });
+      setObsidianNoteContent(res.data.content);
+      setWikiEditText(res.data.content);
+      setIsEditingWiki(false);
+      alert('Đã tạo lại bằng AI thành công!');
+    } catch (err: any) {
+      console.error('Error regenerating wiki note:', err);
+      alert(err.response?.data?.error || 'Không thể tạo lại ghi chú.');
+    } finally {
+      setRegeneratingWiki(false);
+    }
+  };
+
+  const handleFetchWikiHistory = async () => {
+    if (!selectedObsidianNote) return;
+    setLoadingWikiHistory(true);
+    setShowHistoryModal(true);
+    try {
+      const res = await axios.get(`/api/obsidian/notes/history/?filename=${encodeURIComponent(selectedObsidianNote.filename)}`);
+      setWikiHistory(res.data);
+    } catch (err) {
+      console.error('Error fetching wiki note history:', err);
+    } finally {
+      setLoadingWikiHistory(false);
+    }
+  };
 
   const handleGoBack = useCallback(() => {
     if (historyStack.length === 0) return;
@@ -3909,57 +4025,111 @@ export default function ChatbotWorkspace({
                     <h3 style={{ fontSize: '10px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <FolderOpen className="w-4 h-4 text-blue-500" /> Tài liệu RAG ({currentNotes.length})
                     </h3>
-                    {focusLessonId && (
-                      <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
-                        background: '#f1f5f9',
-                        padding: '2px',
-                        borderRadius: '6px',
-                      }}>
+                    
+                    {/* Permanent 2 sub-tabs */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      background: '#f1f5f9',
+                      padding: '2px',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (focusLessonId) {
+                            setWikiFilterMode('lesson');
+                          } else {
+                            alert("Vui lòng chọn một bài giảng để xem các ghi chú liên quan!");
+                          }
+                        }}
+                        style={{
+                          padding: '5px',
+                          borderRadius: '4px',
+                          border: 'none',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          cursor: focusLessonId ? 'pointer' : 'not-allowed',
+                          background: (wikiFilterMode === 'lesson' && focusLessonId) ? '#fff' : 'transparent',
+                          color: (wikiFilterMode === 'lesson' && focusLessonId) ? '#3b82f6' : '#64748b',
+                          opacity: focusLessonId ? 1 : 0.6,
+                          boxShadow: (wikiFilterMode === 'lesson' && focusLessonId) ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        Bài giảng này
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWikiFilterMode('all')}
+                        style={{
+                          padding: '5px',
+                          borderRadius: '4px',
+                          border: 'none',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          background: wikiFilterMode === 'all' || !focusLessonId ? '#fff' : 'transparent',
+                          color: wikiFilterMode === 'all' || !focusLessonId ? '#3b82f6' : '#64748b',
+                          boxShadow: wikiFilterMode === 'all' || !focusLessonId ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        Toàn hệ thống
+                      </button>
+                    </div>
+
+                    {/* Real-time Search input */}
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        placeholder="Tìm ghi chú (real-time)..."
+                        value={wikiSearchQuery}
+                        onChange={(e) => setWikiSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '6px 10px 6px 28px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '11px',
+                          background: '#ffffff',
+                          color: '#334155',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', pointerEvents: 'none' }}>🔍</span>
+                      {wikiSearchQuery && (
                         <button
                           type="button"
-                          onClick={() => setWikiFilterMode('lesson')}
+                          onClick={() => setWikiSearchQuery('')}
                           style={{
-                            padding: '4px',
-                            borderRadius: '4px',
+                            position: 'absolute',
+                            right: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
                             border: 'none',
-                            fontSize: '9px',
-                            fontWeight: 700,
+                            background: 'none',
+                            color: '#94a3b8',
                             cursor: 'pointer',
-                            background: wikiFilterMode === 'lesson' ? '#fff' : 'transparent',
-                            color: wikiFilterMode === 'lesson' ? '#3b82f6' : '#64748b',
-                            boxShadow: wikiFilterMode === 'lesson' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                            transition: 'all 0.15s',
+                            fontSize: '10px',
+                            padding: 0
                           }}
                         >
-                          Chỉ bài này
+                          ✕
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setWikiFilterMode('all')}
-                          style={{
-                            padding: '4px',
-                            borderRadius: '4px',
-                            border: 'none',
-                            fontSize: '9px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            background: wikiFilterMode === 'all' ? '#fff' : 'transparent',
-                            color: wikiFilterMode === 'all' ? '#3b82f6' : '#64748b',
-                            boxShadow: wikiFilterMode === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          Tất cả
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                   <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    {currentNotes.length === 0 ? (
+                    {!focusLessonId && wikiFilterMode === 'lesson' ? (
+                      <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8', lineHeight: 1.5 }}>
+                        💡 Hãy chọn một bài giảng ở danh sách ngoài để xem ghi chú tương ứng.
+                      </div>
+                    ) : currentNotes.length === 0 ? (
                       <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
-                        Không có tài liệu nào trong vault.
+                        Không có ghi chú nào phù hợp.
                       </div>
                     ) : (
                       currentNotes.map((note, nIdx) => {
@@ -4026,12 +4196,146 @@ export default function ChatbotWorkspace({
                         alignItems: 'center',
                         flexShrink: 0
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <span style={{ fontSize: '16px' }}>📖</span>
-                          <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedObsidianNote.title}>
-                            {selectedObsidianNote.title}
-                          </h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '16px' }}>📖</span>
+                            <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedObsidianNote.title}>
+                              {selectedObsidianNote.title}
+                            </h2>
+                          </div>
+                          {parsedSubject && (
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              marginTop: '4px',
+                              marginLeft: '24px',
+                              fontSize: '9.5px',
+                              fontWeight: 700,
+                              color: '#0284c7',
+                              background: '#e0f2fe',
+                              padding: '2px 8px',
+                              borderRadius: '9999px',
+                              width: 'fit-content'
+                            }}>
+                              <span>📚 Môn học:</span>
+                              <span>{parsedSubject}</span>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Edit & Action Controls */}
+                        {checkHasEditPermission() && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px', flexShrink: 0 }}>
+                            {isEditingWiki ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleSaveWikiNote}
+                                  disabled={savingWiki}
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: '#fff',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}
+                                >
+                                  {savingWiki ? 'Đang lưu...' : '💾 Lưu'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEditingWiki(false);
+                                    setWikiEditText(obsidianNoteContent);
+                                  }}
+                                  style={{
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#fff',
+                                    color: '#64748b',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ❌ Hủy
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setWikiEditText(obsidianNoteContent);
+                                    setIsEditingWiki(true);
+                                  }}
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #cbd5e1',
+                                    background: '#fff',
+                                    color: '#475569',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}
+                                >
+                                  ✏️ Sửa
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleRegenerateWikiNote}
+                                  disabled={regeneratingWiki}
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #bfdbfe',
+                                    background: '#eff6ff',
+                                    color: '#2563eb',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}
+                                >
+                                  {regeneratingWiki ? 'Đang tạo...' : '🧠 AI Tạo lại'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleFetchWikiHistory}
+                                  style={{
+                                    padding: '5px 8px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #e2e8f0',
+                                    background: '#f8fafc',
+                                    color: '#64748b',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}
+                                >
+                                  ⏳ Lịch sử
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Content Reading Pane */}
@@ -4051,6 +4355,26 @@ export default function ChatbotWorkspace({
                             <div style={{ width: '28px', height: '28px', border: '3px solid #f3f3f3', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                             <span style={{ fontSize: '11px', color: '#94a3b8' }}>Đang nạp ghi chú Wiki...</span>
                           </div>
+                        ) : isEditingWiki ? (
+                          <textarea
+                            value={wikiEditText}
+                            onChange={(e) => setWikiEditText(e.target.value)}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              minHeight: '200px',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '8px',
+                              padding: '12px',
+                              fontSize: '12.5px',
+                              lineHeight: 1.5,
+                              color: '#334155',
+                              fontFamily: 'monospace',
+                              outline: 'none',
+                              resize: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
                         ) : (
                           <div style={{ 
                             whiteSpace: 'pre-wrap', 
@@ -4059,7 +4383,7 @@ export default function ChatbotWorkspace({
                             backdropFilter: 'blur(8px)',
                             borderRadius: '12px',
                           }}>
-                            {renderWikiContent(obsidianNoteContent)}
+                            {renderWikiContent(cleanContentStr(obsidianNoteContent))}
                           </div>
                         )}
                       </div>
@@ -4802,236 +5126,123 @@ export default function ChatbotWorkspace({
                     </div>
                   </div>
                 )}
-
-
-                {/* SECTION 4: OBSIDIAN VAULT SYSTEM INTEGRATION */}
-                <div style={{
-                  background: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '12px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-                }}>
-                  <h3 style={{ fontSize: '11px', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px', margin: '0 0 10px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
-                    <Link className="w-4 h-4 text-indigo-500" />
-                    Obsidian Vault Integration
-                  </h3>
-
-                  {obsidianStatus ? (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', marginBottom: '6px' }}>
-                        <span style={{ color: '#64748b' }}>Trạng thái Vault máy chủ</span>
-                        <span style={{
-                          color: obsidianStatus.exists ? '#16a34a' : '#ef4444',
-                          fontWeight: 800,
-                          background: obsidianStatus.exists ? '#dcfce7' : '#fee2e2',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                        }}>
-                          {obsidianStatus.exists ? '✓ Active (Đang đồng bộ)' : '✕ Not Found'}
-                        </span>
-                      </div>
-
-                      <div style={{ marginBottom: '8px' }}>
-                        <label style={{ display: 'block', fontSize: '8px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Đường dẫn thư mục Vault</label>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '6px',
-                          padding: '6px',
-                          fontFamily: 'monospace',
-                          fontSize: '8px',
-                          wordBreak: 'break-all',
-                          color: '#475569',
-                          userSelect: 'all',
-                        }}>
-                          {obsidianStatus.vault_path}
-                        </div>
-                      </div>
-
-                      <div style={{
-                        background: '#eff6ff',
-                        border: '1px solid #bfdbfe',
-                        borderRadius: '8px',
-                        padding: '8px',
-                        fontSize: '9px',
-                        color: '#1e40af',
-                        lineHeight: 1.45,
-                        marginBottom: '10px'
-                      }}>
-                        ℹ <strong>Hướng dẫn liên kết Obsidian Desktop:</strong>
-                        <ol style={{ margin: '4px 0 0 0', paddingLeft: '14px' }}>
-                          <li>Tải & cài đặt Obsidian từ trang chủ.</li>
-                          <li>Chọn <strong>Open folder as vault</strong>.</li>
-                          <li>Dán đường dẫn thư mục phía trên vào.</li>
-                          <li>Mở tab **Graph View** để xem đồ thị tri thức 3D đồng bộ thời gian thực siêu đẹp!</li>
-                        </ol>
-                      </div>
-
-                      {/* Web-based WikiNotes Reader (Trình xem Wiki trực quan ngay trên giao diện Web) */}
-                      <div style={{
-                        borderTop: '1px solid #e2e8f0',
-                        paddingTop: '10px',
-                        marginTop: '10px'
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowObsidianViewer(!showObsidianViewer);
-                            if (!showObsidianViewer) fetchObsidianNotes();
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '6px 10px',
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: '8px',
-                            color: '#475569',
-                            fontSize: '9.5px',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-                          {showObsidianViewer ? 'Ẩn Trình xem Ghi chú Wiki' : '📂 Xem trực tiếp Obsidian WikiNotes trên Web'}
-                        </button>
-
-                        {showObsidianViewer && (
-                          <div style={{
-                            marginTop: '10px',
-                            display: 'grid',
-                            gridTemplateColumns: '1fr',
-                            gap: '8px',
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '10px',
-                            padding: '8px',
-                          }}>
-                            {/* Danh sách ghi chú */}
-                            <div>
-                              <span style={{ fontSize: '8.5px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                                Danh sách ghi chú RAG ({obsidianNotes.length})
-                              </span>
-                              <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '3px',
-                                maxHeight: '120px',
-                                overflowY: 'auto',
-                                background: '#fff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '8px',
-                                padding: '4px'
-                              }}>
-                                {obsidianNotes.length === 0 ? (
-                                  <div style={{ padding: '8px', textAlign: 'center', fontSize: '9px', color: '#94a3b8' }}>
-                                    Không có ghi chú nào trong vault.
-                                  </div>
-                                ) : (
-                                  obsidianNotes.map((note, nIdx) => {
-                                    const isSelected = selectedObsidianNote?.filename === note.filename;
-                                    return (
-                                      <button
-                                        key={nIdx}
-                                        type="button"
-                                        onClick={() => fetchNoteContent(note)}
-                                        style={{
-                                          width: '100%',
-                                          textAlign: 'left',
-                                          padding: '5px 8px',
-                                          background: isSelected ? '#eff6ff' : 'transparent',
-                                          border: 'none',
-                                          borderRadius: '6px',
-                                          fontSize: '9.5px',
-                                          fontWeight: isSelected ? 700 : 500,
-                                          color: isSelected ? '#2563eb' : '#475569',
-                                          cursor: 'pointer',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          transition: 'all 0.1s'
-                                        }}
-                                        onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
-                                        onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                                      >
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
-                                          📄 {note.title}
-                                        </span>
-                                        <span style={{ fontSize: '8px', color: '#cbd5e1' }}>
-                                          {(note.size / 1024).toFixed(1)} KB
-                                        </span>
-                                      </button>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Trình đọc nội dung chi tiết */}
-                            {selectedObsidianNote && (
-                              <div style={{
-                                borderTop: '1px solid #e2e8f0',
-                                paddingTop: '8px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px'
-                              }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                                  <span style={{ fontSize: '9px', fontWeight: 800, color: '#1e293b' }}>
-                                    📖 Nội dung: {selectedObsidianNote.title}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedObsidianNote(null)}
-                                    style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '10px' }}
-                                  >
-                                    Đóng
-                                  </button>
-                                </div>
-
-                                {loadingNote ? (
-                                  <div style={{ textAlign: 'center', padding: '12px' }}>
-                                    <div style={{ width: '10px', height: '10px', border: '2px solid #3b82f6', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-                                  </div>
-                                ) : (
-                                  <div style={{
-                                    background: '#fff',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px',
-                                    padding: '8px',
-                                    maxHeight: '180px',
-                                    overflowY: 'auto',
-                                    fontFamily: 'monospace',
-                                    fontSize: '9.5px',
-                                    lineHeight: 1.4,
-                                    color: '#334155',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                    borderLeft: '3px solid #3b82f6'
-                                  }}>
-                                    {obsidianNoteContent}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '6px' }}>
-                      <div style={{ width: '10px', height: '10px', border: '2px solid #3b82f6', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-                    </div>
-                  )}
-                </div>
-
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* WikiNote History Modal */}
+      {showHistoryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            width: '90%',
+            maxWidth: '550px',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            overflow: 'hidden'
+          }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: '#1e293b' }}>⏳ Lịch sử chỉnh sửa: {selectedObsidianNote?.title}</h3>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                style={{ border: 'none', background: 'none', color: '#94a3b8', fontSize: '16px', cursor: 'pointer', padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ padding: '16px', overflowY: 'auto', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {loadingWikiHistory ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+                  <div style={{ width: '20px', height: '20px', border: '2px solid #3b82f6', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : wikiHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: '#94a3b8', fontSize: '11.5px' }}>
+                  Chưa có lịch sử chỉnh sửa nào cho ghi chú này.
+                </div>
+              ) : (
+                wikiHistory.map((hist, idx) => (
+                  <div key={idx} style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    background: '#f8fafc',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                      <span style={{ fontWeight: 850, color: '#1e293b' }}>👤 {hist.edited_by}</span>
+                      <span style={{
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        fontWeight: 800,
+                        background: hist.change_type === 'AI_REGEN' ? '#eff6ff' : '#f0fdf4',
+                        color: hist.change_type === 'AI_REGEN' ? '#2563eb' : '#16a34a'
+                      }}>
+                        {hist.change_type === 'AI_REGEN' ? 'AI Tự động' : 'Thủ công'}
+                      </span>
+                    </div>
+                    
+                    <div style={{ fontSize: '9px', color: '#94a3b8' }}>
+                      🕒 {new Date(hist.edited_at).toLocaleString('vi-VN')}
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                      <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#64748b' }}>Nội dung sau khi sửa:</span>
+                      <div style={{
+                        background: '#fff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        padding: '8px',
+                        maxHeight: '120px',
+                        overflowY: 'auto',
+                        fontFamily: 'monospace',
+                        fontSize: '10px',
+                        whiteSpace: 'pre-wrap',
+                        color: '#334155'
+                      }}>
+                        {cleanContentStr(hist.content_after)}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <div style={{ padding: '10px 16px', borderTop: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                style={{
+                  padding: '6px 14px',
+                  background: '#64748b',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

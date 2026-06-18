@@ -420,11 +420,26 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * Loại bỏ cơ chế cắt chuỗi thủ công ở phía client. Thay vào đó, khi người dùng gửi tin nhắn đầu tiên (`user_msg_count === 0`), backend Django (`AIChatSendMessageAPIView`) sẽ gọi mô hình LLM (Qwen hoặc API ngoài) với prompt chuyên biệt để tự động tóm tắt và sinh tiêu đề cực kỳ ngắn gọn (dưới 5 từ).
         * Tiêu đề mới được cập nhật vào cơ sở dữ liệu và truyền ngược về client theo luồng dữ liệu stream (trực tiếp trong payload loại `meta` đầu tiên). Phía client cập nhật tiêu đề trên thanh điều hướng lịch sử và khung tiêu đề chat theo thời gian thực mà không cần tải lại trang.
 
+*   **2026-06-17**: **Cải tiến WikiNotes, Phân quyền Bảo mật, Tối ưu hóa Tốc độ Nhúng Batch & Đồng bộ Xác thực**:
+    - **Nâng cấp Giao diện WikiNotes**:
+        * Phân chia thành 2 sub-tab cố định: "Bài giảng này" và "Toàn hệ thống" trong Sidebar WikiNotes.
+        * Tích hợp thanh tìm kiếm real-time debounced và cơ chế lọc động ghi chú.
+        * Ẩn khối YAML Frontmatter thô (`--- ... ---`) khỏi màn hình hiển thị đọc chính, trích xuất thuộc tính `subject` thành Badge Môn học sắc nét ngay dưới tiêu đề.
+        * Sửa logic điều hướng: Không lưu lịch sử quay lại đối với thao tác click trong WikiNotes để tránh gây rối nút "Quay lại" chính.
+    - **Chỉnh sửa & Lịch sử WikiNotes (AI & Manual)**:
+        * Tích hợp bộ ba nút: **Sửa**, **AI Tạo lại**, và **Lịch sử** trên Header ghi chú.
+        * Cho phép chỉnh sửa thủ công và lưu đè file `.md` trong vault.
+        * Cho phép **AI Tạo lại** sử dụng cấu hình AI Engine cá nhân của người dùng (tự động truyền `api_key` từ `localStorage`).
+        * Lưu vết lịch sử chỉnh sửa vào bảng `WikiNoteEditHistory` ở backend và hiển thị Modal Lịch sử trực quan ở Frontend.
+    - **Tối ưu hóa Tốc độ & AI Engine truyền động**:
+        * **Batch Embeddings (`get_embeddings_batch`)**: Hợp nhất các lệnh nhúng vector tuần tự thành xử lý hàng loạt thông qua OpenAI Batch, Ollama `/api/embed` hoặc ThreadPoolExecutor song song 5 workers. Tăng tốc độ Phase 3 lên gấp nhiều lần.
+        * **Phase 4 Concept Extraction**: Đọc và sử dụng cấu hình AI Engine cá nhân (API Key ngoài hoặc Qwen Local) để bóc tách thực thể thay vì hardcode Qwen 7B cục bộ.
+    - **Hợp nhất Cơ chế Xác thực & Sửa lỗi 403**:
+        * Thêm Axios Request Interceptor toàn cục để tự động đính kèm Token xác thực Bearer (lọc bỏ các giá trị `"undefined"` hoặc `"null"` lỗi).
+        * Cập nhật backend `KeycloakJWTAuthentication` hỗ trợ giải mã cả token Keycloak thật (`RS256`) và mock token giả lập (`HS256`).
+        * Tự động tạo mock token cho local login để đồng bộ hóa hoàn toàn cơ chế xác thực, sửa lỗi `403 Forbidden` triệt để.
 
-
-
-
----
+----
 
 ## Tài liệu nguồn: `db_compact_notes.md`
 

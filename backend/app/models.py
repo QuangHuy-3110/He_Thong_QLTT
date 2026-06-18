@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from pgvector.django import VectorField, HnswIndex
+from django.contrib.postgres.indexes import GinIndex
 
 class User(AbstractUser):
     role = models.CharField(max_length=50, choices=[('ADMIN', 'Quản trị viên'), ('TEACHER', 'Giáo viên'), ('USER', 'Người dùng bình thường')], default='USER')
@@ -37,6 +38,13 @@ class LessonPlan(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     directories = models.ManyToManyField(Directory, through='LessonPlanDirectory', related_name='lesson_plans')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['status']),
+            GinIndex(fields=['title'], name='lp_title_trgm_idx', opclasses=['gin_trgm_ops']),
+            GinIndex(fields=['content_preview'], name='lp_content_trgm_idx', opclasses=['gin_trgm_ops']),
+        ]
 
 class LessonPlanRating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -103,6 +111,17 @@ class LessonPlanEditHistory(models.Model):
     attributes_after = models.JSONField(default=dict, blank=True)
     file_name_before = models.CharField(max_length=255, blank=True, null=True)
     file_name_after = models.CharField(max_length=255, blank=True, null=True)
+    edited_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-edited_at']
+
+class WikiNoteEditHistory(models.Model):
+    filename = models.CharField(max_length=255)
+    edited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    content_before = models.TextField()
+    content_after = models.TextField()
+    change_type = models.CharField(max_length=50, default='MANUAL') # 'MANUAL' or 'AI_REGEN'
     edited_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -283,4 +302,20 @@ def index_lesson_plan_chunks(sender, instance, created, **kwargs):
         from .bg_processor import BackgroundProcessManager
         BackgroundProcessManager.queue_task(instance.id)
     except Exception as e:
-        print(f"Error queueing lesson plan to bg processor: {e}")
+        print(f"Error queueing lesson plan to bg processor: {e}")
+
+@receiver(post_save, sender=LessonPlan)
+@receiver(pre_delete, sender=LessonPlan)
+@receiver(post_save, sender=Directory)
+@receiver(pre_delete, sender=Directory)
+@receiver(post_save, sender=LessonPlanDirectory)
+@receiver(pre_delete, sender=LessonPlanDirectory)
+def invalidate_graph_cache(sender, instance, **kwargs):
+    """
+    Tự động xóa cache đồ thị tri thức khi có thay đổi về bài giảng, thư mục hoặc liên kết.
+    """
+    try:
+        from .graph_rag_service import GraphCacheManager
+        GraphCacheManager.invalidate_all()
+    except Exception as e:
+        print(f"[Signal] Error invalidating graph cache: {e}")

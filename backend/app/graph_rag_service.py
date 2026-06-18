@@ -1,7 +1,45 @@
 from django.db.models import Q
+from django.core.cache import cache
 from .models import LessonPlan, Directory, User, DocumentChunk
 from .embedding_service import get_embedding
 import re
+
+# Pre-compiled Regex Patterns for Performance
+INVALID_FILE_CHARS = re.compile(r'[\/:*?"<>|\r\n\t]')
+YAML_PATTERN = re.compile(r'^---\n.+?\n---\n*', re.DOTALL)
+WORD_PATTERN = re.compile(r'\w+')
+CODE_BLOCK_START = re.compile(r"^```(?:json)?\n")
+CODE_BLOCK_END = re.compile(r"\n```$")
+
+class GraphCacheManager:
+    CACHE_KEY_PREFIX = "kms_knowledge_graph"
+
+    @classmethod
+    def get_cache_key(cls, user_id=None):
+        if not user_id:
+            return f"{cls.CACHE_KEY_PREFIX}_public"
+        try:
+            user = User.objects.get(id=user_id)
+            if user.role == 'ADMIN':
+                return f"{cls.CACHE_KEY_PREFIX}_admin"
+            else:
+                return f"{cls.CACHE_KEY_PREFIX}_user_{user_id}"
+        except Exception:
+            return f"{cls.CACHE_KEY_PREFIX}_public"
+
+    @classmethod
+    def get_graph(cls, user_id=None):
+        key = cls.get_cache_key(user_id)
+        return cache.get(key)
+
+    @classmethod
+    def set_graph(cls, graph_data, user_id=None):
+        key = cls.get_cache_key(user_id)
+        cache.set(key, graph_data, timeout=86400)
+
+    @classmethod
+    def invalidate_all(cls):
+        cache.clear()
 
 def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=2):
     """
@@ -9,6 +47,44 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
     - Nếu focus_lesson_id được truyền vào: Trả về đồ thị sơ đồ tư duy (mindmap) của riêng tài liệu đó theo hop_depth.
     - Nếu không: Trả về toàn bộ đồ thị tri thức hệ thống.
     """
+    # Nếu đang ở chế độ focus bài giảng, lấy đồ thị đầy đủ của user (từ cache nếu có) rồi chạy BFS
+    if focus_lesson_id:
+        full_graph = build_virtual_knowledge_graph(user_id=user_id)
+        nodes = full_graph.get("nodes", [])
+        edges = full_graph.get("edges", [])
+        
+        target_id = f"lesson_{focus_lesson_id}"
+        # Đảm bảo bài giảng focus tồn tại
+        if not any(n["id"] == target_id for n in nodes):
+            return {"nodes": [], "edges": []}
+            
+        visited = {target_id}
+        for _ in range(hop_depth):
+            next_nodes = set()
+            for edge in edges:
+                if edge["source"] in visited:
+                    next_nodes.add(edge["target"])
+                if edge["target"] in visited:
+                    next_nodes.add(edge["source"])
+            visited.update(next_nodes)
+            
+        filtered_nodes = []
+        for node in nodes:
+            if node["id"] in visited:
+                node_copy = dict(node)
+                if node["id"] == target_id:
+                    node_copy["val"] = 35 # Nút trung tâm nổi bật nhất
+                    node_copy["details"] = f"Tài liệu trọng tâm | " + node_copy.get("details", "")
+                filtered_nodes.append(node_copy)
+                
+        filtered_edges = [edge for edge in edges if edge["source"] in visited and edge["target"] in visited]
+        return {"nodes": filtered_nodes, "edges": filtered_edges}
+
+    # Nếu truy vấn toàn bộ đồ thị, thử lấy từ cache trước
+    cached_graph = GraphCacheManager.get_graph(user_id)
+    if cached_graph is not None:
+        return cached_graph
+
     nodes = []
     edges = []
     
@@ -80,33 +156,37 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
             if tag_slug not in tags_seen:
                 tags_seen.add(tag_slug)
                 
-                # Cố gắng đọc định nghĩa/mô tả khái niệm từ Obsidian Vault
-                details = "Khái niệm kiến thức / Chủ đề"
-                try:
-                    from .bg_processor import BackgroundProcessManager
-                    import os
-                    vault_dir = BackgroundProcessManager.get_vault_path()
-                    concept_filename = f"{re.sub(r'[\/:*?\"<>|\r\n\t]', '_', tag.strip()).strip()}.md"
-                    concept_path = os.path.join(vault_dir, concept_filename)
-                    if os.path.exists(concept_path):
-                        with open(concept_path, 'r', encoding='utf-8', errors='replace') as f:
-                            note_content = f.read()
-                        # Loại bỏ YAML front matter
-                        content_no_yaml = re.sub(r'^---\n.+?\n---\n*', '', note_content, flags=re.DOTALL).strip()
-                        # Lấy phần mô tả (bỏ phần tiêu đề # và phần các bài học liên quan)
-                        desc_lines = []
-                        for line in content_no_yaml.splitlines():
-                            line_stripped = line.strip()
-                            if line_stripped.startswith('#'):
-                                continue
-                            if 'các bài học liên quan' in line_stripped.lower() or line_stripped.startswith('-') or line_stripped.startswith('*'):
-                                break
-                            if line_stripped:
-                                desc_lines.append(line_stripped)
-                        if desc_lines:
-                            details = ' '.join(desc_lines)
-                except Exception as e:
-                    print(f"Error reading concept details for graph: {e}")
+                # Cố gắng đọc định nghĩa/mô tả khái niệm từ Obsidian Vault (Thử lấy từ cache trước)
+                concept_cache_key = f"concept_desc_{tag_slug}"
+                details = cache.get(concept_cache_key)
+                if details is None:
+                    details = "Khái niệm kiến thức / Chủ đề"
+                    try:
+                        from .bg_processor import BackgroundProcessManager
+                        import os
+                        vault_dir = BackgroundProcessManager.get_vault_path()
+                        concept_filename = f"{INVALID_FILE_CHARS.sub('_', tag.strip()).strip()}.md"
+                        concept_path = os.path.join(vault_dir, concept_filename)
+                        if os.path.exists(concept_path):
+                            with open(concept_path, 'r', encoding='utf-8', errors='replace') as f:
+                                note_content = f.read()
+                            # Loại bỏ YAML front matter
+                            content_no_yaml = YAML_PATTERN.sub('', note_content).strip()
+                            # Lấy phần mô tả (bỏ phần tiêu đề # và phần các bài học liên quan)
+                            desc_lines = []
+                            for line in content_no_yaml.splitlines():
+                                line_stripped = line.strip()
+                                if line_stripped.startswith('#'):
+                                    continue
+                                if 'các bài học liên quan' in line_stripped.lower() or line_stripped.startswith('-') or line_stripped.startswith('*'):
+                                    break
+                                if line_stripped:
+                                    desc_lines.append(line_stripped)
+                            if desc_lines:
+                                details = ' '.join(desc_lines)
+                    except Exception as e:
+                        print(f"Error reading concept details for graph: {e}")
+                    cache.set(concept_cache_key, details, timeout=86400)
 
                 nodes.append({
                     "id": f"tag_{tag_slug}",
@@ -123,36 +203,9 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
                 "color": "#c084fc"
             })
             
-    # Lọc BFS theo hop_depth nếu ở chế độ focus bài giảng
-    if focus_lesson_id:
-        target_id = f"lesson_{focus_lesson_id}"
-        # Đảm bảo bài giảng focus tồn tại
-        if not any(n["id"] == target_id for n in nodes):
-            return {"nodes": [], "edges": []}
-            
-        visited = {target_id}
-        for _ in range(hop_depth):
-            next_nodes = set()
-            for edge in edges:
-                if edge["source"] in visited:
-                    next_nodes.add(edge["target"])
-                if edge["target"] in visited:
-                    next_nodes.add(edge["source"])
-            visited.update(next_nodes)
-            
-        filtered_nodes = []
-        for node in nodes:
-            if node["id"] in visited:
-                node_copy = dict(node)
-                if node["id"] == target_id:
-                    node_copy["val"] = 35 # Nút trung tâm nổi bật nhất
-                    node_copy["details"] = f"Tài liệu trọng tâm | " + node_copy.get("details", "")
-                filtered_nodes.append(node_copy)
-                
-        filtered_edges = [edge for edge in edges if edge["source"] in visited and edge["target"] in visited]
-        return {"nodes": filtered_nodes, "edges": filtered_edges}
-        
-    return {"nodes": nodes, "edges": edges}
+    graph_data = {"nodes": nodes, "edges": edges}
+    GraphCacheManager.set_graph(graph_data, user_id)
+    return graph_data
 
 
 def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=2, api_key=None):
@@ -236,12 +289,16 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
 
         # B. Fallback Keyword Match nếu Vector tìm kiếm ra ít kết quả
         if len(matched_lessons) < 2:
-            words = [w.lower() for w in re.findall(r"\w+", query) if len(w) > 2]
-            if words:
-                keyword_q = Q()
-                for word in words[:4]:
-                    keyword_q |= Q(title__icontains=word) | Q(content_preview__icontains=word)
-                k_matches = candidates.filter(keyword_q).exclude(id=focus_lesson_id if focus_lesson_id else -1)[:3]
+            try:
+                from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
+                # Sử dụng PostgreSQL Full-Text Search (FTS) với trọng số: title quan trọng hơn content_preview
+                vector = SearchVector('title', weight='A') + SearchVector('content_preview', weight='B')
+                search_query = SearchQuery(query)
+                
+                k_matches = candidates.annotate(
+                    rank=SearchRank(vector, search_query)
+                ).filter(rank__gte=0.05).exclude(id=focus_lesson_id if focus_lesson_id else -1).order_by('-rank')[:3]
+                
                 for match in k_matches:
                     if match not in matched_lessons:
                         matched_lessons.append(match)
@@ -250,6 +307,22 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
                             "content": match.content_preview[:2000] if match.content_preview else "",
                             "type": "keyword"
                         })
+            except Exception as e:
+                # Fallback nếu không dùng PostgreSQL (ví dụ SQLite khi test) hoặc lỗi FTS
+                words = [w.lower() for w in WORD_PATTERN.findall(query) if len(w) > 2]
+                if words:
+                    keyword_q = Q()
+                    for word in words[:4]:
+                        keyword_q |= Q(title__icontains=word) | Q(content_preview__icontains=word)
+                    k_matches = candidates.filter(keyword_q).exclude(id=focus_lesson_id if focus_lesson_id else -1)[:3]
+                    for match in k_matches:
+                        if match not in matched_lessons:
+                            matched_lessons.append(match)
+                            retrieved_chunks.append({
+                                "title": match.title,
+                                "content": match.content_preview[:2000] if match.content_preview else "",
+                                "type": "keyword"
+                            })
                         
     # Thêm các bài giảng tìm thấy vào danh sách nút được kích hoạt
     for lp in matched_lessons[:3]:
@@ -397,8 +470,8 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
             
             cleaned_res = llm_res.strip()
             if cleaned_res.startswith("```"):
-                cleaned_res = re.sub(r"^```(?:json)?\n", "", cleaned_res)
-                cleaned_res = re.sub(r"\n```$", "", cleaned_res)
+                cleaned_res = CODE_BLOCK_START.sub("", cleaned_res)
+                cleaned_res = CODE_BLOCK_END.sub("", cleaned_res)
             cleaned_res = cleaned_res.strip()
             
             parsed_questions = json.loads(cleaned_res)

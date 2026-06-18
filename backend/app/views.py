@@ -1337,7 +1337,25 @@ class LoginAPIView(APIView):
             data['role'] = user.role
             if user.password_reset_temp:
                 data['must_change_password'] = True
-            return Response({'message': 'Đăng nhập thành công!', 'user': data}, status=status.HTTP_200_OK)
+            
+            # Generate mock JWT token for local authentication to unify auth headers
+            import jwt
+            mock_payload = {
+                "sub": user.username,
+                "preferred_username": user.username,
+                "email": user.email,
+                "name": user.full_name,
+                "iss": "http://localhost:8080/realms/kms_realm",
+                "aud": "kms-web-client",
+                "resource_access": {
+                    "kms-web-client": {
+                        "roles": [f"KMS_{user.role}", user.role.lower()]
+                    }
+                }
+            }
+            jwt_token = jwt.encode(mock_payload, 'mock-secret-key-1234', algorithm='HS256')
+            
+            return Response({'message': 'Đăng nhập thành công!', 'user': data, 'token': jwt_token}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Sai tên đăng nhập hoặc mật khẩu.'}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -1768,7 +1786,8 @@ class UserProfileUpdateAPIView(APIView):
         new_password = request.data.get('new_password')
         current_password = request.data.get('current_password')
         avatar_file = request.FILES.get('avatar')
-        avatar_base64 = request.data.get('avatar_base64')
+        email = request.data.get('email')
+        phone_number = request.data.get('phone_number')
 
         if not user_id:
             return Response({'error': 'Vui lòng cung cấp user_id.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1797,6 +1816,18 @@ class UserProfileUpdateAPIView(APIView):
                     success, msg = update_keycloak_password(user.username, new_password)
                     if not success:
                         return Response({'error': f"Đổi mật khẩu trên Keycloak thất bại: {msg}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if email is not None:
+            # Check unique email
+            if User.objects.filter(email=email).exclude(id=user_id).exists():
+                return Response({'error': 'Email này đã được sử dụng bởi tài khoản khác.'}, status=status.HTTP_400_BAD_REQUEST)
+            from django.conf import settings
+            if getattr(settings, 'USE_KEYCLOAK', False):
+                update_keycloak_user_details(old_username=user.username, email=email)
+            user.email = email
+
+        if phone_number is not None:
+            user.phone_number = phone_number
 
         if full_name is not None:
             from django.conf import settings
@@ -2438,6 +2469,9 @@ class SystemSettingAPIView(APIView):
         return Response(config, status=status.HTTP_200_OK)
 
     def post(self, request):
+        if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
+            return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa cấu hình hệ thống."}, status=status.HTTP_403_FORBIDDEN)
+            
         from .models import SystemSetting
         config = request.data
         setting_obj, created = SystemSetting.objects.update_or_create(
@@ -2551,6 +2585,12 @@ class BackgroundTasksReprocessAPIView(APIView):
         if lesson_id:
             try:
                 lp = LessonPlan.objects.get(id=lesson_id)
+                # Kiểm tra quyền: Chỉ Admin hoặc người tạo bài giảng mới có quyền chạy lại
+                if not request.user or not request.user.is_authenticated:
+                    return Response({"error": "Bạn cần đăng nhập để thực hiện tác vụ này."}, status=status.HTTP_401_UNAUTHORIZED)
+                if request.user.role != 'ADMIN' and lp.creator != request.user:
+                    return Response({"error": "Bạn không có quyền yêu cầu chạy lại xử lý cho bài giảng này."}, status=status.HTTP_403_FORBIDDEN)
+                    
                 # Dọn dẹp sạch sẽ dữ liệu cũ trước khi đưa vào hàng chờ
                 clear_lesson_plan_rag_data(lp)
                 
@@ -2569,7 +2609,10 @@ class BackgroundTasksReprocessAPIView(APIView):
             except LessonPlan.DoesNotExist:
                 return Response({"error": "Không tìm thấy bài học tương ứng"}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            # Tái xử lý toàn bộ tài liệu trên hệ thống
+            # Tái xử lý toàn bộ tài liệu trên hệ thống (Chỉ Admin được làm việc này)
+            if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
+                return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền tái xử lý toàn bộ hệ thống."}, status=status.HTTP_403_FORBIDDEN)
+                
             # 1. Xóa toàn bộ database chunks phục vụ RAG
             DocumentChunk.objects.all().delete()
             
@@ -2618,13 +2661,25 @@ class BackgroundTasksStopAPIView(APIView):
         from .bg_processor import BackgroundProcessManager
         
         if stop_all:
+            if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
+                return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền dừng toàn bộ tiến trình hệ thống."}, status=status.HTTP_403_FORBIDDEN)
             BackgroundProcessManager.cancel_all_tasks()
             return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
             
         if lesson_id:
             try:
+                from .models import LessonPlan
+                lp = LessonPlan.objects.get(id=lesson_id)
+                # Chỉ Admin hoặc người tạo bài giảng mới có quyền dừng
+                if not request.user or not request.user.is_authenticated:
+                    return Response({"error": "Bạn cần đăng nhập để thực hiện tác vụ này."}, status=status.HTTP_401_UNAUTHORIZED)
+                if request.user.role != 'ADMIN' and lp.creator != request.user:
+                    return Response({"error": "Bạn không có quyền dừng tiến trình của bài học này."}, status=status.HTTP_403_FORBIDDEN)
+                    
                 BackgroundProcessManager.cancel_task(int(lesson_id))
                 return Response({"message": f"Đã gửi yêu cầu dừng xử lý bài học ID {lesson_id} thành công!"}, status=status.HTTP_200_OK)
+            except LessonPlan.DoesNotExist:
+                return Response({"error": "Không tìm thấy bài học tương ứng"}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 return Response({"error": f"Lỗi khi dừng: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
@@ -2637,6 +2692,9 @@ class BackgroundTasksResumeAPIView(APIView):
     bắt đầu tại điểm đã dừng mà không xóa dữ liệu các bài giảng đã COMPLETED.
     """
     def post(self, request):
+        if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
+            return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền tiếp tục các tiến trình chạy ngầm toàn hệ thống."}, status=status.HTTP_403_FORBIDDEN)
+            
         ai_mode = request.data.get('ai_mode')
         local_model = request.data.get('local_model')
         api_key = request.data.get('api_key')
@@ -2812,5 +2870,275 @@ class ObsidianNotesByLessonAPIView(APIView):
         # Sắp xếp: note chính lên đầu, concept notes theo tên
         notes.sort(key=lambda x: (0 if x['type'] == 'lesson' else 1, x['title'].lower()))
         return Response(notes, status=200)
+
+
+def get_wikipedia_academic_definition(tag, subject, lesson_title):
+    import requests
+    import urllib.parse
+    
+    tag_clean = tag.strip()
+    url = f"https://vi.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles={urllib.parse.quote(tag_clean)}"
+    try:
+        headers = {'User-Agent': 'KMS-App/1.0 (contact@example.com)'}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            pages = data.get('query', {}).get('pages', {})
+            for page_id, page_data in pages.items():
+                if page_id != "-1":
+                    extract = page_data.get('extract', '').strip()
+                    if extract:
+                        sentences = [s.strip() for s in extract.split('.') if s.strip()]
+                        brief = ". ".join(sentences[:3])
+                        if not brief.endswith('.'):
+                            brief += '.'
+                        return brief
+    except Exception as e:
+        print(f"[Wikipedia Fallback] Failed for '{tag}': {e}")
+        
+    return (
+        f"Trong khoa học và giảng dạy học thuật, \"{tag_clean}\" đại diện cho một khái niệm, thực thể hoặc cơ chế "
+        f"được nghiên cứu chi tiết nhằm giải thích các hiện tượng liên quan trong phân môn \"{subject}\". "
+        f"Kiến thức này đóng vai trò cơ sở lý thuyết giúp định hình nhận thức khoa học của học sinh, "
+        f"tạo tiền đề giải quyết các câu hỏi thực tiễn được đặt ra trong bài giảng \"{lesson_title}\"."
+    )
+
+
+def check_note_edit_permission(user, filename):
+    if user.role == 'ADMIN':
+        return True
+
+    import re, os
+    from .bg_processor import BackgroundProcessManager
+    
+    vault_path = BackgroundProcessManager.get_vault_path()
+    file_path = os.path.join(vault_path, filename)
+    if not os.path.exists(file_path):
+        return False
+        
+    title = filename[:-3] if filename.lower().endswith('.md') else filename
+    
+    managed_dir_ids = get_user_managed_directories(user)
+    user_allowed_lessons = LessonPlan.objects.filter(
+        Q(creator=user) | Q(directories__id__in=managed_dir_ids)
+    ).distinct()
+    
+    # Check matching title
+    for lesson in user_allowed_lessons:
+        clean_title = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lesson.title).strip()
+        if clean_title == title:
+            return True
+            
+    # Check if lesson references are in the file content
+    try:
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except Exception:
+        content = ""
+        
+    for lesson in user_allowed_lessons:
+        clean_title = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lesson.title).strip()
+        if f"[[{lesson.title}]]" in content or f"[[{clean_title}]]" in content:
+            return True
+            
+    return False
+
+
+class ObsidianNoteSaveAPIView(APIView):
+    """
+    API lưu nội dung chỉnh sửa thủ công của WikiNote và ghi nhận lịch sử.
+    """
+    def post(self, request):
+        import os
+        from .bg_processor import BackgroundProcessManager
+        from .models import WikiNoteEditHistory
+        
+        filename = request.data.get('filename')
+        content = request.data.get('content')
+        user_id = request.data.get('user_id')
+        
+        if not filename or content is None or not user_id:
+            return Response({"error": "Thiếu các tham số bắt buộc (filename, content, user_id)"}, status=400)
+            
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "Không tìm thấy người dùng"}, status=400)
+            
+        if not check_note_edit_permission(user, filename):
+            return Response({"error": "Bạn không có quyền chỉnh sửa ghi chú này"}, status=403)
+            
+        vault_path = BackgroundProcessManager.get_vault_path()
+        file_path = os.path.join(vault_path, filename)
+        
+        if not os.path.exists(file_path):
+            return Response({"error": "Ghi chú không tồn tại"}, status=404)
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content_before = f.read()
+                
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                
+            # Ghi lại lịch sử
+            WikiNoteEditHistory.objects.create(
+                filename=filename,
+                edited_by=user,
+                content_before=content_before,
+                content_after=content,
+                change_type='MANUAL'
+            )
+            return Response({"success": True, "message": "Đã lưu ghi chú thành công!"}, status=200)
+        except Exception as e:
+            return Response({"error": f"Lỗi lưu ghi chú: {str(e)}"}, status=500)
+
+
+class ObsidianNoteRegenerateAPIView(APIView):
+    """
+    API gọi AI sinh lại định nghĩa cho ghi chú khái niệm và ghi nhận lịch sử.
+    """
+    def post(self, request):
+        import os, re
+        from .bg_processor import BackgroundProcessManager
+        from .llm_runner import generate_llm_response
+        from .models import WikiNoteEditHistory
+        
+        filename = request.data.get('filename')
+        user_id = request.data.get('user_id')
+        
+        # AI Configs
+        ai_mode = request.data.get('ai_mode', 'local')
+        local_model = request.data.get('local_model', '3b')
+        api_key = request.data.get('api_key', None)
+        api_model = request.data.get('api_model', None)
+        
+        if not filename or not user_id:
+            return Response({"error": "Thiếu các tham số bắt buộc (filename, user_id)"}, status=400)
+            
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "Không tìm thấy người dùng"}, status=400)
+            
+        if not check_note_edit_permission(user, filename):
+            return Response({"error": "Bạn không có quyền chỉnh sửa ghi chú này"}, status=403)
+            
+        vault_path = BackgroundProcessManager.get_vault_path()
+        file_path = os.path.join(vault_path, filename)
+        
+        if not os.path.exists(file_path):
+            return Response({"error": "Ghi chú không tồn tại"}, status=404)
+            
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                content_before = f.read()
+                
+            # Trích xuất khái niệm từ filename
+            tag = filename[:-3] if filename.lower().endswith('.md') else filename
+            tag = tag.replace('_', ' ').strip()
+            
+            # Tìm kiếm lesson liên kết đầu tiên trong content_before để lấy ngữ cảnh môn học
+            lesson_links = re.findall(r'\[\[(.*?)\]\]', content_before)
+            lp = None
+            if lesson_links:
+                for link in lesson_links:
+                    clean_link = re.sub(r'[\/:*?"<>|\r\n\t]', '_', link).strip()
+                    try:
+                        lp = LessonPlan.objects.filter(Q(title=link) | Q(title=clean_link)).first()
+                        if lp:
+                            break
+                    except Exception:
+                        pass
+            
+            subject = lp.attributes.get('Môn học', 'giáo dục') if (lp and isinstance(lp.attributes, dict)) else 'giáo dục'
+            lesson_title = lp.title if lp else 'bài học liên quan'
+            
+            prompt_concept = (
+                f"Viết 2-3 câu mô tả học thuật súc tích về khái niệm \"{tag}\" "
+                f"trong bối cảnh môn học \"{subject}\" và bài học \"{lesson_title}\". "
+                f"Chỉ mô tả bản chất/định nghĩa của khái niệm, không giải thích bài giảng. "
+                f"Bắt buộc viết 100% bằng tiếng Việt chuẩn, học thuật, ngắn gọn, không dùng gạch đầu dòng. "
+                f"Tuyệt đối không sử dụng bất kỳ từ ngữ hay ký tự tiếng nước ngoài nào (đặc biệt là chữ Hán/tiếng Trung như 硅藻门, tiếng Anh...)."
+            )
+            
+            model_choice = 'api' if ai_mode == 'api' else local_model
+            
+            concept_description = generate_llm_response(
+                prompt=prompt_concept,
+                system_prompt=(
+                    "Bạn là chuyên gia học thuật Việt Nam. Nhiệm vụ: viết định nghĩa/mô tả học thuật "
+                    "ngắn gọn (2-3 câu) cho một khái niệm khoa học/giáo dục. "
+                    "Bắt buộc trả về câu trả lời hoàn toàn bằng tiếng Việt phổ thông. "
+                    "Tuyệt đối không chèn chữ Hán, tiếng Trung, tiếng Anh hay ký tự lạ. "
+                    "Không dùng bullet points. Chỉ trả về đoạn văn mô tả, không thêm tiêu đề hay giải thích."
+                ),
+                model_choice=model_choice,
+                api_key=api_key if ai_mode == 'api' else None,
+                model_name=api_model if ai_mode == 'api' else None
+            ).strip()
+
+            if concept_description.startswith("### 💬 Xin chào!") or "Trợ lý AI" in concept_description or not concept_description.strip():
+                concept_description = get_wikipedia_academic_definition(tag, subject, lesson_title)
+            
+            for prefix in ["Khái niệm:", "Định nghĩa:", f"{tag}:", "**", "*"]:
+                if concept_description.lower().startswith(prefix.lower()):
+                    concept_description = concept_description[len(prefix):].strip()
+                    
+            # Dựng lại cấu trúc file Obsidian Note
+            yaml_block = "---\ntype: \"concept\"\nname: \"{}\"\nsubject: \"{}\"\n---".format(tag, subject)
+            yaml_match = re.search(r'^---\n(.+?)\n---', content_before, re.DOTALL)
+            if yaml_match:
+                yaml_block = f"---\n{yaml_match.group(1)}\n---"
+                
+            related_lessons_block = "## Các bài học liên quan:\n"
+            lessons_match = re.search(r'## Các bài học liên quan:\n(.*)', content_before, re.DOTALL)
+            if lessons_match:
+                related_lessons_block += lessons_match.group(1).strip()
+            elif lp:
+                related_lessons_block += f"- 📚 [[{lp.title}]]\n"
+                
+            new_content = f"{yaml_block}\n\n# {tag}\n\n{concept_description}\n\n{related_lessons_block}\n"
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+                
+            # Ghi lịch sử
+            WikiNoteEditHistory.objects.create(
+                filename=filename,
+                edited_by=user,
+                content_before=content_before,
+                content_after=new_content,
+                change_type='AI_REGEN'
+            )
+            return Response({"success": True, "content": new_content, "message": "Đã tạo lại ghi chú bằng AI thành công!"}, status=200)
+        except Exception as e:
+            return Response({"error": f"Lỗi sinh lại bằng AI: {str(e)}"}, status=500)
+
+
+class ObsidianNoteHistoryAPIView(APIView):
+    """
+    API trả về danh sách lịch sử chỉnh sửa của một ghi chú.
+    """
+    def get(self, request):
+        from .models import WikiNoteEditHistory
+        filename = request.query_params.get('filename')
+        if not filename:
+            return Response({"error": "Vui lòng cung cấp filename"}, status=400)
+            
+        histories = WikiNoteEditHistory.objects.filter(filename=filename).order_by('-edited_at')
+        data = []
+        for h in histories:
+            data.append({
+                "id": h.id,
+                "filename": h.filename,
+                "edited_by": h.edited_by.full_name or h.edited_by.username,
+                "content_before": h.content_before,
+                "content_after": h.content_after,
+                "change_type": h.change_type,
+                "edited_at": h.edited_at.isoformat()
+            })
+        return Response(data, status=200)
+
 
 

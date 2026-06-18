@@ -126,3 +126,88 @@ def get_embedding(text, api_key=None, provider="local"):
 
     # 3. Fallback mặc định 100% thành công và ổn định offline
     return generate_deterministic_embedding(text)
+
+def get_embeddings_batch(texts, api_key=None, provider="local"):
+    """
+    Sinh vector embedding 1536 chiều cho một danh sách văn bản (Batch processing).
+    """
+    if not texts:
+        return []
+    
+    # 1. API OpenAI (Hỗ trợ truyền list đầu vào trực tiếp)
+    if provider == "api" and api_key:
+        try:
+            url = "https://api.openai.com/v1/embeddings"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            data = json.dumps({
+                "model": "text-embedding-3-small",
+                "input": texts
+            }).encode('utf-8')
+            
+            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=15) as response:
+                res_data = json.loads(response.read().decode('utf-8'))
+                results = [item["embedding"] for item in res_data["data"]]
+                return results
+        except Exception as e:
+            print(f"Error calling OpenAI Batch Embedding: {e}. Falling back to individual/deterministic.")
+
+    # 2. Ollama cục bộ (Sử dụng endpoint /api/embed nếu hỗ trợ list input, hoặc gọi song song qua ThreadPool)
+    if provider == "local" and _check_ollama_once():
+        # Thử gửi toàn bộ list lên Ollama qua api /api/embed (phiên bản mới hỗ trợ)
+        try:
+            url = "http://127.0.0.1:11434/api/embed"
+            data = json.dumps({
+                "model": "nomic-embed-text",
+                "input": texts
+            }).encode('utf-8')
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=30) as response:
+                res_data = json.loads(response.read().decode('utf-8'))
+                embeddings = res_data.get("embeddings", [])
+                
+                # Chuẩn hóa độ dài 1536 chiều cho từng vector
+                normalized_embeddings = []
+                for emb in embeddings:
+                    if len(emb) == 1536:
+                        normalized_embeddings.append(emb)
+                    elif len(emb) < 1536:
+                        normalized_embeddings.append(emb + [0.0] * (1536 - len(emb)))
+                    else:
+                        normalized_embeddings.append(emb[:1536])
+                if len(normalized_embeddings) == len(texts):
+                    return normalized_embeddings
+        except Exception:
+            # Fallback nếu Ollama /api/embed lỗi (phiên bản cũ) - gọi song song sử dụng ThreadPool
+            pass
+
+        # Fallback chạy parallel cho từng phần tử bằng ThreadPool nếu Ollama /api/embed không được hỗ trợ
+        from concurrent.futures import ThreadPoolExecutor
+        def get_single_ollama(t):
+            try:
+                url = "http://127.0.0.1:11434/api/embeddings"
+                data = json.dumps({
+                    "model": "nomic-embed-text",
+                    "prompt": t
+                }).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    emb = res_data["embedding"]
+                    if len(emb) == 1536:
+                        return emb
+                    elif len(emb) < 1536:
+                        return emb + [0.0] * (1536 - len(emb))
+                    else:
+                        return emb[:1536]
+            except Exception:
+                return generate_deterministic_embedding(t)
+        
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            return list(executor.map(get_single_ollama, texts))
+
+    # 3. Fallback mặc định dùng deterministic offline
+    return [generate_deterministic_embedding(text) for text in texts]
