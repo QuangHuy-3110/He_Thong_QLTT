@@ -1924,6 +1924,7 @@ export default function App() {
     if (!currentUser) return;
     setHistoryLoading(true);
     setShowHistoryModal(true);
+    try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const res = await fetch(`${cleanBase}/api/lesson-plans/${lessonId}/history/?user_id=${currentUser.id}`);
