@@ -38,7 +38,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-0+6my_fpqv8_y&pa-id7c
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -60,6 +60,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'corsheaders.middleware.CorsMiddleware', 
@@ -148,6 +149,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 AUTH_USER_MODEL = 'app.User'
 
