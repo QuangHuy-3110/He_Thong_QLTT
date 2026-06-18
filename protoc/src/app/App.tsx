@@ -30,7 +30,9 @@ const getFileUrl = (url: string | undefined | null) => {
     mediaPath = '/media/' + path;
   }
 
-  return 'http://127.0.0.1:8000' + mediaPath;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+  return cleanBase + mediaPath;
 };
 
 const getLessonFileUrl = (lesson: LessonPlan) => {
@@ -1385,6 +1387,11 @@ function renderSnippet(content: string | undefined | null, query: string): React
   );
 }
 
+// Set global Axios API Base URL from Vite environment variables for production deployments
+if (import.meta.env.VITE_API_BASE_URL) {
+  axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
+}
+
 // Add global Axios interceptor to attach Keycloak JWT token to Authorization header
 axios.interceptors.request.use(
   (config) => {
@@ -1916,8 +1923,9 @@ export default function App() {
     if (!currentUser) return;
     setHistoryLoading(true);
     setShowHistoryModal(true);
-    try {
-      const res = await fetch(`http://localhost:8000/api/lesson-plans/${lessonId}/history/?user_id=${currentUser.id}`);
+      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const res = await fetch(`${cleanBase}/api/lesson-plans/${lessonId}/history/?user_id=${currentUser.id}`);
       if (res.ok) {
         const data = await res.json();
         setEditHistory(data);

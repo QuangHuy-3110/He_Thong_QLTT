@@ -40,8 +40,7 @@ export default function SearchPage() {
       setLoading(true);
       setError('');
 
-      try {
-        const response = await axios.get<BackendLessonPlan[]>('http://localhost:8000/api/lesson-plans/', {
+        const response = await axios.get<BackendLessonPlan[]>('/api/lesson-plans/', {
           signal: controller.signal,
         });
 
