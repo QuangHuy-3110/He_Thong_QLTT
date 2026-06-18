@@ -1389,7 +1389,8 @@ function renderSnippet(content: string | undefined | null, query: string): React
 
 // Set global Axios API Base URL from Vite environment variables for production deployments
 if (import.meta.env.VITE_API_BASE_URL) {
-  axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
+  const apiBase = import.meta.env.VITE_API_BASE_URL;
+  axios.defaults.baseURL = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
 }
 
 // Add global Axios interceptor to attach Keycloak JWT token to Authorization header
