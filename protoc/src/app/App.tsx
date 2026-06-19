@@ -2567,7 +2567,9 @@ export default function App() {
       if (upDirId) formData.append('directory_id', upDirId);
       formData.append('file', upFile);
 
-      const response = await fetch('/api/lesson-plans/upload/', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const response = await fetch(`${cleanApiBase}/api/lesson-plans/upload/`, {
         method: 'POST',
         body: formData
       });
@@ -2591,7 +2593,9 @@ export default function App() {
   const handleDeleteLesson = async (id: number) => {
     if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
     try {
-      await fetch(`/api/lesson-plans/${id}/`, { method: 'DELETE' });
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      await fetch(`${cleanApiBase}/api/lesson-plans/${id}/`, { method: 'DELETE' });
       alert('Xóa thành công!');
       
       // Update local state directly to avoid full DB reload
@@ -2690,7 +2694,9 @@ export default function App() {
         formData.append('file_path', editFile);
       }
 
-      const response = await fetch(`/api/lesson-plans/${editingLesson.id}/`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const response = await fetch(`${cleanApiBase}/api/lesson-plans/${editingLesson.id}/`, {
         method: 'PATCH',
         body: formData
       });

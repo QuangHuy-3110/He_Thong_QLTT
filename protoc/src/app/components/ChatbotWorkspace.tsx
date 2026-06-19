@@ -1028,7 +1028,9 @@ export default function ChatbotWorkspace({
         focus_lesson_id: focusLessonId || undefined
       };
 
-      const response = await fetch(`/api/chat-sessions/${activeSession.id}/send/`, {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const response = await fetch(`${cleanApiBase}/api/chat-sessions/${activeSession.id}/send/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
