@@ -11,7 +11,7 @@ from .views import (
     LessonPlanWithdrawAPIView, LessonPlanParseDocxAPIView,
     LessonPlanCheckDuplicateAPIView,
     AIChatSessionListCreateAPIView, AIChatSessionDetailAPIView,
-    AIChatSendMessageAPIView, AIChatGraphDataAPIView,
+    AIChatSendMessageAPIView, AIChatGraphDataAPIView, AIChatSessionAutoNameAPIView,
     SystemSettingAPIView, BackgroundTasksStatusAPIView, ObsidianStatusAPIView,
     BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView,
     ObsidianNotesByLessonAPIView, BackgroundTasksStopAPIView, BackgroundTasksResumeAPIView,
@@ -49,6 +49,7 @@ urlpatterns = [
     path('chat-sessions/', AIChatSessionListCreateAPIView.as_view(), name='chat-sessions-list-create'),
     path('chat-sessions/<int:pk>/', AIChatSessionDetailAPIView.as_view(), name='chat-sessions-detail'),
     path('chat-sessions/<int:pk>/send/', AIChatSendMessageAPIView.as_view(), name='chat-sessions-send'),
+    path('chat-sessions/<int:pk>/auto-name/', AIChatSessionAutoNameAPIView.as_view(), name='chat-sessions-auto-name'),
     path('chat-graph/', AIChatGraphDataAPIView.as_view(), name='chat-graph'),
     
     # New KMS Rebuild APIs

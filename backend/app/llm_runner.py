@@ -377,6 +377,36 @@ def generate_simulated_rag_response(prompt):
     prompt_lower = prompt.lower()
     import re
 
+    # Kiểm tra nếu đây là yêu cầu đặt tiêu đề cho cuộc hội thoại
+    if "đặt một tiêu đề" in prompt_lower or "tiêu đề cực kỳ ngắn gọn" in prompt_lower:
+        content = ""
+        quote_match = re.search(r'\"([^\"]+)\"', prompt)
+        if quote_match:
+            content = quote_match.group(1).strip()
+        else:
+            lines = prompt.split('\n')
+            for line in reversed(lines):
+                if line.strip() and not line.startswith("Hãy đặt") and not line.startswith("khái quát"):
+                    content = line.strip()
+                    break
+        
+        if content:
+            words_to_remove = ["hãy", "cho", "tôi", "biết", "về", "như", "thế", "nào", "là", "gì", "những", "câu", "hỏi", "bài", "giảng", "giáo", "án"]
+            clean_words = []
+            for w in content.split():
+                w_clean = w.strip('.,?!;:"\'()[]{}-“”‘’').lower()
+                if w_clean not in words_to_remove and len(w_clean) > 1:
+                    clean_words.append(w)
+            
+            title_words = clean_words[:5]
+            if title_words:
+                title = " ".join(title_words)
+                title = title[0].upper() + title[1:]
+                return title
+            else:
+                return content[:30] + "..." if len(content) > 30 else content
+        return "Cuộc trò chuyện mới"
+
     # Extract user's actual question to prevent false matches with system RAG context words (like "tổng số")
     user_query = ""
     if "CÂU HỎI NGƯỜI DÙNG:" in prompt:

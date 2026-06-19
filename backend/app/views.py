@@ -2060,6 +2060,59 @@ class AIChatSessionDetailAPIView(APIView):
             return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
 
 
+class AIChatSessionAutoNameAPIView(APIView):
+    """
+    API View để tự động đặt tên cho cuộc hội thoại bằng AI dựa trên toàn bộ nội dung trò chuyện hiện có.
+    """
+    def post(self, request, pk):
+        from .models import AIChatSession, AIChatMessage
+        from .serializers import AIChatSessionSerializer
+        try:
+            session = AIChatSession.objects.get(id=pk)
+            # Lấy tất cả tin nhắn của người dùng để hiểu ngữ cảnh
+            user_messages = AIChatMessage.objects.filter(session=session, sender_role='USER').order_by('created_at')
+            if not user_messages.exists():
+                return Response({'error': 'Không có tin nhắn nào từ người dùng để đặt tên.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Kết hợp các tin nhắn đầu tiên của người dùng
+            context_text = "\n".join([m.content for m in user_messages[:3]])
+            
+            title_prompt = (
+                f"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép, không thêm bất kỳ từ giải thích nào khác) "
+                f"khái quát chủ đề của cuộc hội thoại sau:\n"
+                f"\"{context_text}\""
+            )
+            
+            model_choice = request.data.get('model_choice', '3b')
+            api_key = request.data.get('api_key')
+            model_name = request.data.get('model_name')
+            
+            from .llm_runner import generate_llm_response
+            try:
+                generated_title = generate_llm_response(
+                    prompt=title_prompt,
+                    system_prompt="Bạn là trợ lý đặt tên tiêu đề ngắn gọn cho cuộc hội thoại bằng tiếng Việt.",
+                    model_choice=model_choice,
+                    api_key=api_key,
+                    model_name=model_name
+                )
+                generated_title = generated_title.strip().strip('"').strip("'").strip('“').strip('”').strip('.').strip()
+                if generated_title and len(generated_title) <= 60 and not generated_title.startswith("###"):
+                    session.title = generated_title
+                else:
+                    first_msg = user_messages[0].content
+                    session.title = first_msg[:47] + "..." if len(first_msg) > 50 else first_msg
+            except Exception:
+                first_msg = user_messages[0].content
+                session.title = first_msg[:47] + "..." if len(first_msg) > 50 else first_msg
+            
+            session.save(update_fields=['title'])
+            serializer = AIChatSessionSerializer(session)
+            return Response(serializer.data)
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Phiên trò chuyện không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
+
+
 class KeycloakMockLoginAPIView(APIView):
     """
     API giả lập xác thực Keycloak (OIDC SSO Portal Simulation).
@@ -2260,7 +2313,7 @@ class AIChatSendMessageAPIView(APIView):
                     
         # 1. Tự động đặt tên tiêu đề cho phiên chat dựa trên tin nhắn đầu tiên của người dùng
         user_msg_count = AIChatMessage.objects.filter(session=session, sender_role='USER').count()
-        if user_msg_count == 0:
+        if user_msg_count == 0 or session.title == "Cuộc trò chuyện mới":
             title_prompt = (
                 f"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép, không thêm bất kỳ từ giải thích nào khác) "
                 f"khái quát chủ đề của câu hỏi sau:\n"
@@ -2276,7 +2329,7 @@ class AIChatSendMessageAPIView(APIView):
                     model_name=model_name
                 )
                 generated_title = generated_title.strip().strip('"').strip("'").strip('“').strip('”').strip('.').strip()
-                if generated_title and len(generated_title) <= 60:
+                if generated_title and len(generated_title) <= 60 and not generated_title.startswith("###"):
                     session.title = generated_title
                 else:
                     session.title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
@@ -2380,10 +2433,9 @@ class AIChatSendMessageAPIView(APIView):
             meta_payload = {
                 'type': 'meta',
                 'retrieved_graph': rag_data['retrieved_graph'],
-                'suggested_questions': rag_data['suggested_questions']
+                'suggested_questions': rag_data['suggested_questions'],
+                'session_title': session.title
             }
-            if user_msg_count == 0:
-                meta_payload['session_title'] = session.title
             yield f"data: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
 
             # Bước 2: Stream câu trả lời của AI

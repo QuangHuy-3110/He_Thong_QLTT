@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { 
-  Send, Bot, User, Sparkles, Plus, Trash2, 
+  Send, Bot, User, Sparkles, Plus, Trash2, Edit2,
   X, Check, Layers, Compass, Cpu, MessageSquare,
   GripVertical, Activity, Settings, Link, FileText,
   BookOpen, FolderOpen, Copy, CheckCheck, RefreshCw
@@ -86,6 +86,9 @@ export default function ChatbotWorkspace({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sending, setSending] = useState(false);
   const [loadingGraph, setLoadingGraph] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [editingTitleText, setEditingTitleText] = useState<string>('');
+  const [namingLoaderId, setNamingLoaderId] = useState<number | null>(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([
     "Tóm tắt các tài liệu Sinh học lớp 10?",
     "Làm thế nào để tránh trùng lặp khi đăng giáo án?",
@@ -806,15 +809,23 @@ export default function ChatbotWorkspace({
           const latestSession = contextSessions[0];
           const hasInteraction = latestSession.messages && latestSession.messages.some(m => m.sender_role === 'USER');
           if (hasInteraction) {
-            // Có tương tác trước đó -> tự động tạo cuộc trò chuyện mới để chào người dùng
-            handleCreateSession(focusLessonId || undefined);
+            if (isOpen) {
+              // Có tương tác trước đó và chatbot đang mở -> tự động tạo cuộc trò chuyện mới để chào người dùng
+              handleCreateSession(focusLessonId || undefined);
+            } else {
+              // Không tạo phiên mới nếu chatbot đang đóng -> chỉ load lại phiên cũ để hiển thị lịch sử
+              loadSessionDetails(latestSession.id);
+            }
           } else {
             // Không có tương tác -> không tạo mới, load lại phiên trống trước đó
             loadSessionDetails(latestSession.id);
           }
         } else {
-          // Chưa có phiên nào trong ngữ cảnh này -> tạo mới
-          handleCreateSession(focusLessonId || undefined);
+          // Chưa có phiên nào trong ngữ cảnh này.
+          // Chỉ tạo mới nếu chatbot đang mở để tránh tự động tạo các phiên trống không dùng đến khi tải trang
+          if (isOpen) {
+            handleCreateSession(focusLessonId || undefined);
+          }
         }
       }
     } catch (err) {
@@ -909,6 +920,43 @@ export default function ChatbotWorkspace({
       // Silent fail — title rename is non-critical
     }
   }, []);
+
+  // Handle manual title save
+  const handleSaveTitle = async (sessionId: number, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    try {
+      await axios.patch(`/api/chat-sessions/${sessionId}/`, { title: newTitle.trim() });
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle.trim() } : s));
+      setActiveSession(prev => prev && prev.id === sessionId ? { ...prev, title: newTitle.trim() } : prev);
+      setEditingSessionId(null);
+    } catch (err) {
+      console.error('Error saving session title:', err);
+    }
+  };
+
+  // Handle AI auto naming for a session
+  const handleAutoName = async (sessionId: number) => {
+    setNamingLoaderId(sessionId);
+    try {
+      const payload = {
+        model_choice: aiMode === 'api' ? 'api' : localModel,
+        api_key: aiMode === 'api' ? apiKey : undefined,
+        model_name: aiMode === 'api' ? apiModel : undefined
+      };
+      const res = await axios.post(`/api/chat-sessions/${sessionId}/auto-name/`, payload);
+      if (res.data && res.data.title) {
+        const newTitle = res.data.title;
+        setEditingTitleText(newTitle);
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title: newTitle } : s));
+        setActiveSession(prev => prev && prev.id === sessionId ? { ...prev, title: newTitle } : prev);
+      }
+    } catch (err) {
+      console.error('Error auto naming session:', err);
+      alert('Không thể tự động đặt tên. Phiên trò chuyện cần có ít nhất một tin nhắn từ người dùng.');
+    } finally {
+      setNamingLoaderId(null);
+    }
+  };
 
   // Copy AI message to clipboard
   const handleCopyMessage = useCallback((msgId: number, content: string) => {
@@ -1508,28 +1556,50 @@ export default function ChatbotWorkspace({
 
   // Synchronize active chat session when focusLessonId or isOpen changes, but only if chatbot is open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || loadingHistory) return;
 
     if (focusLessonId) {
       const existing = sessions.find(s => s.lesson_plan === focusLessonId);
       if (existing) {
-        if (!activeSession || activeSession.id !== existing.id) {
-          loadSessionDetails(existing.id);
+        const hasInteraction = existing.messages && existing.messages.some(m => m.sender_role === 'USER');
+        if (hasInteraction) {
+          if (activeSession && activeSession.id === existing.id) {
+            // Nếu phiên hiện tại đã có tương tác, tạo phiên mới khi mở chatbot
+            handleCreateSession(focusLessonId);
+          } else if (!activeSession) {
+            handleCreateSession(focusLessonId);
+          }
+        } else {
+          if (!activeSession || activeSession.id !== existing.id) {
+            loadSessionDetails(existing.id);
+          }
         }
       } else {
         handleCreateSession(focusLessonId);
       }
     } else {
-      if (!activeSession || activeSession.lesson_plan) {
-        const generalSession = sessions.find(s => !s.lesson_plan);
-        if (generalSession) {
-          loadSessionDetails(generalSession.id);
+      const generalSession = sessions.find(s => !s.lesson_plan);
+      if (generalSession) {
+        const hasInteraction = generalSession.messages && generalSession.messages.some(m => m.sender_role === 'USER');
+        if (hasInteraction) {
+          if (activeSession && activeSession.id === generalSession.id) {
+            // Nếu phiên hiện tại đã có tương tác, tạo phiên mới khi mở chatbot
+            handleCreateSession(undefined);
+          } else if (!activeSession) {
+            handleCreateSession(undefined);
+          }
         } else {
+          if (!activeSession || activeSession.lesson_plan) {
+            loadSessionDetails(generalSession.id);
+          }
+        }
+      } else {
+        if (!activeSession || activeSession.lesson_plan) {
           handleCreateSession(undefined);
         }
       }
     }
-  }, [focusLessonId, isOpen, sessions.length]);
+  }, [focusLessonId, isOpen, sessions, activeSession, loadingHistory]);
 
   // Auto-scroll chat area
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -2880,16 +2950,21 @@ export default function ChatbotWorkspace({
                       ) : (
                         sessions.map(s => {
                           const isActive = activeSession && activeSession.id === s.id;
+                          const isEditing = editingSessionId === s.id;
                           return (
                             <div
                               key={s.id}
-                              onClick={() => loadSessionDetails(s.id)}
+                              onClick={() => {
+                                if (!isEditing) {
+                                  loadSessionDetails(s.id);
+                                }
+                              }}
                               style={{
                                 padding: '8px',
                                 borderRadius: '8px',
                                 border: `1px solid ${isActive ? '#3b82f6' : '#e2e8f0'}`,
                                 background: isActive ? '#eff6ff' : '#fff',
-                                cursor: 'pointer',
+                                cursor: isEditing ? 'default' : 'pointer',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
@@ -2897,38 +2972,136 @@ export default function ChatbotWorkspace({
                                 position: 'relative',
                               }}
                             >
-                              <span style={{
-                                fontSize: '10px',
-                                fontWeight: isActive ? 700 : 500,
-                                color: isActive ? '#1d4ed8' : '#475569',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                paddingRight: '16px',
-                              }}>{s.title}</span>
-                              <button
-                                onClick={(e) => handleDeleteSession(s.id, e)}
-                                style={{
-                                  position: 'absolute',
-                                  right: '6px',
-                                  top: '50%',
-                                  transform: 'translateY(-50%)',
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#94a3b8',
-                                  cursor: 'pointer',
-                                  padding: '2px',
-                                  borderRadius: '4px',
-                                  opacity: 0.5,
-                                  transition: 'opacity 0.15s',
-                                  display: 'flex',
-                                }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.color = '#ef4444'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.5'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
-                                title="Xóa"
-                              >
-                                <Trash2 className="w-2.5 h-2.5" />
-                              </button>
+                              {isEditing ? (
+                                <div style={{ display: 'flex', gap: '4px', width: '100%', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    value={editingTitleText}
+                                    onChange={e => setEditingTitleText(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        handleSaveTitle(s.id, editingTitleText);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingSessionId(null);
+                                      }
+                                    }}
+                                    style={{
+                                      fontSize: '10px',
+                                      padding: '2px 4px',
+                                      border: '1px solid #3b82f6',
+                                      borderRadius: '4px',
+                                      flexGrow: 1,
+                                      outline: 'none',
+                                      width: '0',
+                                    }}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => handleSaveTitle(s.id, editingTitleText)}
+                                    style={{
+                                      background: '#22c55e',
+                                      border: 'none',
+                                      color: '#fff',
+                                      borderRadius: '4px',
+                                      padding: '2px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                    }}
+                                    title="Lưu"
+                                  >
+                                    <Check className="w-2.5 h-2.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleAutoName(s.id)}
+                                    disabled={namingLoaderId === s.id}
+                                    style={{
+                                      background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                                      border: 'none',
+                                      color: '#fff',
+                                      borderRadius: '4px',
+                                      padding: '2px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      opacity: namingLoaderId === s.id ? 0.6 : 1,
+                                    }}
+                                    title="Tự động đặt tên bằng AI"
+                                  >
+                                    <Sparkles className={`w-2.5 h-2.5 ${namingLoaderId === s.id ? 'animate-spin' : ''}`} />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingSessionId(null)}
+                                    style={{
+                                      background: '#ef4444',
+                                      border: 'none',
+                                      color: '#fff',
+                                      borderRadius: '4px',
+                                      padding: '2px',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                    }}
+                                    title="Hủy"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span style={{
+                                    fontSize: '10px',
+                                    fontWeight: isActive ? 700 : 500,
+                                    color: isActive ? '#1d4ed8' : '#475569',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    paddingRight: '32px',
+                                    flexGrow: 1,
+                                  }}>{s.title}</span>
+                                  <div style={{ display: 'flex', gap: '4px', position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)' }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingSessionId(s.id);
+                                        setEditingTitleText(s.title);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        padding: '2px',
+                                        borderRadius: '4px',
+                                        opacity: 0.5,
+                                        transition: 'opacity 0.15s',
+                                        display: 'flex',
+                                      }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.color = '#3b82f6'; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.5'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+                                      title="Sửa tên"
+                                    >
+                                      <Edit2 className="w-2.5 h-2.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleDeleteSession(s.id, e)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        padding: '2px',
+                                        borderRadius: '4px',
+                                        opacity: 0.5,
+                                        transition: 'opacity 0.15s',
+                                        display: 'flex',
+                                      }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.color = '#ef4444'; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.5'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+                                      title="Xóa"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           );
                         })

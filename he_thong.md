@@ -72,7 +72,7 @@ graph TD
     *   **Framer Motion / Motion** cho các hiệu ứng chuyển động và micro-animations cao cấp.
 *   **Các thành phần giao diện đột phá mới:**
     *   **AI Processing Hub Timeline:** Một widget tuyệt đẹp hiển thị danh sách hàng chờ xử lý ngầm, tỉ lệ phần trăm tiến trình và sơ đồ Roadmap 5 bước nhấp nháy đèn LED động (Phase 1: Parse -> Phase 2: Chunking -> Phase 3: Embedding -> Phase 4: Concept Extraction -> Phase 5: Obsidian Sync). Polling dữ liệu tự động mỗi 3 giây từ API backend.
-    *   **Chatbot Workspace Floating Widget:** Hộp thoại bong bóng trò chuyện hỗ trợ kéo giãn kích thước linh hoạt (Resizable Widget), lưu trữ lịch sử session, tự động chuyển đổi tab chat khi có focus. Tích hợp **Conversational Focus Synchronization** ngầm để bind ngữ cảnh mà không tự động pop-up mở rộng gây phiền hà.
+    *   **Chatbot Workspace Floating Widget:** Hộp thoại bong bóng trò chuyện hỗ trợ kéo giãn kích thước linh hoạt (Resizable Widget), lưu trữ lịch sử session, tự động chuyển đổi tab chat khi có focus. Tích hợp **Conversational Focus Synchronization** ngầm để bind ngữ cảnh mà không tự động pop-up mở rộng gây phiền hà. Tối ưu hóa **Session Persistence**: Ngăn chặn tuyệt đối việc tự động tạo phiên chat trống dư thừa khi người dùng tải lại trang hoặc đăng nhập lại bằng cách chỉ khởi tạo phiên chat mới trong cơ sở dữ liệu khi chatbot đang thực sự mở (`isOpen === true`) và phiên hiện tại đã có tương tác thực sự từ phía người dùng.
     *   **Premium WikiNotes Tab View (Split-Pane)**: Tab thứ nhất cấp mới thay thế phần tích hợp ẩn trong cấu hình. Chia tách không gian thành 35% danh sách note và 65% trình đọc kính mờ cao cấp. Tích hợp bộ chuyển đổi **WikiLinks Obsidian** `[[Khái niệm]]` tương tác sang các Purple-glass Badges. Hỗ trợ **nút toggle lọc "Chỉ bài này / Tất cả"** để thu hẹp danh sách note hiển thị theo ngữ cảnh bài học đang chọn (gọi API `/api/obsidian/notes/by-lesson/`).
     *   **Custom Interactive Knowledge Graph Canvas & BFS Hops**: Bộ vẽ đồ thị 2D Force-Directed trên thẻ Canvas hiệu năng cao. Hỗ trợ cuộn phóng to/thu nhỏ (Zoom & Pan), kéo thả các nút, bôi sáng đường dẫn các nút tương ứng với RAG retrieval.
         *   **Hiển thị độ sâu liên kết (Multi-hop Edge Highlight)**: Khi nhấp chọn một thực thể hoặc tài liệu, hệ thống kích hoạt thuật toán duyệt BFS trên Client để tìm kiếm các thực thể liên kết theo độ sâu (1 đến 4 cạnh - Hops) cấu hình trực tiếp từ Pinned Popup.
@@ -419,6 +419,15 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
     - **Tự động đặt tên thông minh cho cuộc trò chuyện (AI Chat Session Auto-Naming)**:
         * Loại bỏ cơ chế cắt chuỗi thủ công ở phía client. Thay vào đó, khi người dùng gửi tin nhắn đầu tiên (`user_msg_count === 0`), backend Django (`AIChatSendMessageAPIView`) sẽ gọi mô hình LLM (Qwen hoặc API ngoài) với prompt chuyên biệt để tự động tóm tắt và sinh tiêu đề cực kỳ ngắn gọn (dưới 5 từ).
         * Tiêu đề mới được cập nhật vào cơ sở dữ liệu và truyền ngược về client theo luồng dữ liệu stream (trực tiếp trong payload loại `meta` đầu tiên). Phía client cập nhật tiêu đề trên thanh điều hướng lịch sử và khung tiêu đề chat theo thời gian thực mà không cần tải lại trang.
+
+*   **2026-06-19**: **Tích hợp Tự động và Thủ công đặt tên cuộc hội thoại AI (AI Auto-Naming & Manual Rename Integration)**:
+    - **Đặt tên tự động nâng cao (Advanced Auto-Naming)**:
+        * Hỗ trợ tự động đặt tên bằng AI khi gửi tin nhắn đầu tiên hoặc khi tiêu đề cuộc trò chuyện vẫn ở trạng thái mặc định ("Cuộc trò chuyện mới").
+        * Tối ưu hóa bộ mô phỏng offline `generate_simulated_rag_response` trong `llm_runner.py` để tự phân tích prompt sinh tiêu đề và trích xuất các từ khóa đặc trưng nhất từ câu hỏi của người dùng, tạo tiêu đề súc tích có nghĩa thay vì bị cắt cụt mặc định bằng dấu ba chấm (`...`).
+    - **Đổi tên cuộc trò chuyện thủ công & Đặt tên bằng AI bất kỳ lúc nào**:
+        * Bổ sung nút sửa tên (biểu tượng bút chì `Edit2`) cho từng mục cuộc trò chuyện trên Sidebar của Chatbot Workspace.
+        * Nhấp vào sửa tên sẽ kích hoạt ô nhập liệu inline thay thế tiêu đề hiện tại, cho phép sửa đổi thủ công và lưu trực tiếp qua API PATCH.
+        * Tích hợp nút đặt tên bằng AI (biểu tượng đốm sáng `Sparkles`) bên cạnh ô nhập liệu, cho phép người dùng click để gọi API `/api/chat-sessions/<id>/auto-name/` tự động tổng hợp nội dung các tin nhắn đã trò chuyện để sinh tiêu đề thông minh bằng LLM tại chỗ.
 
 *   **2026-06-17**: **Cải tiến WikiNotes, Phân quyền Bảo mật, Tối ưu hóa Tốc độ Nhúng Batch & Đồng bộ Xác thực**:
     - **Nâng cấp Giao diện WikiNotes**:
