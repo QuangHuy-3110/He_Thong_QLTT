@@ -58,7 +58,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
             return None
         try:
             return obj.file_path.path
-        except ValueError:
+        except (ValueError, NotImplementedError, AttributeError):
             return obj.file_path.name
 
     def get_latest_feedback(self, obj):
@@ -73,13 +73,36 @@ class LessonPlanSerializer(serializers.ModelSerializer):
             import os
             from .docx_parser import convert_docx_to_markdown
             try:
-                file_path = obj.file_path.path
-                if os.path.exists(file_path):
+                has_local_path = False
+                try:
+                    file_path = obj.file_path.path
+                    if os.path.exists(file_path):
+                        has_local_path = True
+                except (NotImplementedError, AttributeError, ValueError):
+                    has_local_path = False
+
+                if has_local_path:
+                    file_path = obj.file_path.path
                     markdown = convert_docx_to_markdown(file_path)
                     if markdown:
                         obj.content_preview = markdown
                         obj.save(update_fields=['content_preview'])
                         return markdown
+                else:
+                    # Nếu file được lưu trên Remote Storage, đọc file qua memory/tempfile
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                        temp_file.write(obj.file_path.read())
+                        temp_path = temp_file.name
+                    try:
+                        markdown = convert_docx_to_markdown(temp_path)
+                        if markdown:
+                            obj.content_preview = markdown
+                            obj.save(update_fields=['content_preview'])
+                            return markdown
+                    finally:
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
             except Exception as e:
                 print(f"Error parsing fallback docx: {e}")
         return obj.content_preview or ""
