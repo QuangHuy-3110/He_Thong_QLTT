@@ -21,11 +21,27 @@ class Directory(models.Model):
     is_public = models.BooleanField(default=False)
     attributes = models.JSONField(default=dict, blank=True, help_text="Lưu trữ các thuộc tính linh hoạt của thư mục (VD: môn học, cấp học...)")
 
+def remove_vietnamese_accents(input_str):
+    import unicodedata
+    s1 = u''.join(c for c in unicodedata.normalize('NFD', input_str) if unicodedata.category(c) != 'Mn')
+    s1 = s1.replace(u'đ', 'd').replace(u'Đ', 'D')
+    return s1
+
+def get_upload_path(instance, filename):
+    import os
+    import re
+    name, ext = os.path.splitext(filename)
+    name = remove_vietnamese_accents(name)
+    name = name.replace(' ', '_')
+    name = re.sub(r'[^a-zA-Z0-9_\-]', '', name)
+    name = re.sub(r'_+', '_', name)
+    return os.path.join('lesson_plans', f"{name}{ext.lower()}")
+
 class LessonPlan(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_lessons')
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    file_path = models.FileField(upload_to='lesson_plans/')
+    file_path = models.FileField(upload_to=get_upload_path)
     content_preview = models.TextField(blank=True, null=True)
     target_student = models.CharField(max_length=100)
     status = models.CharField(max_length=50, default='DRAFT')
@@ -147,8 +163,12 @@ def delete_lesson_plan_file(sender, instance, **kwargs):
     # 1. Xóa file vật lý đã upload
     if instance.file_path:
         try:
-            if os.path.exists(instance.file_path.path):
-                os.remove(instance.file_path.path)
+            try:
+                if os.path.exists(instance.file_path.path):
+                    os.remove(instance.file_path.path)
+            except (NotImplementedError, AttributeError, ValueError):
+                # Remote storage (S3/Supabase Storage)
+                instance.file_path.delete(save=False)
         except Exception as e:
             print(f"Error deleting physical file {instance.file_path}: {e}")
             
@@ -211,8 +231,11 @@ def delete_old_lesson_plan_file_on_update(sender, instance, **kwargs):
 
     if old_file and old_file != new_file:
         try:
-            if os.path.exists(old_file.path):
-                os.remove(old_file.path)
+            try:
+                if os.path.exists(old_file.path):
+                    os.remove(old_file.path)
+            except (NotImplementedError, AttributeError, ValueError):
+                old_file.delete(save=False)
         except Exception as e:
             print(f"Error deleting old physical file {old_file}: {e}")
 
