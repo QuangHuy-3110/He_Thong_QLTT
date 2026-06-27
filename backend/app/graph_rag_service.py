@@ -445,47 +445,11 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
     # --- TỰ ĐỘNG SINH CÂU HỎI GỢI Ý PHÙ HỢP NGỮ CẢNH ---
     suggested_questions = []
     if focused_lesson:
-        try:
-            from .llm_runner import generate_llm_response
-            import json
-            
-            prompt_suggest = (
-                f"Dưới đây là phần mô tả tóm tắt của tài liệu: \"{focused_lesson.title}\":\n"
-                f"Mô tả: {focused_lesson.description or 'Không có mô tả'}\n"
-                f"Lớp/Môn: {focused_lesson.attributes.get('Môn học', 'Sinh học')} | Lớp {focused_lesson.attributes.get('lop', '')}\n"
-                f"Nội dung tóm tắt: {focused_lesson.content_preview[:1500] if focused_lesson.content_preview else 'Không có nội dung'}\n\n"
-                f"Hãy phân tích nội dung trên và đề xuất đúng 3 câu hỏi gợi ý ngắn gọn (mỗi câu không quá 15 từ) để giáo viên có thể click hỏi thêm về bài giảng này. "
-                f"Ví dụ: 'Tóm tắt hoạt động 1 của bài?', 'Đề xuất trò chơi khởi động phù hợp?', 'Mục tiêu kiến thức trọng tâm là gì?'\n"
-                f"Trả về kết quả dưới dạng danh sách JSON chứa đúng 3 chuỗi. Bắt buộc phải là định dạng JSON hợp lệ, ví dụ: [\"câu hỏi 1\", \"câu hỏi 2\", \"câu hỏi 3\"]. "
-                f"Không trả về bất kỳ từ giải thích nào khác."
-            )
-            
-            provider = "api" if api_key else "3b"
-            llm_res = generate_llm_response(
-                prompt=prompt_suggest,
-                system_prompt="Bạn là trợ lý AI sư phạm, chuyên môn phân tích giáo án và gợi ý câu hỏi thảo luận.",
-                model_choice=provider,
-                api_key=api_key
-            )
-            
-            cleaned_res = llm_res.strip()
-            if cleaned_res.startswith("```"):
-                cleaned_res = CODE_BLOCK_START.sub("", cleaned_res)
-                cleaned_res = CODE_BLOCK_END.sub("", cleaned_res)
-            cleaned_res = cleaned_res.strip()
-            
-            parsed_questions = json.loads(cleaned_res)
-            if isinstance(parsed_questions, list) and len(parsed_questions) >= 3:
-                suggested_questions = [str(q).strip() for q in parsed_questions[:3]]
-        except Exception as e:
-            print(f"Error generating suggestions via LLM: {e}. Falling back to default suggestions.")
-            
-        if not suggested_questions:
-            suggested_questions = [
-                f"Tóm tắt hoạt động dạy học của bài {focused_lesson.title}?",
-                f"Tìm kiếm các tài liệu tương tự hoặc liên quan đến bài {focused_lesson.title}?",
-                f"Phương pháp sư phạm áp dụng cho giáo án {focused_lesson.title}?"
-            ]
+        suggested_questions = [
+            f"Tóm tắt hoạt động dạy học của bài {focused_lesson.title}?",
+            f"Tìm kiếm các tài liệu tương tự hoặc liên quan đến bài {focused_lesson.title}?",
+            f"Phương pháp sư phạm áp dụng cho giáo án {focused_lesson.title}?"
+        ]
     else:
         suggested_questions = [
             "Hệ thống có bao nhiêu tài liệu và phân bố môn học như thế nào?",

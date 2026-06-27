@@ -49,5 +49,20 @@ if users.exists():
         print("\n--- Stream completed ---")
     except Exception as e:
         print(f"\nError running stream: {e}")
+
+    print("\n--- Test generate_llm_response_stream with invalid api_key (should trigger fallback) ---")
+    try:
+        generator = generate_llm_response_stream(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model_choice="api",
+            api_key="invalid_key_example",
+            model_name="gemini-1.5-flash"
+        )
+        for chunk in generator:
+            print(chunk, end="", flush=True)
+        print("\n--- Stream completed ---")
+    except Exception as e:
+        print(f"\nError running stream: {e}")
 else:
     print("No users found in database.")

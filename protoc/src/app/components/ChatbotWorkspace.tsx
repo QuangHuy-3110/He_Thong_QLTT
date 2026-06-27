@@ -1117,11 +1117,16 @@ export default function ChatbotWorkspace({
                     if (!prev || !prev.messages) return null;
                     return {
                       ...prev,
+                      title: parsed.session_title || prev.title,
                       messages: prev.messages.map(m => 
                         m.id === tempAiMsg.id ? finalMsg : m
                       )
                     };
                   });
+                  if (parsed.session_title) {
+                    const newTitle = parsed.session_title;
+                    setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: newTitle } : s));
+                  }
                 }
               } catch (e) {
                 // Incomplete JSON chunk, wait for next buffer

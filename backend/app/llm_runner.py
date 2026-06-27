@@ -70,11 +70,12 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
         return
     
     # 1. API ngoài
+    # 1. API ngoài
     if model_choice == "api" and api_key:
         is_gemini = "gemini" in str(model_name).lower() or api_key.startswith("AIzaSy")
         if is_gemini:
             model = model_name or "gemini-1.5-flash"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [
@@ -91,22 +92,19 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
             }
             try:
                 res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
-                buffer = ""
-                for chunk in res.iter_content(chunk_size=512):
-                    if chunk:
-                        text = chunk.decode('utf-8')
-                        buffer += text
-                        import re
-                        # Tìm và yield các đoạn text mới được đóng gói trong JSON của Gemini stream
-                        matches = re.findall(r'"text":\s*"((?:[^"\\]|\\.)*)"', buffer)
-                        if matches:
-                            for m in matches:
-                                try:
-                                    decoded = m.encode('utf-8').decode('unicode-escape')
-                                    yield decoded
-                                except Exception:
-                                    yield m
-                            buffer = ""
+                res.raise_for_status()
+                for line in res.iter_lines():
+                    if line:
+                        line_str = line.decode('utf-8')
+                        if line_str.startswith("data: "):
+                            data_content = line_str[6:]
+                            try:
+                                json_data = json.loads(data_content)
+                                text = json_data["candidates"][0]["content"]["parts"][0].get("text", "")
+                                if text:
+                                    yield text
+                            except Exception:
+                                pass
                 return
             except Exception as e:
                 print(f"Error streaming Gemini API: {e}")
@@ -129,6 +127,7 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
             }
             try:
                 res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
+                res.raise_for_status()
                 for line in res.iter_lines():
                     if line:
                         line_str = line.decode('utf-8')

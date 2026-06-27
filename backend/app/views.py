@@ -2331,32 +2331,41 @@ class AIChatSendMessageAPIView(APIView):
                     focus_lesson_id = lp.id
                     break
                     
-        # 1. Tự động đặt tên tiêu đề cho phiên chat dựa trên tin nhắn đầu tiên của người dùng
+        # 1. Tự động đặt tên tiêu đề cho phiên chat dựa trên tin nhắn đầu tiên của người dùng (Chạy bất đồng bộ trong background thread để tránh treo stream)
         user_msg_count = AIChatMessage.objects.filter(session=session, sender_role='USER').count()
         if user_msg_count == 0 or session.title == "Cuộc trò chuyện mới":
-            title_prompt = (
-                f"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép, không thêm bất kỳ từ giải thích nào khác) "
-                f"khái quát chủ đề của câu hỏi sau:\n"
-                f"\"{user_message_content}\""
-            )
-            try:
-                from .llm_runner import generate_llm_response
-                generated_title = generate_llm_response(
-                    prompt=title_prompt,
-                    system_prompt="Bạn là trợ lý đặt tên tiêu đề ngắn gọn cho cuộc hội thoại bằng tiếng Việt.",
-                    model_choice=model_choice,
-                    api_key=api_key,
-                    model_name=model_name
-                )
-                generated_title = generated_title.strip().strip('"').strip("'").strip('“').strip('”').strip('.').strip()
-                if generated_title and len(generated_title) <= 60 and not generated_title.startswith("###"):
-                    session.title = generated_title
-                else:
-                    session.title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
-                session.save(update_fields=['title'])
-            except Exception as e:
-                session.title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
-                session.save(update_fields=['title'])
+            # Đặt tiêu đề tạm thời nhanh chóng bằng câu hỏi của người dùng
+            temp_title = user_message_content[:47] + "..." if len(user_message_content) > 50 else user_message_content
+            session.title = temp_title
+            session.save(update_fields=['title'])
+            
+            import threading
+            def run_background_title_generation(session_id, message_content, m_choice, a_key, m_name):
+                try:
+                    from .models import AIChatSession
+                    from .llm_runner import generate_llm_response
+                    title_prompt = (
+                        f"Hãy đặt một tiêu đề cực kỳ ngắn gọn và súc tích (tối đa 5 từ, không để trong ngoặc kép, không thêm bất kỳ từ giải thích nào khác) "
+                        f"khái quát chủ đề của câu hỏi sau:\n"
+                        f"\"{message_content}\""
+                    )
+                    generated_title = generate_llm_response(
+                        prompt=title_prompt,
+                        system_prompt="Bạn là trợ lý đặt tên tiêu đề ngắn gọn cho cuộc hội thoại bằng tiếng Việt.",
+                        model_choice=m_choice,
+                        api_key=a_key,
+                        model_name=m_name
+                    )
+                    generated_title = generated_title.strip().strip('"').strip("'").strip('“').strip('”').strip('.').strip()
+                    if generated_title and len(generated_title) <= 60 and not generated_title.startswith("###"):
+                        AIChatSession.objects.filter(id=session_id).update(title=generated_title)
+                except Exception as e:
+                    print(f"Background title generation error: {e}")
+
+            threading.Thread(
+                target=run_background_title_generation,
+                args=(session.id, user_message_content, model_choice, api_key, model_name)
+            ).start()
 
         AIChatMessage.objects.create(
             session=session,
@@ -2483,9 +2492,18 @@ class AIChatSendMessageAPIView(APIView):
             )
 
             from .serializers import AIChatMessageSerializer
+            
+            # Đọc lại session từ DB để lấy tiêu đề mới nhất được cập nhật từ background thread
+            try:
+                session.refresh_from_db(fields=['title'])
+                latest_title = session.title
+            except Exception:
+                latest_title = session.title
+
             done_payload = {
                 'type': 'done',
-                'message': AIChatMessageSerializer(ai_message).data
+                'message': AIChatMessageSerializer(ai_message).data,
+                'session_title': latest_title
             }
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
