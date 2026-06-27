@@ -2326,9 +2326,10 @@ class AIChatSendMessageAPIView(APIView):
         # Nếu đang chat ở view chung nhưng người dùng nhắc tên tài liệu cụ thể trong câu hỏi, tự động bind focus_lesson_id!
         if not focus_lesson_id:
             from .models import LessonPlan
-            for lp in LessonPlan.objects.all():
-                if len(lp.title) > 5 and lp.title.lower() in user_message_content.lower():
-                    focus_lesson_id = lp.id
+            # Tối ưu hóa: chỉ lấy id và title để quét nhanh từ DB, tránh load các trường nội dung lớn (content_preview)
+            for lp_id, lp_title in LessonPlan.objects.values_list('id', 'title'):
+                if len(lp_title) > 5 and lp_title.lower() in user_message_content.lower():
+                    focus_lesson_id = lp_id
                     break
                     
         # 1. Tự động đặt tên tiêu đề cho phiên chat dựa trên tin nhắn đầu tiên của người dùng (Chạy bất đồng bộ trong background thread để tránh treo stream)

@@ -108,7 +108,7 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
             })
 
     # 2. Thu thập Nodes Giáo án (Bài giảng)
-    lps = LessonPlan.objects.all()
+    lps = LessonPlan.objects.only('id', 'title', 'attributes').prefetch_related('directories')
     if user_id:
         try:
             req_user = User.objects.get(id=user_id)
