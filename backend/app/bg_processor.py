@@ -140,6 +140,11 @@ class BackgroundProcessManager:
         backend_dir = os.path.dirname(app_dir)  # backend
         workspace_dir = os.path.dirname(backend_dir)  # workspace root (He_Thong_QLTT)
         vault_dir = os.path.join(workspace_dir, "obsidian_vault")
+        if not os.path.exists(vault_dir):
+            try:
+                os.makedirs(vault_dir, exist_ok=True)
+            except Exception as e:
+                print(f"[get_vault_path] Error creating vault directory: {e}")
         return vault_dir
 
     @classmethod
@@ -322,13 +327,43 @@ class BackgroundProcessManager:
         try:
             # --- PHASE 1: Parse & Convert DOCX to Markdown ---
             # Sử dụng file vật lý thực tế nếu có
-            if lp.file_path and os.path.exists(lp.file_path.path):
-                file_path = lp.file_path.path
-                if file_path.lower().endswith(('.md', '.markdown', '.txt')):
-                    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                        markdown_content = f.read()
+            markdown_content = ""
+            if lp.file_path:
+                has_local_path = False
+                try:
+                    file_path = lp.file_path.path
+                    if os.path.exists(file_path):
+                        has_local_path = True
+                except (NotImplementedError, AttributeError, ValueError):
+                    has_local_path = False
+
+                if has_local_path:
+                    file_path = lp.file_path.path
+                    if file_path.lower().endswith(('.md', '.markdown', '.txt')):
+                        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                            markdown_content = f.read()
+                    else:
+                        markdown_content = convert_docx_to_markdown(file_path)
                 else:
-                    markdown_content = convert_docx_to_markdown(file_path)
+                    # Nếu file được lưu trên Remote Storage, đọc file và bọc vào tempfile cục bộ
+                    import tempfile
+                    suffix = '.docx'
+                    if lp.file_path.name.lower().endswith(('.md', '.markdown', '.txt')):
+                        suffix = '.md'
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                        temp_file.write(lp.file_path.read())
+                        temp_path = temp_file.name
+                    
+                    try:
+                        if suffix == '.md':
+                            with open(temp_path, 'r', encoding='utf-8', errors='replace') as f:
+                                markdown_content = f.read()
+                        else:
+                            markdown_content = convert_docx_to_markdown(temp_path)
+                    finally:
+                        if os.path.exists(temp_path):
+                            os.remove(temp_path)
                 lp.content_preview = markdown_content
                 lp.save(update_fields=['content_preview'])
             else:

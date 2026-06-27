@@ -4,7 +4,7 @@ import {
   Send, Bot, User, Sparkles, Plus, Trash2, Edit2,
   X, Check, Layers, Compass, Cpu, MessageSquare,
   GripVertical, Activity, Settings, Link, FileText,
-  BookOpen, FolderOpen, Copy, CheckCheck, RefreshCw
+  BookOpen, FolderOpen, Copy, CheckCheck, RefreshCw, Server
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -117,6 +117,9 @@ export default function ChatbotWorkspace({
   });
   const [ragDepth, setRagDepth] = useState<number>(() => {
     return parseInt(localStorage.getItem('kms_rag_depth') || '2');
+  });
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => {
+    return localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
   });
   // --- WIKINOTE EDIT & HISTORY STATES ---
   const [isEditingWiki, setIsEditingWiki] = useState(false);
@@ -443,7 +446,8 @@ export default function ChatbotWorkspace({
     localStorage.setItem('kms_api_key', apiKey);
     localStorage.setItem('kms_api_model', apiModel);
     localStorage.setItem('kms_rag_depth', String(ragDepth));
-  }, [aiMode, localModel, apiKey, apiModel, ragDepth]);
+    localStorage.setItem('kms_api_base_url', apiBaseUrl);
+  }, [aiMode, localModel, apiKey, apiModel, ragDepth, apiBaseUrl]);
 
   // Save widget size
   useEffect(() => {
@@ -4962,6 +4966,39 @@ export default function ChatbotWorkspace({
                       <div style={{ width: '12px', height: '12px', border: '2px solid #3b82f6', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
                     </div>
                   )}
+                </div>
+
+                {/* SECTION 1.5: SYSTEM CONFIGURATION (BACKEND URL) */}
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+                  marginBottom: '10px'
+                }}>
+                  <h3 style={{ fontSize: '11px', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px', margin: '0 0 10px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                    <Server className="w-4 h-4 text-blue-500" />
+                    Cấu hình kết nối Backend
+                  </h3>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '8px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>URL Backend API (Render)</label>
+                    <input
+                      type="text"
+                      value={apiBaseUrl}
+                      onChange={(e) => setApiBaseUrl(e.target.value)}
+                      placeholder="Trống: Tự động dùng URL build của Vercel"
+                      style={{
+                        width: '100%', padding: '5px 8px',
+                        background: '#f8fafc', border: '1px solid #e2e8f0',
+                        borderRadius: '6px', fontSize: '10px', color: '#1e293b',
+                        outline: 'none', boxSizing: 'border-box',
+                      }}
+                    />
+                    <p style={{ fontSize: '8px', color: '#94a3b8', margin: '3px 0 0 0', lineHeight: '1.2' }}>
+                      Ví dụ: <code>https://he-thong-qltt-backend.onrender.com</code>. Thay đổi này sẽ được áp dụng ngay lập tức cho upload, chatbot và đồ thị.
+                    </p>
+                  </div>
                 </div>
 
                 {/* SECTION 2: AI ENGINE CONFIGURATION (LOCAL vs API) */}

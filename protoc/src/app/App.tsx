@@ -30,7 +30,7 @@ const getFileUrl = (url: string | undefined | null) => {
     mediaPath = '/media/' + path;
   }
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
   const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
   return cleanBase + mediaPath;
 };
@@ -1387,15 +1387,24 @@ function renderSnippet(content: string | undefined | null, query: string): React
   );
 }
 
-// Set global Axios API Base URL from Vite environment variables for production deployments
-if (import.meta.env.VITE_API_BASE_URL) {
-  const apiBase = import.meta.env.VITE_API_BASE_URL;
-  axios.defaults.baseURL = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+// Set global Axios API Base URL from localStorage or environment variables
+const initApiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
+if (initApiBase) {
+  axios.defaults.baseURL = initApiBase.endsWith('/') ? initApiBase.slice(0, -1) : initApiBase;
 }
 
-// Add global Axios interceptor to attach Keycloak JWT token to Authorization header
+// Add global Axios interceptor to attach Keycloak JWT token to Authorization header and dynamic baseURL
 axios.interceptors.request.use(
   (config) => {
+    const customBaseUrl = localStorage.getItem('kms_api_base_url');
+    if (customBaseUrl) {
+      const cleanBase = customBaseUrl.endsWith('/') ? customBaseUrl.slice(0, -1) : customBaseUrl;
+      config.baseURL = cleanBase;
+    } else if (import.meta.env.VITE_API_BASE_URL) {
+      const apiBase = import.meta.env.VITE_API_BASE_URL;
+      config.baseURL = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+    }
+
     const token = localStorage.getItem('keycloakToken');
     if (token && token !== 'undefined' && token !== 'null') {
       config.headers = config.headers || {};
@@ -1925,7 +1934,7 @@ export default function App() {
     setHistoryLoading(true);
     setShowHistoryModal(true);
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const res = await fetch(`${cleanBase}/api/lesson-plans/${lessonId}/history/?user_id=${currentUser.id}`);
       if (res.ok) {
@@ -2567,7 +2576,7 @@ export default function App() {
       if (upDirId) formData.append('directory_id', upDirId);
       formData.append('file', upFile);
 
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
       const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const response = await fetch(`${cleanApiBase}/api/lesson-plans/upload/`, {
         method: 'POST',
@@ -2593,7 +2602,7 @@ export default function App() {
   const handleDeleteLesson = async (id: number) => {
     if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
     try {
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
       const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       await fetch(`${cleanApiBase}/api/lesson-plans/${id}/`, { method: 'DELETE' });
       alert('Xóa thành công!');
@@ -2694,7 +2703,7 @@ export default function App() {
         formData.append('file_path', editFile);
       }
 
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
       const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const response = await fetch(`${cleanApiBase}/api/lesson-plans/${editingLesson.id}/`, {
         method: 'PATCH',

@@ -474,7 +474,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         const formData = new FormData();
         formData.append('file', selectedFile);
         
-        const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+        const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
         const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
         const res = await fetch(`${cleanApiBase}/api/lesson-plans/parse-docx/`, {
           method: 'POST',
@@ -722,7 +722,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       if (selectedDirId) formData.append('directory_id', selectedDirId.toString());
       formData.append('file', file);
 
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
       const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const res = await fetch(`${cleanApiBase}/api/lesson-plans/upload/`, { method: 'POST', body: formData });
       if (!res.ok) {

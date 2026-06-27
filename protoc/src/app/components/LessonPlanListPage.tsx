@@ -3,11 +3,29 @@ import axios from 'axios';
 
 // Create axios instance with base URL pointing to Django backend
 const API = axios.create({
-  baseURL: (import.meta.env.VITE_API_BASE_URL || '') + '/api/',
+  baseURL: (localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '') + '/api/',
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Update baseURL dynamically before each request if changed in localStorage
+API.interceptors.request.use(
+  (config) => {
+    const customBaseUrl = localStorage.getItem('kms_api_base_url');
+    if (customBaseUrl) {
+      const cleanBase = customBaseUrl.endsWith('/') ? customBaseUrl.slice(0, -1) : customBaseUrl;
+      config.baseURL = cleanBase + '/api/';
+    } else if (import.meta.env.VITE_API_BASE_URL) {
+      const apiBase = import.meta.env.VITE_API_BASE_URL;
+      config.baseURL = (apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase) + '/api/';
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 interface LessonPlan {
   id: number;
