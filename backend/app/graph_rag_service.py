@@ -1,6 +1,6 @@
 from django.db.models import Q
 from django.core.cache import cache
-from .models import LessonPlan, Directory, User, DocumentChunk
+from .models import LessonPlan, Directory, User, DocumentChunk, remove_vietnamese_accents
 from .embedding_service import get_embedding
 import re
 
@@ -156,8 +156,8 @@ def build_virtual_knowledge_graph(user_id=None, focus_lesson_id=None, hop_depth=
             if tag_slug not in tags_seen:
                 tags_seen.add(tag_slug)
                 
-                # Cố gắng đọc định nghĩa/mô tả khái niệm từ Obsidian Vault (Thử lấy từ cache trước)
-                concept_cache_key = f"concept_desc_{tag_slug}"
+                sanitized_tag = re.sub(r'[^a-zA-Z0-9_\-]', '', remove_vietnamese_accents(tag_slug).replace(' ', '_'))
+                concept_cache_key = f"concept_desc_{sanitized_tag}"
                 details = cache.get(concept_cache_key)
                 if details is None:
                     details = "Khái niệm kiến thức / Chủ đề"
