@@ -242,6 +242,7 @@ export default function ChatbotWorkspace({
 
   // --- NAVIGATION HISTORY STACK ---
   const [historyStack, setHistoryStack] = useState<{ type: 'lesson' | 'wiki' | 'tab'; data: any }[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const currentViewRef = useRef({ isDetailOpen, focusLessonId, activeTab, selectedObsidianNote, lessonPlans });
 
   useEffect(() => {
