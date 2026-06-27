@@ -26,6 +26,16 @@ def get_user_managed_directories(user):
 class LessonPlanListAPIView(generics.ListAPIView):
     serializer_class = LessonPlanListSerializer
 
+    def list(self, request, *args, **kwargs):
+        import traceback
+        from rest_framework.response import Response
+        from rest_framework import status
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            tb = traceback.format_exc()
+            return Response({"error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def get_queryset(self):
         queryset = LessonPlan.objects.all()
         q = self.request.query_params.get('q', None)
@@ -515,6 +525,16 @@ def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclud
 
 class LessonPlanUploadAPIView(APIView):
     def post(self, request):
+        import traceback
+        from rest_framework.response import Response
+        from rest_framework import status
+        try:
+            return self._post(request)
+        except Exception as e:
+            tb = traceback.format_exc()
+            return Response({"error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _post(self, request):
         user_id = request.data.get('user_id')
         user = User.objects.get(id=user_id) if user_id else None
         
