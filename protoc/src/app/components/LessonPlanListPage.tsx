@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const getFallbackApiBase = (defaultLocal: string = '') => {
+  if (typeof window !== 'undefined' && 
+      window.location.hostname !== 'localhost' && 
+      window.location.hostname !== '127.0.0.1') {
+    return 'https://he-thong-qltt-backend.onrender.com';
+  }
+  return defaultLocal;
+};
+
 // Create axios instance with base URL pointing to Django backend
 const API = axios.create({
-  baseURL: (localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '') + '/api/',
+  baseURL: (localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('')) + '/api/',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -18,6 +27,9 @@ API.interceptors.request.use(
       config.baseURL = cleanBase + '/api/';
     } else if (import.meta.env.VITE_API_BASE_URL) {
       const apiBase = import.meta.env.VITE_API_BASE_URL;
+      config.baseURL = (apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase) + '/api/';
+    } else {
+      const apiBase = getFallbackApiBase('');
       config.baseURL = (apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase) + '/api/';
     }
     return config;

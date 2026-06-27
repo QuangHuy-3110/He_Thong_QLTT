@@ -1,6 +1,15 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
+const getFallbackApiBase = (defaultLocal: string = '') => {
+  if (typeof window !== 'undefined' && 
+      window.location.hostname !== 'localhost' && 
+      window.location.hostname !== '127.0.0.1') {
+    return 'https://he-thong-qltt-backend.onrender.com';
+  }
+  return defaultLocal;
+};
+
 export const KNOWLEDGE_TRACKS = [
   'Hoạt động hướng vào bản thân',
   'Hoạt động hướng đến xã hội',
@@ -474,7 +483,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
         const formData = new FormData();
         formData.append('file', selectedFile);
         
-        const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
+        const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
         const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
         const res = await fetch(`${cleanApiBase}/api/lesson-plans/parse-docx/`, {
           method: 'POST',
@@ -722,7 +731,7 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
       if (selectedDirId) formData.append('directory_id', selectedDirId.toString());
       formData.append('file', file);
 
-      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || '';
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
       const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
       const res = await fetch(`${cleanApiBase}/api/lesson-plans/upload/`, { method: 'POST', body: formData });
       if (!res.ok) {
