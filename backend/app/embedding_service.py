@@ -83,25 +83,48 @@ def get_embedding(text, api_key=None, provider="local"):
     if not text:
         return [0.0] * 1536
 
-    # 1. Nếu có API Key và chọn provider là API -> Gọi OpenAI Embeddings
+    # 1. Nếu có API Key và chọn provider là API -> Gọi OpenAI hoặc Gemini Embeddings
     if provider == "api" and api_key:
-        try:
-            url = "https://api.openai.com/v1/embeddings"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            data = json.dumps({
-                "model": "text-embedding-3-small",
-                "input": text
-            }).encode('utf-8')
-            
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as response:
-                res_data = json.loads(response.read().decode('utf-8'))
-                return res_data["data"][0]["embedding"]
-        except Exception as e:
-            print(f"Error calling OpenAI Embedding: {e}. Falling back to deterministic embedding.")
+        is_gemini = api_key.startswith("AIzaSy")
+        if is_gemini:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+                payload = {
+                    "content": {
+                        "parts": [{"text": text}]
+                    }
+                }
+                data = json.dumps(payload).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    values = res_data["embedding"]["values"]
+                    if len(values) < 1536:
+                        values = values + [0.0] * (1536 - len(values))
+                    else:
+                        values = values[:1536]
+                    return values
+            except Exception as e:
+                print(f"Error calling Gemini Embedding: {e}. Falling back to deterministic embedding.")
+        else:
+            try:
+                url = "https://api.openai.com/v1/embeddings"
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                }
+                data = json.dumps({
+                    "model": "text-embedding-3-small",
+                    "input": text
+                }).encode('utf-8')
+                
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    return res_data["data"][0]["embedding"]
+            except Exception as e:
+                print(f"Error calling OpenAI Embedding: {e}. Falling back to deterministic embedding.")
 
     # 2. Kiểm tra Ollama cục bộ nếu ở chế độ 'local' – chỉ thử nếu đã confirm có Ollama
     if provider == "local" and _check_ollama_once():
@@ -134,26 +157,56 @@ def get_embeddings_batch(texts, api_key=None, provider="local"):
     if not texts:
         return []
     
-    # 1. API OpenAI (Hỗ trợ truyền list đầu vào trực tiếp)
+    # 1. API OpenAI hoặc Gemini (Hỗ trợ truyền list đầu vào trực tiếp)
     if provider == "api" and api_key:
-        try:
-            url = "https://api.openai.com/v1/embeddings"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            data = json.dumps({
-                "model": "text-embedding-3-small",
-                "input": texts
-            }).encode('utf-8')
-            
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=15) as response:
-                res_data = json.loads(response.read().decode('utf-8'))
-                results = [item["embedding"] for item in res_data["data"]]
-                return results
-        except Exception as e:
-            print(f"Error calling OpenAI Batch Embedding: {e}. Falling back to individual/deterministic.")
+        is_gemini = api_key.startswith("AIzaSy")
+        if is_gemini:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+                requests_list = []
+                for t in texts:
+                    requests_list.append({
+                        "model": "models/text-embedding-004",
+                        "content": {
+                            "parts": [{"text": t}]
+                        }
+                    })
+                payload = {"requests": requests_list}
+                data = json.dumps(payload).encode('utf-8')
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    results = []
+                    for item in res_data.get("embeddings", []):
+                        values = item["values"]
+                        if len(values) < 1536:
+                            values = values + [0.0] * (1536 - len(values))
+                        else:
+                            values = values[:1536]
+                        results.append(values)
+                    return results
+            except Exception as e:
+                print(f"Error calling Gemini Batch Embedding: {e}. Falling back to individual/deterministic.")
+        else:
+            try:
+                url = "https://api.openai.com/v1/embeddings"
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                }
+                data = json.dumps({
+                    "model": "text-embedding-3-small",
+                    "input": texts
+                }).encode('utf-8')
+                
+                req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    results = [item["embedding"] for item in res_data["data"]]
+                    return results
+            except Exception as e:
+                print(f"Error calling OpenAI Batch Embedding: {e}. Falling back to individual/deterministic.")
 
     # 2. Ollama cục bộ (Sử dụng endpoint /api/embed nếu hỗ trợ list input, hoặc gọi song song qua ThreadPool)
     if provider == "local" and _check_ollama_once():
