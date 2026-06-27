@@ -13,10 +13,6 @@ class KeycloakJWTAuthentication(authentication.BaseAuthentication):
     Tự động giải mã, kiểm tra chữ ký (signature) từ Keycloak Server và đồng bộ tài khoản.
     """
     def authenticate(self, request):
-        # Chỉ kích hoạt nếu biến môi trường cấu hình kích hoạt Keycloak được bật
-        if not getattr(settings, 'USE_KEYCLOAK', False):
-            return None
-
         auth_header = request.META.get('HTTP_AUTHORIZATION')
         if not auth_header:
             return None
@@ -42,6 +38,10 @@ class KeycloakJWTAuthentication(authentication.BaseAuthentication):
                     options={"verify_signature": True, "verify_aud": False}
                 )
             else:
+                # Nếu không kích hoạt Keycloak, bỏ qua việc xác thực token RS256 của Keycloak
+                if not getattr(settings, 'USE_KEYCLOAK', False):
+                    return None
+                    
                 # 1. Đọc cấu hình Keycloak Endpoint
                 keycloak_url = settings.KEYCLOAK_SERVER_URL  # VD: http://localhost:8080/realms/kms_realm
                 

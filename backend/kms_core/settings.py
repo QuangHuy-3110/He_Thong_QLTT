@@ -236,8 +236,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-if USE_KEYCLOAK:
-    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].insert(0, 'app.keycloak_auth.KeycloakJWTAuthentication')
+# Luôn đưa KeycloakJWTAuthentication vào để hỗ trợ giải mã mock JWT khi chạy local fallback
+REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].insert(0, 'app.keycloak_auth.KeycloakJWTAuthentication')
 
 # CẤU HÌNH GỬI EMAIL THỰC TẾ QUA SMTP (Ví dụ Gmail, SendGrid,...)
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
