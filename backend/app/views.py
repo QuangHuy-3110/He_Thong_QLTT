@@ -2507,7 +2507,10 @@ class AIChatSendMessageAPIView(APIView):
             }
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
 
-        return StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+        response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
 
 
 class AIChatGraphDataAPIView(APIView):

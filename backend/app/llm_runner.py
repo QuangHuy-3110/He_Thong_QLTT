@@ -74,7 +74,17 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
     if model_choice == "api" and api_key:
         is_gemini = "gemini" in str(model_name).lower() or api_key.startswith("AIzaSy")
         if is_gemini:
-            model = model_name or "gemini-1.5-flash"
+            model = model_name or "gemini-2.5-flash"
+            if model.startswith("models/"):
+                model = model[7:]
+            
+            # Map legacy models that might not exist or cause 404
+            model_lower = model.lower()
+            if "1.5-flash" in model_lower or model_lower == "gemini-1.5":
+                model = "gemini-2.5-flash"
+            elif "1.5-pro" in model_lower:
+                model = "gemini-2.5-pro"
+
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
@@ -250,7 +260,17 @@ def generate_llm_response(prompt, system_prompt="Bạn là trợ lý AI hữu í
         is_gemini = "gemini" in str(model_name).lower() or api_key.startswith("AIzaSy")
         
         if is_gemini:
-            model = model_name or "gemini-1.5-flash"
+            model = model_name or "gemini-2.5-flash"
+            if model.startswith("models/"):
+                model = model[7:]
+            
+            # Map legacy models that might not exist or cause 404
+            model_lower = model.lower()
+            if "1.5-flash" in model_lower or model_lower == "gemini-1.5":
+                model = "gemini-2.5-flash"
+            elif "1.5-pro" in model_lower:
+                model = "gemini-2.5-pro"
+
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             headers = {"Content-Type": "application/json"}
             payload = {
