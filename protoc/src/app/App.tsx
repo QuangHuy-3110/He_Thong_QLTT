@@ -1022,7 +1022,7 @@ const DocxPreview: React.FC<{ fileUrl: string }> = ({ fileUrl }) => {
           setLoading(false);
         }
       } catch (err: any) {
-        console.error('Docx rendering error:', err);
+        console.error('Docx rendering error for URL:', fileUrl, err);
         if (active) {
           setError(err.message || 'Lỗi khi hiển thị tài liệu Word.');
           setLoading(false);
