@@ -159,14 +159,21 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Phục vụ file upload
 IS_PRODUCTION = os.environ.get('DEBUG', 'True').lower() not in ('true', '1', 't')
 
+# Cấu hình lưu trữ (Django 4.2+ / 6.0+)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 if IS_PRODUCTION and os.environ.get('AWS_ACCESS_KEY_ID'):
     # Sử dụng Supabase Storage làm lưu trữ vĩnh viễn cho môi trường Production
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'media')
-    
     AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL')
     
     AWS_S3_CUSTOM_DOMAIN = None
@@ -182,7 +189,20 @@ if IS_PRODUCTION and os.environ.get('AWS_ACCESS_KEY_ID'):
     AWS_QUERYSTRING_AUTH = False
     AWS_DEFAULT_ACL = 'public-read'
     
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        "OPTIONS": {
+            "access_key": AWS_ACCESS_KEY_ID,
+            "secret_key": AWS_SECRET_ACCESS_KEY,
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "endpoint_url": AWS_S3_ENDPOINT_URL,
+            "file_overwrite": AWS_S3_FILE_OVERWRITE,
+            "querystring_auth": AWS_QUERYSTRING_AUTH,
+            "default_acl": AWS_DEFAULT_ACL,
+        }
+    }
     if AWS_S3_CUSTOM_DOMAIN:
+        STORAGES["default"]["OPTIONS"]["custom_domain"] = AWS_S3_CUSTOM_DOMAIN
         MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
     else:
         MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
