@@ -448,6 +448,14 @@ Tài liệu này theo dõi và cập nhật trạng thái hoạt động thực 
         * Cập nhật backend `KeycloakJWTAuthentication` hỗ trợ giải mã cả token Keycloak thật (`RS256`) và mock token giả lập (`HS256`).
         * Tự động tạo mock token cho local login để đồng bộ hóa hoàn toàn cơ chế xác thực, sửa lỗi `403 Forbidden` triệt để.
 
+*   **2026-06-28**: **Tích hợp Native Gemini Embeddings & Sửa lỗi xác thực cấu hình hệ thống ở chế độ Local Fallback**:
+    - **Tích hợp Native Gemini Embeddings (`text-embedding-004`)**:
+        * Khắc phục lỗi AI chat phản hồi chậm (chờ 5 giây ở mỗi tin nhắn) khi người dùng sử dụng API Key ngoài của Gemini (`AIzaSy...`). Hệ thống tự động chuyển hướng các yêu cầu sinh vector nhúng đơn lẻ và hàng loạt sang API Google Gemini thay vì gọi OpenAI API gây timeout.
+        * Tự động căn chỉnh/padding vector trả về từ Gemini đạt đúng **1536 chiều** để đồng bộ hoàn toàn với cấu hình pgvector của cơ sở dữ liệu.
+    - **Sửa lỗi xác thực phân quyền lưu cấu hình hệ thống (Local Fallback mode)**:
+        * Khi tắt Keycloak (`USE_KEYCLOAK=False`), backend trước đây bỏ qua lớp xác thực JWT khiến cuộc gọi lưu cấu hình của Admin bị trả về `403 Forbidden`.
+        * Cấu hình Django REST Framework luôn bật lớp `KeycloakJWTAuthentication` và cập nhật logic để tự động giải mã và xác thực mock token HS256 cục bộ, đảm bảo quyền Admin lưu cấu hình bình thường.
+
 ----
 
 ## Tài liệu nguồn: `db_compact_notes.md`

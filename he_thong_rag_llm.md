@@ -292,6 +292,19 @@ Nhằm tối ưu hóa trải nghiệm điều hướng tài liệu kết hợp t
     *   Tại `llm_runner.py`, hệ thống tự động đánh chặn và nâng cấp yêu cầu gọi mô hình từ `gemini-1.5-flash` và `gemini-1.5-pro` thành **`gemini-2.5-flash`** và **`gemini-2.5-pro`** (hoặc `gemini-flash-latest`).
     *   Tại `embedding_service.py`, cập nhật mô hình sinh vector nhúng mặc định thành **`gemini-embedding-2`**, ngăn chặn hoàn toàn lỗi 404 và giảm thời gian trễ kết nối timeout 5 giây.
 
+### 🚀 Tích hợp Native Gemini Embeddings & Giải quyết Trễ Chat (Native Gemini Embeddings Fix):
+*   **Vấn đề**: Khi người dùng cung cấp API Key của Gemini (`AIzaSy...`), hệ thống RAG mặc định gọi sang API OpenAI (`https://api.openai.com/v1/embeddings`) để tạo vector nhúng cho câu hỏi. Yêu cầu này bị lỗi xác thực và phải đợi timeout kết nối mất **5 giây** trước khi fallback, gây ra hiện tượng phản hồi cực kỳ chậm ở mỗi lượt chat.
+*   **Giải pháp**:
+    *   Cập nhật `embedding_service.py` để tự động phát hiện API Key của Gemini.
+    *   Chuyển hướng gọi trực tiếp đến API sinh vector của Google Gemini (`text-embedding-004`) cho cả luồng đơn lẻ và luồng xử lý hàng loạt (`batchEmbedContents`).
+    *   Tự động padding/trimming vector trả về từ Gemini để đảm bảo độ dài chính xác **1536 chiều**, đồng bộ 100% với cột lưu trữ của cơ sở dữ liệu PostgreSQL (`pgvector`), loại bỏ hoàn toàn độ trễ 5 giây.
+
+### 🔐 Cải tiến Xác thực JWT Đồng bộ & Sửa lỗi 403 Lưu cấu hình:
+*   **Vấn đề**: Khi chạy ở chế độ tắt Keycloak (`USE_KEYCLOAK=False` để tiết kiệm RAM trên cloud), việc đăng nhập sử dụng tài khoản nội bộ và cấp mã token mock ký bằng `HS256`. Tuy nhiên, lớp xác thực `KeycloakJWTAuthentication` bị vô hiệu hóa hoặc thoát sớm khi Keycloak đóng, khiến cho việc lưu cấu hình hệ thống (như cấu hình phân mảnh của Admin) bị trả về lỗi `403 Forbidden` (do hệ thống coi là AnonymousUser).
+*   **Giải pháp**:
+    *   Cập nhật cấu hình REST_FRAMEWORK trong `settings.py` để luôn bật lớp `KeycloakJWTAuthentication`.
+    *   Cải tiến logic trong `keycloak_auth.py` để nhận diện và giải mã an toàn các token mock ký bằng thuật toán đối xứng `HS256` khi tắt Keycloak, đồng bộ xác thực danh tính Admin nội bộ.
+
 ### ⚡ Giải quyết triệt để nút thắt cổ chai Cơ sở dữ liệu (Database Query Optimizations):
 Khi cơ sở dữ liệu được đặt từ xa trên đám mây, các truy vấn kém tối ưu sẽ gây ra độ trễ tích lũy cực lớn do số lượng vòng truyền dữ liệu qua mạng (network round-trips):
 *   **Vá lỗi N+1 Query**: Trong hàm vẽ đồ thị tri thức `build_virtual_knowledge_graph`, thay vì tải từng danh mục thư mục cho mỗi giáo án (gây ra $N$ câu lệnh SQL truy cập tuần tự), hệ thống sử dụng **`prefetch_related('directories')`** để gom toàn bộ dữ liệu chỉ trong một câu lệnh duy nhất.
