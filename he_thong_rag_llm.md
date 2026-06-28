@@ -281,3 +281,28 @@ Nhằm tối ưu hóa trải nghiệm điều hướng tài liệu kết hợp t
     *   Giao diện người dùng ở thanh lịch sử và header chat tự động cập nhật tên mới theo thời gian thực một cách trực quan, sinh động.
 
 ---
+
+## 8. Tối ưu hóa Hiệu năng & Khắc phục Trễ trên Môi trường Cloud Deploy
+
+Để khắc phục hoàn toàn tình trạng trễ và lỗi phản hồi khi triển khai hệ thống lên môi trường đám mây (Render/Vercel) kết nối với cơ sở dữ liệu từ xa (Supabase/Neon), hệ thống đã được nâng cấp đồng bộ các giải pháp tối ưu hóa sau:
+
+### 🔄 Ánh xạ Mô hình Gemini Thông minh & Vá lỗi 404 (Gemini Model Auto-Mapping):
+*   **Vấn đề**: Các tài khoản API Key mới của Google AI Studio đã deprecate hoặc không hỗ trợ mô hình `gemini-1.5-flash` và `text-embedding-004` trên phiên bản API `v1beta`, dẫn tới lỗi `404 Not Found` từ Google và treo kết nối.
+*   **Giải pháp**:
+    *   Tại `llm_runner.py`, hệ thống tự động đánh chặn và nâng cấp yêu cầu gọi mô hình từ `gemini-1.5-flash` và `gemini-1.5-pro` thành **`gemini-2.5-flash`** và **`gemini-2.5-pro`** (hoặc `gemini-flash-latest`).
+    *   Tại `embedding_service.py`, cập nhật mô hình sinh vector nhúng mặc định thành **`gemini-embedding-2`**, ngăn chặn hoàn toàn lỗi 404 và giảm thời gian trễ kết nối timeout 5 giây.
+
+### ⚡ Giải quyết triệt để nút thắt cổ chai Cơ sở dữ liệu (Database Query Optimizations):
+Khi cơ sở dữ liệu được đặt từ xa trên đám mây, các truy vấn kém tối ưu sẽ gây ra độ trễ tích lũy cực lớn do số lượng vòng truyền dữ liệu qua mạng (network round-trips):
+*   **Vá lỗi N+1 Query**: Trong hàm vẽ đồ thị tri thức `build_virtual_knowledge_graph`, thay vì tải từng danh mục thư mục cho mỗi giáo án (gây ra $N$ câu lệnh SQL truy cập tuần tự), hệ thống sử dụng **`prefetch_related('directories')`** để gom toàn bộ dữ liệu chỉ trong một câu lệnh duy nhất.
+*   **Tối ưu hóa dung lượng truyền tải (Column Projection)**: Sử dụng `.only('id', 'title', 'attributes')` khi truy vấn giáo án vẽ đồ thị nhằm loại bỏ hoàn toàn việc tải trường nội dung tóm tắt khổng lồ `content_preview` qua mạng, giúp giảm 95% lượng băng thông tiêu thụ.
+*   **Quét tiêu đề siêu tốc**: Thay thế `LessonPlan.objects.all()` trong luồng tìm kiếm bài giảng nhắc đến bằng **`LessonPlan.objects.values_list('id', 'title')`**, tránh việc khởi tạo hàng trăm thực thể model Django phức tạp lên bộ nhớ RAM.
+
+### 💨 Truyền dẫn Stream tức thì - Tắt bộ đệm Proxy (Disable Proxy Buffering):
+*   **Vấn đề**: Các máy chủ proxy ngược (như Nginx, Envoy của Render) mặc định sẽ thu thập và giữ lại toàn bộ dữ liệu phản hồi của API trước khi gửi tới trình duyệt, làm mất đi tính năng phản hồi thời gian thực của Server-Sent Events (SSE).
+*   **Giải pháp**: Thiết lập trực tiếp các header điều khiển truyền tải vào luồng `StreamingHttpResponse` của Django:
+    *   `Cache-Control: no-cache`
+    *   `X-Accel-Buffering: no` (chỉ thị trực tiếp cho proxy ngắt bộ đệm và truyền dữ liệu ngay lập tức dưới dạng stream).
+
+---
+

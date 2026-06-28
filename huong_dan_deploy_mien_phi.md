@@ -42,25 +42,11 @@ Các máy chủ Cloud miễn phí (Render/Koyeb) giới hạn bộ nhớ RAM ở
 
 ---
 
-### 🗄️ Bước 3: Cấu hình Database & Storage trên Supabase
-
-#### A. Database (Đã Hoàn Thành)
+### 🗄️ Bước 3: Deploy Database trên Supabase (Đã Hoàn Thành)
 Trong file cấu hình `.env` cục bộ của bạn, bạn đã kết nối thành công tới cơ sở dữ liệu Supabase:
 `DATABASE_URL=postgresql://postgres.awlhzbfknpvzzgdfoyea:...@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres?sslmode=require`
 
-CSDL này đã được kích hoạt sẵn extension `pgvector` và sẵn sàng sử dụng trong sản xuất.
-
-#### B. Cấu hình Supabase Storage (Lưu trữ file vĩnh viễn miễn phí)
-Để lưu trữ file Word/PDF vĩnh viễn không bị mất khi deploy Render Free:
-1. Truy cập [Supabase Dashboard](https://supabase.com/) -> Chọn dự án của bạn.
-2. Vào mục **Storage** (ở thanh menu bên trái) -> Chọn **New Bucket**.
-   * **Name**: Nhập `kms-media` (hoặc tên bất kỳ).
-   * **Public bucket**: **Bật** (Rất quan trọng để mọi người có thể xem/tải file).
-   * Nhấn **Save**.
-3. Vào **Project Settings** (biểu tượng bánh răng ở góc dưới bên trái) -> Chọn **Storage**.
-   * Tại phần **S3 Compatibility**, nhấn nút **Generate new credentials** (Tạo thông tin xác thực mới).
-   * Lưu lại **Access Key ID** và **Secret Access Key** được hiển thị (bạn sẽ điền các giá trị này vào biến môi trường trên Render ở Bước 4).
-   * Endpoint S3 của bạn sẽ có định dạng: `https://awlhzbfknpvzzgdfoyea.supabase.co/storage/v1/s3` (với `awlhzbfknpvzzgdfoyea` là Project Ref của bạn).
+CSDL này đã được kích hoạt sẵn extension `pgvector` và sẵn sàng sử dụng trong sản xuất. Bạn không cần thực hiện thêm bước cấu hình CSDL nào khác.
 
 ---
 
@@ -98,13 +84,6 @@ Render là nền tảng dễ sử dụng nhất để deploy ứng dụng Python
     | `USE_KEYCLOAK` | `False` | **Bắt buộc**. Chuyển sang xác thực nội bộ để tránh sập RAM máy chủ. |
     | `USE_AI_RAG` | `True` | Bật tính năng AI RAG phục vụ chat sư phạm. |
     | `ALLOWED_HOSTS` | `*` | Cho phép mọi domain truy cập API (hoặc điền domain Render sau khi hoàn tất). |
-    | `USE_S3` | `True` | Bật tính năng lưu trữ file lên đám mây (Supabase Storage). |
-    | `AWS_ACCESS_KEY_ID` | *Access Key ID vừa lấy từ Supabase* | Mã định danh truy cập S3. |
-    | `AWS_SECRET_ACCESS_KEY` | *Secret Access Key vừa lấy từ Supabase* | Mật khẩu truy cập bảo mật S3. |
-    | `AWS_STORAGE_BUCKET_NAME` | `kms-media` | Tên Bucket bạn tạo ở Supabase Storage. |
-    | `AWS_S3_ENDPOINT_URL` | `https://awlhzbfknpvzzgdfoyea.supabase.co/storage/v1/s3` | S3 Endpoint của dự án Supabase. |
-    | `AWS_S3_REGION_NAME` | `ap-southeast-1` | Vùng lưu trữ (mặc định cho khu vực Đông Nam Á). |
-    | `AWS_S3_CUSTOM_DOMAIN` | `awlhzbfknpvzzgdfoyea.supabase.co/storage/v1/object/public/kms-media` | URL công khai của Bucket (để frontend tải ảnh/file trực tiếp không cần ký khóa bảo mật). |
 
 6. Click **Create Web Service**. Render sẽ tiến hành build và khởi động Django API. 
 
@@ -168,6 +147,6 @@ Khi bạn đăng nhập vào website đã deploy, hãy thực hiện cấu hình
 1. Khi thực hiện **Tải tài liệu mới lên** hoặc **Reprocess (Xử lý lại bài giảng)**:
     *   Tại mục cấu hình AI Engine: chọn chế độ **AI Mode** là `api`.
     *   Điền **API Key** là khóa Gemini API miễn phí bạn đã lấy ở Bước 1.
-    *   Chọn tên mô hình (**AI Model**): `gemini-1.5-flash` (đối với Gemini) hoặc `gpt-4o-mini` (nếu dùng OpenAI API Key).
-2. Hệ thống backend sẽ tự động chuyển hướng các tác vụ trích xuất thực thể, sinh mô tả học thuật và sinh Vector nhúng thông qua API Cloud của Google. 
+    *   Chọn tên mô hình (**AI Model**): `gemini-2.5-flash` (đối với Gemini - hệ thống cũng sẽ tự động ánh xạ các lựa chọn `gemini-1.5-flash` sang `gemini-2.5-flash` ở phía backend để tránh lỗi) hoặc `gpt-4o-mini` (nếu dùng OpenAI API Key).
+2. Hệ thống backend sẽ tự động chuyển hướng các tác vụ trích xuất thực thể, sinh mô tả học thuật và sinh Vector nhúng thông qua API Cloud của Google (sử dụng mô hình embedding `gemini-embedding-2` tối ưu). 
 3. Quá trình xử lý sẽ diễn ra cực kỳ nhanh chóng (chỉ mất 3-5 giây cho mỗi tài liệu), tiêu thụ **0MB RAM** trên máy chủ Render của bạn và hoàn toàn miễn phí!
