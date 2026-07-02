@@ -136,4 +136,6 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
     * Backend: Thiết lập các response header (`Cache-Control: no-cache` và `X-Accel-Buffering: no`) để vô hiệu hóa tính năng đệm proxy ngược của Render/Nginx, trả stream thời gian thực lập tức.
     * Backend: Tối ưu hóa truy cập database (thêm `prefetch_related('directories')`, `.only(...)` và `.values_list(...)`) để loại bỏ triệt để lỗi N+1 query và giảm dung lượng truyền tải mạng giữa máy chủ Render và cơ sở dữ liệu Supabase/Neon.
     * Frontend: Khai báo React ref `abortControllerRef` chính xác bằng `useRef` tại `ChatbotWorkspace.tsx` để khắc phục lỗi runtime JS console khiến ngắt luồng tương tác của chatbot.
+- Fix user profile update bug: only validate email and phone number uniqueness when they are modified to prevent duplicate conflicts with existing historical duplicates, and handle empty values safely => xong
+
 

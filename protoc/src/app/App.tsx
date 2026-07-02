@@ -4007,7 +4007,7 @@ export default function App() {
                       {currentUser.avatar_url ? (
                         <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        (currentUser.full_name || currentUser.username).charAt(0).toUpperCase()
+                        (currentUser.full_name || currentUser.username || '?').charAt(0).toUpperCase()
                       )}
                     </div>
                     <div className="flex flex-col items-start justify-center">

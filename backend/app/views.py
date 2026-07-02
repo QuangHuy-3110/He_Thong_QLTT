@@ -1806,6 +1806,7 @@ class UserProfileUpdateAPIView(APIView):
         new_password = request.data.get('new_password')
         current_password = request.data.get('current_password')
         avatar_file = request.FILES.get('avatar')
+        avatar_base64 = request.data.get('avatar_base64')
         email = request.data.get('email')
         phone_number = request.data.get('phone_number')
 
@@ -1838,16 +1839,29 @@ class UserProfileUpdateAPIView(APIView):
                         return Response({'error': f"Đổi mật khẩu trên Keycloak thất bại: {msg}"}, status=status.HTTP_400_BAD_REQUEST)
 
         if email is not None:
-            # Check unique email
-            if User.objects.filter(email=email).exclude(id=user_id).exists():
-                return Response({'error': 'Email này đã được sử dụng bởi tài khoản khác.'}, status=status.HTTP_400_BAD_REQUEST)
-            from django.conf import settings
-            if getattr(settings, 'USE_KEYCLOAK', False):
-                update_keycloak_user_details(old_username=user.username, email=email)
-            user.email = email
+            email_clean = email.strip()
+            if email_clean:
+                # Check unique email only if it has changed
+                if email_clean != user.email:
+                    if User.objects.filter(email=email_clean).exclude(id=user.id).exists():
+                        return Response({'error': 'Email này đã được sử dụng bởi tài khoản khác.'}, status=status.HTTP_400_BAD_REQUEST)
+                    from django.conf import settings
+                    if getattr(settings, 'USE_KEYCLOAK', False):
+                        update_keycloak_user_details(old_username=user.username, email=email_clean)
+                    user.email = email_clean
+            else:
+                user.email = ""
 
         if phone_number is not None:
-            user.phone_number = phone_number
+            phone_clean = phone_number.strip()
+            if phone_clean:
+                # Check unique phone_number only if it has changed
+                if phone_clean != user.phone_number:
+                    if User.objects.filter(phone_number=phone_clean).exclude(id=user.id).exists():
+                        return Response({'error': 'Số điện thoại này đã được sử dụng bởi tài khoản khác.'}, status=status.HTTP_400_BAD_REQUEST)
+                    user.phone_number = phone_clean
+            else:
+                user.phone_number = ""
 
         if full_name is not None:
             from django.conf import settings
