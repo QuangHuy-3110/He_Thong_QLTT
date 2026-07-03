@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "predeploy": "VITE_DEPLOY_PG=true npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -t -d dist"
   },
   "dependencies": {
     "@cyntler/react-doc-viewer": "^1.17.1",
