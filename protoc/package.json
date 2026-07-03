@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "predeploy": "npm run build",
+    "predeploy": "VITE_DEPLOY_PG=true npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
