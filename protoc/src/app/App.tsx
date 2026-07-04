@@ -4092,7 +4092,7 @@ export default function App() {
               </div>
               {currentUser && (
                 <button
-                  onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(false); setShowDirModal(true); }}
+                  onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(true); setShowDirModal(true); }}
                   className="mt-3 w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-500 hover:bg-gray-100 hover:text-blue-600 transition-colors border border-dashed border-gray-300"
                 >
                   <span className="text-base leading-none">+</span>
@@ -5374,7 +5374,7 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              {currentUser.role === 'ADMIN' && (
+              {currentUser.role === 'ADMIN' && homeTab !== 'personal' && (
                 <div className="flex items-center gap-2 bg-red-50 p-3 rounded-lg border border-red-100">
                   <input type="checkbox" checked={dirIsPublic} onChange={e => setDirIsPublic(e.target.checked)} id="isPub" className="rounded text-red-600 focus:ring-red-500" />
                   <label htmlFor="isPub" className="text-sm font-medium text-red-700">Thư mục dùng chung (Public)</label>
