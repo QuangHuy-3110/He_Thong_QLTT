@@ -2769,20 +2769,10 @@ class BackgroundTasksStopAPIView(APIView):
         from .bg_processor import BackgroundProcessManager
         
         if stop_all:
-            if not request.user or not request.user.is_authenticated:
-                return Response({"error": "Bạn cần đăng nhập để thực hiện tác vụ này."}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            if request.user.role == 'ADMIN':
-                BackgroundProcessManager.cancel_all_tasks()
-                return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
-            else:
-                from .models import LessonPlan
-                user_lps = LessonPlan.objects.filter(creator=request.user, ai_processing_status__in=['PENDING', 'PROCESSING'])
-                count = 0
-                for lp in user_lps:
-                    BackgroundProcessManager.cancel_task(lp.id)
-                    count += 1
-                return Response({"message": f"Đã dừng {count} tiến trình AI RAG của bạn thành công!"}, status=status.HTTP_200_OK)
+            if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
+                return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền dừng toàn bộ tiến trình hệ thống."}, status=status.HTTP_403_FORBIDDEN)
+            BackgroundProcessManager.cancel_all_tasks()
+            return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
             
         if lesson_id:
             try:
