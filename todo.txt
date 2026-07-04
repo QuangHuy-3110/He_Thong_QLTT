@@ -137,5 +137,25 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
     * Backend: Tối ưu hóa truy cập database (thêm `prefetch_related('directories')`, `.only(...)` và `.values_list(...)`) để loại bỏ triệt để lỗi N+1 query và giảm dung lượng truyền tải mạng giữa máy chủ Render và cơ sở dữ liệu Supabase/Neon.
     * Frontend: Khai báo React ref `abortControllerRef` chính xác bằng `useRef` tại `ChatbotWorkspace.tsx` để khắc phục lỗi runtime JS console khiến ngắt luồng tương tác của chatbot.
 - Fix user profile update bug: only validate email and phone number uniqueness when they are modified to prevent duplicate conflicts with existing historical duplicates, and handle empty values safely => xong
-
-
+- Chia nhỏ tệp App.tsx (dưới 1000 dòng): Tiến hành tách biệt toàn bộ logic và giao diện sang các file riêng lẻ giúp giảm từ hơn 2580 dòng xuống còn 793 dòng => xong:
+    * Frontend: Tạo mới custom hook `useKmsApp.ts` chứa toàn bộ State, Effect và API Handlers của hệ thống.
+    * Frontend: Tách các Modals ra khỏi App.tsx thành `DirModal.tsx`, `ProposePublicModal.tsx`, `CreatorProfileModal.tsx`.
+    * Frontend: Tách các Tab làm việc chính thành `HistoryTab.tsx` (Lịch sử đóng góp) và `PersonalTab.tsx` (Thư viện cá nhân).
+    * Frontend: Sửa lỗi tham chiếu runtime `setUpDirId` chưa được định nghĩa và cấu hình lại `UploadPage.tsx` nhận prop `initialDirId` khi upload tài liệu cá nhân.
+    * Frontend: Biên dịch sản xuất (`npm run build`) thành công vượt trội không lỗi TypeScript.
+- Sửa đổi logic tìm kiếm ô tìm kiếm chính: Hỗ trợ tìm kiếm mờ (fuzzy/substring) trong nội dung file (.docx, .md, .txt), tiêu đề và mô tả, sắp xếp theo độ tương đồng giảm dần (tiêu đề khớp > mô tả khớp > nội dung khớp), đồng thời ưu tiên bài giảng nhiều sao (*), nếu bằng sao thì ưu tiên lượt đánh giá/bình chọn cao hơn => xong
+- Sửa lỗi khoảng trắng dọc lớn giữa header tìm kiếm và grid danh sách card ở LibraryList.tsx do thuộc tính justify-between ép dãn chiều cao min-h-[650px] khi ẩn phân trang => xong
+- Tích hợp tính năng bôi sáng từ khóa tìm kiếm (Search Query Highlighting): Hỗ trợ bôi sáng (highlight bằng thẻ mark màu vàng) từ khóa tìm kiếm trong Tiêu đề, Mô tả và nạp lại trường content_preview trong danh sách card để tự động hiển thị snippet bôi sáng nội dung tài liệu trùng khớp => xong
+- Sửa lỗi không hiển thị snippet ở card tìm kiếm đối với các giáo án seed chưa từng được mở (do LessonPlanListSerializer không nạp bóc tách dự phòng) bằng cách chuyển phương thức get_content_preview thành hàm dùng chung resolve_content_preview => xong
+- Đồng bộ chuyển tiếp từ khóa tìm kiếm vào chi tiết tài liệu (DetailView) khi bấm card ở các tab, tự động bôi sáng và cuộn mượt mà (scrollIntoView smooth) đưa đoạn văn bản trùng khớp đầu tiên của tài liệu lên chính giữa màn hình (block center) => xong
+- Sửa lỗi chỉnh sửa tài liệu và chọn lớp học từ cơ sở dữ liệu: => xong
+    * Frontend: Tải và trích xuất danh sách lớp học duy nhất (availableClasses) động từ tất cả tài liệu trong cơ sở dữ liệu, hiển thị danh sách lớp gợi ý dưới dạng dropdown Select mode="tags" để giáo viên chọn trực tiếp thay vì tự gõ nhập tay.
+    * Backend: Tái cấu trúc logic cập nhật tài liệu (perform_update) và xét duyệt lịch sử (EditHistoryReviewAPIView). Khi người dùng/giáo viên chỉnh sửa tài liệu công khai (PUBLISHED), trạng thái của tài liệu sẽ chuyển sang PENDING (chờ duyệt) và tự động tạo Yêu cầu xét duyệt (ApprovalRequest) và Lịch sử chỉnh sửa (LessonPlanEditHistory) ở trạng thái PENDING.
+    * Backend: Thêm cơ chế khôi phục (Rollback) hoàn hảo khi ADMIN từ chối (REJECT) thay đổi: hệ thống sẽ tự động khôi phục các trường dữ liệu của tài liệu (tiêu đề, mô tả, đối tượng, attributes) về giá trị lịch sử trước khi chỉnh sửa (title_before, description_before,...) và đưa trạng thái tài liệu trở lại PUBLISHED. Khi chấp nhận (APPROVE), tài liệu sẽ được phê duyệt và đổi lại trạng thái PUBLISHED.
+    * Hệ thống & So sánh Tệp (Word/PDF): Lưu trữ bản sao vật lý của cả tệp tin cũ (`file_path_before`) và tệp tin mới (`file_path_after`) trong cơ sở dữ liệu khi sửa đổi tài liệu. Cho phép Admin/Teacher tải xuống cả hai phiên bản trực tiếp từ giao diện Lịch sử chỉnh sửa hoặc Xét duyệt chỉnh sửa để so sánh và kiểm tra trực quan sự khác biệt của tệp Word. Đồng thời khôi phục lại tệp tin gốc nếu yêu cầu chỉnh sửa bị từ chối.
+- Sửa lỗi đăng nhập bằng email hoặc số điện thoại: => xong
+- Sửa lỗi hiển thị nút "Thêm mới" tài khoản, hiển thị Logo & Favicon hệ thống: => xong
+    * Frontend: Khai báo định nghĩa các màu sắc trung gian tuỳ chỉnh mới (`--color-purple-650`, `--color-blue-650`,...) vào khối `@theme inline` của Tailwind CSS v4 trong tệp `theme.css`. Điều này giải quyết triệt để lỗi thiết lập nền màu trong suốt khiến nút "Thêm mới" và biểu tượng Logo thương hiệu (`bg-blue-650`) bị ẩn hoàn toàn (màu trắng trên nền trắng).
+    * Frontend: Thiết lập thư mục `public` cho Vite và thêm tệp tin vector `favicon.svg` chất lượng cao. Đồng thời liên kết thẻ `<link rel="icon" ...>` tương ứng vào `index.html` và tối ưu hoá tiêu đề trang phục vụ SEO tốt nhất.
+- Sửa lỗi tự động đồng bộ/chuyển đổi phiên Chatbot khi AI đang phản hồi: => xong
+    * Frontend: Cập nhật các hook `useEffect` đồng bộ ngữ cảnh (focusLessonId) và lịch sử phiên (`fetchSessions`) trong `ChatbotWorkspace.tsx`. Khi AI đang phản hồi (`sending` bằng `true`), hệ thống sẽ bỏ qua mọi lệnh tự động chuyển đổi ngữ cảnh chat hoặc tự động tạo phiên mới khi người dùng thoát/mở card giáo án khác. Điều này bảo vệ an toàn cho cuộc trò chuyện hiện tại và câu truy vấn đang được trả lời không bị ngắt quãng vô lý.

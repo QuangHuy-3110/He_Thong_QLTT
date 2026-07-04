@@ -1,0 +1,38 @@
+[
+  {
+    "case_id": 1,
+    "type": "Accurate (Câu trả lời ĐÚNG)",
+    "query": "Làm thế nào để thiết kế thực đơn 3 bữa cân đối năng lượng calo cho học sinh THPT?",
+    "faithfulness": 0.0,
+    "f_reason": "Phát hiện thông tin mâu thuẫn hoặc không có trong ngữ cảnh.",
+    "relevance": 0.7,
+    "r_reason": "Câu trả lời đã trực diện trả lời được trọng tâm của câu hỏi bằng cách hướng dẫn cách thiết kế thực đơn cho học sinh THPT. Tuy nhiên, câu trả lời thiếu chi tiết về việc lựa chọn thực phẩm phù hợp cho mỗi bữa ăn, cũng như không đề cập đến các yếu tố khác như thời gian ăn, lượng thức ăn, và bổ sung các chất dinh dưỡng cần thiết. Đây là những yếu tố quan trọng mà một câu trả lời chi tiết hơn nên đưa ra."
+  },
+  {
+    "case_id": 1,
+    "type": "Incorrect (Câu trả lời SAI/ẢO GIÁC)",
+    "query": "Làm thế nào để thiết kế thực đơn 3 bữa cân đối năng lượng calo cho học sinh THPT?",
+    "faithfulness": 0.0,
+    "f_reason": "Câu trả lời hoàn toàn mâu thuẫn với ngữ cảnh đề cương. Trong ngữ cảnh đề cương, yêu cầu về dinh dưỡng cho học sinh THPT là 2000-2200 kcal/ngày, với phân chia năng lượng giữa 3 nhóm chất cụ thể. Câu trả lời đề xuất giảm lượng calo xuống dưới 1000 kcal/ngày, loại bỏ hoàn toàn Lipid, và bổ sung nhân sâm và yến sào. Những yêu cầu này hoàn toàn trái ngược với ngữ cảnh đề cương và không tuân theo các chỉ số dinh dưỡng cần thiết cho học sinh THPT.",
+    "relevance": 0.0,
+    "r_reason": "Câu trả lời không liên quan đến câu hỏi. Câu hỏi đề cập đến thiết kế thực đơn cho học sinh THPT với cân đối năng lượng và calo, trong khi câu trả lời chỉ đưa ra một số gợi ý về chế độ ăn kiêng với lượng calo rất thấp và loại bỏ hoàn toàn Lipid. Điều này không đáp ứng yêu cầu của câu hỏi về thiết kế thực đơn cân đối năng lượng. "
+  },
+  {
+    "case_id": 2,
+    "type": "Accurate (Câu trả lời ĐÚNG)",
+    "query": "ADN tái tổ hợp là gì và ứng dụng của nó trong y học sản xuất insulin?",
+    "faithfulness": 0.0,
+    "f_reason": "Phát hiện thông tin mâu thuẫn hoặc không có trong ngữ cảnh.",
+    "relevance": 0.8,
+    "r_reason": "Câu trả lời đã trực diện và đầy đủ trả lời được trọng tâm của câu hỏi. Nó đã giải thích ADN tái tổ hợp là gì và đưa ra ví dụ cụ thể về ứng dụng trong y học sản xuất insulin. Tuy nhiên, câu trả lời thiếu một số chi tiết như: không đề cập đến bước ghép gen insulin vào plasmid vi khuẩn E. coli, và quá trình nhân lên nhanh chóng của vi khuẩn. Những thiếu sót này khiến cho độ chính xác của câu trả lời không đạt mức tối đa."
+  },
+  {
+    "case_id": 2,
+    "type": "Incorrect (Câu trả lời SAI/ẢO GIÁC)",
+    "query": "ADN tái tổ hợp là gì và ứng dụng của nó trong y học sản xuất insulin?",
+    "faithfulness": 0.0,
+    "f_reason": "Phát hiện thông tin mâu thuẫn hoặc không có trong ngữ cảnh.",
+    "relevance": 0.0,
+    "r_reason": "Câu trả lời hoàn toàn không liên quan đến câu hỏi. Nó đề cập sai về ADN tái tổ hợp và không giải thích gì về ứng dụng trong y học sản xuất insulin. Thay vào đó, câu trả lời đề cập đến việc tiêm tế bào tụy heo trực tiếp vào máu, điều này không đúng với thực tế và không liên quan đến ADN tái tổ hợp. "
+  }
+]

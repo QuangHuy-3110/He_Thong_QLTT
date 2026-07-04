@@ -124,34 +124,154 @@ Dưới đây là sơ đồ cây thư mục chi tiết thể hiện đầy đủ
 He_Thong_QLTT/
 ├── backend/                      # Mã nguồn Backend (Django, DRF, PostgreSQL)
 │   ├── app/                      # Django App chính (Quản lý nghiệp vụ & AI RAG)
-│   │   ├── models.py             # Định nghĩa bảng Database (gồm pre_delete Vault Cleanup signals)
-│   │   ├── views.py              # Xử lý REST API (an toàn tham số lesson_id query params)
-│   │   ├── serializers.py        # Serializers chuyển đổi CSDL sang JSON
+│   │   ├── models.py             # Định nghĩa bảng Database (User, Directory, LessonPlan, EditHistory,...)
+│   │   ├── views.py              # Xử lý REST API (Đăng nhập, quản lý người dùng, chỉnh sửa, duyệt,...)
+│   │   ├── serializers.py        # Serializers chuyển đổi CSDL sang JSON (LessonPlan, EditHistory,...)
 │   │   ├── urls.py               # Định tuyến API Route chính
 │   │   │
 │   │   %% Các tệp tin Core AI Rebuild %%
-│   │   ├── bg_processor.py       # Thread chạy ngầm 5 bước (12 thực thể, tối ưu đa mục tiêu)
+│   │   ├── bg_processor.py       # Thread chạy ngầm 5 bước (Parse -> Chunk -> Embed -> Concept -> Obsidian)
 │   │   ├── embedding_service.py  # Dịch vụ sinh vector nhúng (Ollama / Deterministic Hash fallback)
 │   │   ├── graph_rag_service.py  # Thuật toán kết hợp Vector Search & Graph Traversal (RAG Retrieval)
 │   │   ├── llm_runner.py         # Cổng suy luận LLM (Thread Lock, n_ctx=4096, Qwen GGUF, APIs)
 │   │   └── docx_parser.py        # Bóc tách metadata tự động từ file giáo án Word (.docx)
 │   │
 │   ├── kms_core/                 # Thiết lập Django Project
-│   │   └── settings.py           # Kết nối database, biến môi trường (.env)
+│   │   ├── settings.py           # Kết nối database, biến môi trường (.env)
+│   │   └── urls.py               # Cấu hình URL routing cấp dự án
 │   ├── manage.py                 # File quản trị Django chính
 │   └── seed_advanced.py          # Script seed 9 bài giảng mẫu chuyên sâu và tệp tin thực tế
 │
 ├── protoc/                       # Giao diện Frontend (React + Vite + TypeScript)
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── App.tsx           # Component gốc kiểm soát bố cục và Modal chi tiết 60/40
-│   │   │   ├── UploadPage.tsx     # Trang đăng bài giảng (Cây thư mục đệ quy TreeNode)
+│   │   │   ├── App.tsx           # Component gốc điều phối giao diện chính
+│   │   │   ├── context.tsx       # Context dùng chung quản lý trạng thái chia sẻ
+│   │   │   ├── hooks/
+│   │   │   │   └── useKmsApp.ts  # Custom hook quản lý toàn bộ state, API event handlers và gợi ý lớp học
+│   │   │   ├── utils/
+│   │   │   │   ├── directoryHelpers.ts # Các hàm tiện ích duyệt cây thư mục đệ quy
+│   │   │   │   ├── helpers.ts          # Các hàm định dạng ngày, xử lý URL tệp tin
+│   │   │   │   └── types.ts            # Định nghĩa các TypeScript interfaces
 │   │   │   └── components/       
-│   │   │       ├── AuthPage.tsx             # Giao diện Đăng nhập / Đăng ký
-│   │   │       ├── UserManagementPage.tsx   # Quản trị tài khoản & Phân quyền đệ quy (ADMIN)
-│   │   │       ├── ChatbotWorkspace.tsx     # Chatbot Workspace (Gồm WikiNotes Split-pane & WikiLinks parser)
-│   │   └── styles/               # default_shadcn_theme.css
+│   │   │       ├── admin/
+│   │   │       │   ├── AdminDashboard.tsx   # Dashboard quản trị của Admin (xem thống kê, người dùng)
+│   │   │       │   ├── ApprovalModal.tsx    # Modal duyệt giáo án công khai & duyệt lịch sử chỉnh sửa tài liệu
+│   │   │       │   └── UserManagementPage.tsx # Trang quản lý tài khoản & phân quyền đệ quy (ADMIN)
+│   │   │       ├── auth/
+│   │   │       │   ├── AuthModal.tsx        # Modal đăng nhập/đăng ký tích hợp
+│   │   │       │   ├── AuthPage.tsx         # Trang xác thực độc lập
+│   │   │       │   ├── CreatorProfileModal.tsx # Xem thông tin chi tiết tác giả đóng góp
+│   │   │       │   ├── HistoryModal.tsx     # Modal xem lịch sử chỉnh sửa chi tiết và tải tệp cũ/mới
+│   │   │       │   ├── PasswordModal.tsx    # Modal thay đổi mật khẩu
+│   │   │       │   └── ProfileModal.tsx     # Modal cập nhật hồ sơ cá nhân và ảnh đại diện
+│   │   │       ├── chatbot/
+│   │   │       │   ├── ChatbotWorkspace.tsx # Hộp thoại chatbot AI KMS (RAG Chat, Wiki Obsidian, Graph Canvas)
+│   │   │       │   └── MindmapFlow.tsx      # Sơ đồ tư duy dạng Graph Node của trợ lý AI
+│   │   │       ├── directory/
+│   │   │       │   ├── DirectoryNode.tsx    # Nút đệ quy hiển thị trong cây thư mục chính
+│   │   │       │   ├── DirectoryTitle.tsx   # Quản lý hiển thị tiêu đề thư mục
+│   │   │       │   ├── DirModal.tsx         # Modal thêm, sửa, xóa hoặc quản lý quyền truy cập thư mục
+│   │   │       │   ├── FileTreeItem.tsx     # Phần tử trong cây thư mục thư viện
+│   │   │       │   └── PermissionTree.tsx   # Cây đệ quy hiển thị danh sách thư mục để phân quyền quản lý
+│   │   │       ├── library/
+│   │   │       │   ├── DetailPage.tsx       # Trang wrapper độc lập cho chi tiết giáo án
+│   │   │       │   ├── DetailView.tsx       # Panel chi tiết giáo án (Markdown, lớp học DB, đánh giá, chỉnh sửa)
+│   │   │       │   ├── FilterSidebar.tsx    # Sidebar lọc tài liệu theo lớp học, trạng thái duyệt RAG
+│   │   │       │   ├── HistoryTab.tsx       # Tab quản lý danh sách đóng góp của cá nhân giáo viên
+│   │   │       │   ├── LessonPlanListPage.tsx # Trang hiển thị danh sách giáo án độc lập
+│   │   │       │   ├── LibraryList.tsx      # Grid danh sách các card bài giảng, phân trang, highlight từ khóa
+│   │   │       │   ├── Navbar.tsx           # Thanh tiêu đề trên cùng quản lý tìm kiếm chính, logo, tài khoản
+│   │   │       │   ├── PersonalTab.tsx      # Tab quản lý thư mục và tài liệu cá nhân riêng tư
+│   │   │       │   ├── ProposePublicModal.tsx # Modal đề xuất giáo án cá nhân lên thư viện chung
+│   │   │       │   ├── SearchPage.tsx       # Trang kết quả tìm kiếm chi tiết
+│   │   │       │   ├── UploadPage.tsx       # Trang tải lên file giáo án Word (.docx)
+│   │   │       │   └── WorkspacePage.tsx    # Trang không gian làm việc chính
+│   │   │       ├── viewer/
+│   │   │       │   ├── DocxPreview.tsx      # Trình xem trước file Word (.docx) client-side thời gian thực
+│   │   │       │   ├── InteractiveLessonMindmap.tsx # Sơ đồ khái niệm kiến thức 4 nhánh tương tác hai chiều
+│   │   │       │   ├── LessonActivitiesTimeline.tsx # Trình diễn các chuỗi hoạt động dạy học theo timeline
+│   │   │       │   └── MarkdownViewer.tsx   # Trình hiển thị Markdown và bôi sáng từ khóa trùng khớp
+│   │   │       └── ui/
+│   │   │           └── ...                  # Các thành phần UI nguyên tử (button, input, card, dialog,...)
+│   │   └── styles/
+│   │       ├── theme.css                 # Định nghĩa biến CSS, theme tối và custom colors (purple-650,...)
+│   │       └── ...
 ```
+
+### 1.1. Chi tiết chức năng từng thư mục và tệp mã nguồn
+
+#### A. Thư mục Backend (`backend/`)
+Quản lý luồng xử lý nghiệp vụ phía máy chủ, kết nối cơ sở dữ liệu PostgreSQL (pgvector), đồng bộ hóa thư mục ghi chú Obsidian Vault, và tích hợp các tiến trình AI cục bộ (Local LLM GGUF).
+*   **`seed_advanced.py`**: Script tự động tạo cơ sở dữ liệu mẫu với 9 bài giảng Word (.docx) chuyên sâu, phân bổ chính xác theo cây thư mục môn học khoa học và hoạt động trải nghiệm học đường.
+*   **`backend/kms_core/settings.py`**: Tệp cấu hình Django chính, quản lý kết nối cơ sở dữ liệu cổng `5433` (Docker pgvector), định tuyến luồng xác thực JWT token, cấu hình CORS, và các thư mục tĩnh.
+*   **`backend/app/models.py`**: Định nghĩa lược đồ cơ sở dữ liệu (Database Schema):
+    *   `User`: Hồ sơ thành viên (họ tên, email, số điện thoại, ảnh đại diện, vai trò hệ thống).
+    *   `Directory`: Các nút trong cây thư mục đệ quy (quản lý trạng thái `is_public` cho thư mục chung hoặc riêng tư).
+    *   `LessonPlan`: Thông tin giáo án (file gốc Word, bản dịch Markdown, tác giả, trạng thái duyệt, trạng thái nạp RAG).
+    *   `LessonPlanEditHistory`: Lịch sử chỉnh sửa giáo án, lưu trữ bản sao tệp vật lý cũ (`file_path_before`) và mới (`file_path_after`) để duyệt hoặc khôi phục.
+    *   `DocumentChunk`: Phân mảnh bài giảng cùng Vector nhúng nhãn tương đồng ngữ nghĩa.
+    *   *pre_delete signal handler (`delete_lesson_plan_file`):* Tự động xóa tệp `.md` trong Obsidian Vault và làm sạch thông minh các Note Khái niệm mồ côi liên đới khi xóa tài liệu.
+*   **`backend/app/views.py`**: Chứa các API Endpoints phục vụ đăng nhập phân giải email/sđt, cập nhật hồ sơ, quản trị quyền thư mục, bình luận, và trò chuyện trợ lý AI (hỗ trợ xuất luồng stream phản hồi thời gian thực qua `StreamingHttpResponse`).
+*   **`backend/app/bg_processor.py`**: Bộ điều phối hàng chờ chạy ngầm (Background Task Queue) thực thi 5 giai đoạn xử lý tri thức (Parse Word -> Chunking -> Embedding -> Concept Note Extraction -> Obsidian Sync).
+*   **`backend/app/embedding_service.py`**: Chuyển đổi văn bản thô thành vector 1536 chiều bằng `nomic-embed-text` qua Ollama hoặc bộ băm Deterministic Hash Generator cục bộ.
+*   **`backend/app/llm_runner.py`**: Quản lý suy luận LLM Local (Qwen 7B GGUF) hoặc APIs thương mại bên ngoài. Tích hợp `_gguf_model_lock = threading.Lock()` bảo vệ an toàn luồng ngầm tránh sập CPU/GPU cache.
+*   **`backend/app/graph_rag_service.py`**: Thuật toán truy xuất lai (Hybrid Graph RAG Engine) kết hợp Vector Search pgvector, FTS Keyword Search, và thuật toán duyệt BFS đồ thị tri thức để sinh ngữ cảnh trả lời tối ưu.
+*   **`backend/app/docx_parser.py`**: Bóc tách nội dung văn bản, cấu trúc bảng biểu tiến trình dạy học, và tự động trích xuất các thuộc tính môn học, lớp học của giáo án Word.
+
+#### B. Thư mục Frontend (`protoc/`)
+Được thiết kế dựa trên React 18, TypeScript, Vite và Tailwind CSS v4, quản lý trải nghiệm người dùng, đồ thị tri thức 2D Canvas và sơ đồ tư duy 4 nhánh.
+*   **`src/app/App.tsx`**: Component gốc điều phối giao diện chính, cấu trúc cột hiển thị 60/40, quản lý ngăn xếp lịch sử quay lại (`docHistoryStack`) và phân phối dữ liệu từ custom hook.
+*   **`src/app/context.tsx`**: Cung cấp React Context chia sẻ trạng thái dùng chung trong ứng dụng.
+*   **`src/app/hooks/useKmsApp.ts`**: Custom React Hook trung tâm. Đóng gói 100% biến trạng thái (`useState`), side-effects (`useEffect`), và các hàm gọi API tương tác của hệ thống (lọc, phân trang, trích xuất lớp học có sẵn từ DB).
+*   **`src/app/utils/`**:
+    *   `directoryHelpers.ts`: Hàm trợ giúp duyệt và xử lý cấu trúc cây thư mục đệ quy.
+    *   `helpers.ts`: Hàm tiện ích định dạng ngày, phân giải URL tệp media server,...
+    *   `types.ts`: Khai báo các TypeScript interfaces của hệ thống.
+*   **Thư mục `src/app/components/admin/` (Quản trị hệ thống)**:
+    *   `AdminDashboard.tsx`: Bảng điều khiển quản trị viên, cung cấp cái nhìn tổng quan về số lượng tài khoản, vai trò và thống kê hoạt động.
+    *   `ApprovalModal.tsx`: Hộp thoại kiểm duyệt các yêu cầu đăng tải tài liệu lên thư viện chung và duyệt các thay đổi trong lịch sử chỉnh sửa (đối chiếu phiên bản cũ/mới và file đính kèm trực quan).
+    *   `UserManagementPage.tsx`: Trang quản lý thành viên, cho phép cấp quyền quản lý thư mục, nâng/hạ vai trò hệ thống trực quan.
+*   **Thư mục `src/app/components/auth/` (Quản lý Xác thực & Tài khoản)**:
+    *   `AuthModal.tsx`: Hộp thoại đăng nhập/đăng ký tích hợp, hỗ trợ chuyển đổi nhanh.
+    *   `AuthPage.tsx`: Màn hình xác thực độc lập của hệ thống (Keycloak SSO / local auth).
+    *   `CreatorProfileModal.tsx`: Hộp thoại hiển thị thông tin chi tiết của tác giả đóng góp tài liệu.
+    *   `HistoryModal.tsx`: Hộp thoại xem lịch sử chỉnh sửa tài liệu của Giáo viên, hiển thị chi tiết so sánh các thuộc tính và cung cấp liên kết tải xuống file cũ/mới trực quan.
+    *   `PasswordModal.tsx`: Hộp thoại thay đổi mật khẩu tài khoản.
+    *   `ProfileModal.tsx`: Hộp thoại cập nhật thông tin cá nhân (họ tên, email, sđt, ảnh đại diện có tích hợp bộ cắt ảnh).
+*   **Thư mục `src/app/components/chatbot/` (Trợ lý AI & Khám phá tri thức)**:
+    *   `ChatbotWorkspace.tsx`: Cửa sổ trò chuyện trợ lý AI. Hỗ trợ kéo dãn phân cách chat, ghim/ẩn sidebar lịch sử, nút dừng tạo câu trả lời (Stop), làm lại câu hỏi (Remake). Tích hợp cơ chế tự động bảo toàn ngữ cảnh và câu hỏi khi đang phản hồi.
+    *   `MindmapFlow.tsx`: Sơ đồ tư duy dạng đồ thị trực quan hiển thị mối quan hệ giữa các khái niệm kiến thức phục vụ AI.
+*   **Thư mục `src/app/components/directory/` (Quản lý Cây Thư mục)**:
+    *   `DirectoryNode.tsx`: Một nút đệ quy trong cây thư mục chính. Hỗ trợ kéo thả liên kết và các nút thao tác nhanh.
+    *   `DirectoryTitle.tsx`: Component quản lý hiển thị tiêu đề và trạng thái của thư mục.
+    *   `DirModal.tsx`: Hộp thoại tạo nhanh thư mục mới (hỗ trợ tạo thư mục con inline).
+    *   `FileTreeItem.tsx`: Đại diện cho một mục (file hoặc thư mục) hiển thị trong cây thư mục thư viện.
+    *   `PermissionTree.tsx`: Cây đệ quy hiển thị danh sách thư mục hỗ trợ tích chọn phân quyền quản lý cho giáo viên.
+*   **Thư mục `src/app/components/figma/` (Tiện ích đồ họa)**:
+    *   `ImageWithFallback.tsx`: Thẻ hiển thị hình ảnh tự động tải ảnh mặc định thay thế nếu liên kết gốc bị lỗi.
+*   **Thư mục `src/app/components/library/` (Quản lý Thư viện & Tài liệu)**:
+    *   `DetailPage.tsx`: Trang wrapper độc lập phục vụ điều hướng chi tiết tài liệu.
+    *   `DetailView.tsx`: Panel chi tiết tài liệu, hỗ trợ đọc nội dung, chỉnh sửa tài liệu inline (nạp động lớp học có sẵn từ CSDL), bình chọn và đánh giá sao.
+    *   `FilterSidebar.tsx`: Sidebar lọc tài liệu theo Lớp học, Trạng thái duyệt RAG và các thuộc tính khác.
+    *   `HistoryTab.tsx`: Tab quản lý danh sách giáo án đóng góp của riêng giáo viên.
+    *   `LessonPlanListPage.tsx`: Trang danh sách giáo án độc lập.
+    *   `LibraryList.tsx`: Grid danh sách các card bài giảng trong thư viện, tích hợp phân trang, sắp xếp và bôi sáng từ khóa.
+    *   `Navbar.tsx`: Thanh tiêu đề trên cùng quản lý ô tìm kiếm chính, logo và điều hướng nhanh.
+    *   `PersonalTab.tsx`: Tab quản lý thư mục và tài liệu cá nhân riêng tư của người dùng.
+    *   `ProposePublicModal.tsx`: Hộp thoại gửi đề xuất đưa tài liệu cá nhân lên thư viện chia sẻ chung.
+    *   `SearchPage.tsx`: Trang kết quả tìm kiếm chi tiết.
+    *   `UploadPage.tsx`: Trang đăng tải tệp giáo án mới (.docx) lên hệ thống.
+    *   `WorkspacePage.tsx`: Trang không gian làm việc chính của người dùng.
+*   **Thư mục `src/app/components/viewer/` (Trình hiển thị tài liệu)**:
+    *   `DocxPreview.tsx`: Trình xem trước file Word (.docx) trực tiếp trên trình duyệt bằng thư viện `docx-preview`.
+    *   `InteractiveLessonMindmap.tsx`: Sơ đồ khái niệm tri thức 4 nhánh tương tác hai chiều của riêng tài liệu.
+    *   `LessonActivitiesTimeline.tsx`: Trình diễn các chuỗi hoạt động dạy học của giáo án theo timeline sinh động.
+    *   `MarkdownViewer.tsx`: Trình hiển thị nội dung tài liệu dạng Markdown, hỗ trợ tự động bôi sáng các từ khóa tìm kiếm trùng khớp.
+*   **Thư mục `src/app/components/ui/` (Thư viện UI Components)**:
+    *   Chứa các thành phần UI nguyên tử (Accordion, Alert, Avatar, Badge, Button, Calendar, Card, Dialog, Input, Select, Switch, Table, Tabs, Textarea, Tooltip,...) được thiết kế theo phong cách Shadcn UI hiện đại, bóng bẩy và hỗ trợ responsive tối đa.
+
+---
 
 ---
 

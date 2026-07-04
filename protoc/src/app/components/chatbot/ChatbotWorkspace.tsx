@@ -1446,6 +1446,14 @@ export default function ChatbotWorkspace({
   };
 
   useEffect(() => {
+    if (sending) {
+      // Skip switching chat sessions if AI is currently responding
+      fetchGraphData();
+      fetchChunkingConfig();
+      fetchObsidianStatus();
+      fetchObsidianNotes();
+      return;
+    }
     fetchSessions();
     fetchGraphData();
     fetchChunkingConfig();
@@ -1455,6 +1463,7 @@ export default function ChatbotWorkspace({
 
   // Fetch lesson-specific notes khi focusLessonId thay đổi
   useEffect(() => {
+    if (sending) return; // Keep current notes context if AI is responding
     if (focusLessonId) {
       fetchObsidianLessonNotes(focusLessonId);
       setWikiFilterMode('lesson'); // Tự động chuyển về chế độ lọc bài này
@@ -1498,6 +1507,7 @@ export default function ChatbotWorkspace({
 
   // Synchronize focusLessonId from parent prop
   useEffect(() => {
+    if (sending) return; // Do not switch context if AI is responding
     setFocusLessonIdState(initialFocusLessonId);
     if (!initialFocusLessonId) {
       setShowContinueDialog(null);
@@ -1509,6 +1519,7 @@ export default function ChatbotWorkspace({
   useEffect(() => {
     if (chatbotOpenTrigger > 0 && chatbotOpenTrigger !== lastHandledTrigger.current) {
       lastHandledTrigger.current = chatbotOpenTrigger;
+      if (sending) return; // Do not interrupt ongoing response
       if (initialFocusLessonId) {
         openWithContext(initialFocusLessonId);
         // Explicitly load session for this lesson plan
@@ -1525,6 +1536,7 @@ export default function ChatbotWorkspace({
 
   // Reset focus lesson ID when chatbot is closed and user is on the homepage (detail view is closed)
   useEffect(() => {
+    if (sending) return; // Do not reset if AI is responding
     if (!isOpen && !isDetailOpen) {
       setFocusLessonIdState(null);
       if (setFocusLessonId) {
@@ -3498,12 +3510,12 @@ export default function ChatbotWorkspace({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      overflowX: 'auto',
+                      flexWrap: 'wrap',
                       flexShrink: 0,
                     }}>
                       <span style={{ fontSize: '9px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', flexShrink: 0 }}>Gợi ý:</span>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap', overflowX: 'auto' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: 1, justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {suggestedQuestions.slice(0, 2).map((q, i) => (
                             <button
                               key={i}

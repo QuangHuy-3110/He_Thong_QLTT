@@ -115,8 +115,14 @@ class AIChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class LessonPlanEditHistory(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Chờ duyệt'),
+        ('APPROVED', 'Đã chấp nhận'),
+        ('REJECTED', 'Đã từ chối'),
+    ]
+
     lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.CASCADE, related_name='edit_histories')
-    edited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    edited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='edit_histories')
     title_before = models.CharField(max_length=255)
     title_after = models.CharField(max_length=255)
     description_before = models.TextField(blank=True, null=True)
@@ -127,7 +133,19 @@ class LessonPlanEditHistory(models.Model):
     attributes_after = models.JSONField(default=dict, blank=True)
     file_name_before = models.CharField(max_length=255, blank=True, null=True)
     file_name_after = models.CharField(max_length=255, blank=True, null=True)
+    file_path_before = models.FileField(upload_to='edit_histories/before/', blank=True, null=True)
+    file_path_after = models.FileField(upload_to='edit_histories/after/', blank=True, null=True)
     edited_at = models.DateTimeField(auto_now_add=True)
+
+    # Review fields
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='reviewed_edit_histories'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_feedback = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['-edited_at']

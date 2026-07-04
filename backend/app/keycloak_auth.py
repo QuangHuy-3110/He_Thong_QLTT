@@ -76,7 +76,12 @@ class KeycloakJWTAuthentication(authentication.BaseAuthentication):
         # 3. Đồng bộ hóa thông tin User tự động (Auto-provisioning)
         username = payload.get('preferred_username') or payload.get('sub')
         email = payload.get('email', '')
-        full_name = payload.get('name', '')
+        family_name = payload.get('family_name', '')
+        given_name = payload.get('given_name', '')
+        if family_name or given_name:
+            full_name = f"{family_name} {given_name}".strip()
+        else:
+            full_name = payload.get('name', '')
         
         # Bóc tách phân quyền vai trò (Roles mapping) từ Keycloak JWT claims
         roles = []

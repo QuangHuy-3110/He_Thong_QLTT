@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thuyết Minh Kiến Trúc Hệ Thống KMS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --primary: #8b5cf6;
+            --primary-light: #a78bfa;
+            --secondary: #3b82f6;
+            --accent: #10b981;
+            --danger: #ef4444;
+            --gradient-primary: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%);
+            --shadow-premium: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(59, 130, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        header {
+            text-align: center;
+            padding: 50px 20px 30px;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 700px;
+            margin: 0 auto 20px;
+        }
+
+        /* Nav Tabs */
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: var(--gradient-primary);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px 100px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Grid System */
+        .grid-layers {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        /* Layer Card */
+        .layer-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-premium);
+            transition: all 0.3s ease;
+        }
+
+        .layer-card:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.1);
+        }
+
+        .layer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .layer-title-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .layer-icon {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+            color: var(--primary-light);
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .layer-name {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .layer-badge {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--primary-light);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid rgba(139, 92, 246, 0.15);
+        }
+
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .comp-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comp-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .comp-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .comp-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Detail Modal Side-panel */
+        .info-panel {
+            background: rgba(17, 24, 39, 0.95);
+            border-left: 1px solid var(--border-color);
+            position: fixed;
+            top: 0;
+            right: -450px;
+            width: 420px;
+            height: 100vh;
+            z-index: 200;
+            padding: 40px 30px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+            transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-panel.active {
+            right: 0;
+        }
+
+        .close-panel-btn {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-panel-btn:hover {
+            color: #fff;
+        }
+
+        .panel-header {
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .panel-tag {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .panel-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .panel-body {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .panel-section-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--primary-light);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .code-badge {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.05);
+            font-family: monospace;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: #f472b6;
+            font-size: 0.85rem;
+            display: block;
+            margin-top: 5px;
+        }
+
+        /* Timeline Workflow */
+        .timeline {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 30px;
+            width: 2px;
+            height: 100%;
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 40px;
+            padding-left: 70px;
+            animation: slideIn 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+            from { opacity: 0; transform: translateX(-20px); }
+        }
+
+        .timeline-icon-box {
+            position: absolute;
+            left: 15px;
+            top: 0;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 3px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            color: var(--primary-light);
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-item:hover .timeline-icon-box {
+            transform: scale(1.2);
+            box-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+        }
+
+        .timeline-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-premium);
+        }
+
+        .timeline-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .flow-block {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .flow-sub-card {
+            flex: 1;
+            background: rgba(255,255,255,0.015);
+            border: 1px solid rgba(255,255,255,0.04);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .sub-card-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .sub-card-title.ui { color: #f472b6; }
+        .sub-card-title.backend { color: #60a5fa; }
+
+        .sub-card-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Adjustments tab */
+        .adjust-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .adjust-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .adjust-num {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(245, 158, 11, 0.2) 100%);
+            color: #fb7185;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            flex-shrink: 0;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .adjust-body {
+            flex-grow: 1;
+        }
+
+        .adjust-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        .adjust-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .meta-why { color: #f87171; }
+        .meta-how { color: #34d399; }
+
+        .adjust-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Overlay blur */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 150;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        .nav-flow-selector {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .flow-btn {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 1.05rem;
+            transition: all 0.2s;
+        }
+
+        .flow-btn.active {
+            color: var(--primary-light);
+            border-color: var(--primary-light);
+        }
+
+        @media (max-width: 768px) {
+            .components-grid {
+                grid-template-columns: 1fr;
+            }
+            .flow-block {
+                flex-direction: column;
+            }
+            .info-panel {
+                width: 100%;
+                right: -100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>THUYẾT MINH KIẾN TRÚC HỆ THỐNG KMS</h1>
+        <p class="subtitle">Giải thích chi tiết 6 lớp cấu phần, luồng xử lý RAG & Obsidian và các điểm hiệu chỉnh trên sơ đồ ERP</p>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('layers')"><i class="fa-solid fa-layer-group"></i> Lớp Cấu Phần</button>
+            <button class="tab-btn" onclick="switchTab('flows')"><i class="fa-solid fa-diagram-project"></i> Luồng Hoạt Động</button>
+            <button class="tab-btn" onclick="switchTab('adjustments')"><i class="fa-solid fa-circle-check"></i> Chi Tiết Sửa Đổi</button>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- ================= TAB 1: LAYERS ================= -->
+        <div id="tab-layers" class="tab-content active">
+            <div class="grid-layers">
+                
+                <!-- LAYER 1 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-users"></i></div>
+                            <div class="layer-name">Tầng 1: Access Layer (Lớp người dùng)</div>
+                        </div>
+                        <span class="layer-badge">3 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('Quản trị viên (Admin)', 'Tầng 1: Access Layer', 'Tài khoản quản trị viên cấp cao nhất. Chịu trách nhiệm quản lý cấu hình các tham số AI (độ dài chunk, overlap, chọn model) và phân quyền hoạt động hệ thống.', 'views.py (Các API cấu hình AI của Admin)')">
+                            <div class="comp-title"><i class="fa-solid fa-user-gear text-primary"></i> Quản trị viên (Admin)</div>
+                            <div class="comp-desc">Quản lý cấu hình AI hệ thống và theo dõi nhật ký hoạt động.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Giáo viên (Teacher)', 'Tầng 1: Access Layer', 'Người dùng có quyền upload các file giáo án Word mới lên hệ thống, quản lý tài liệu cá nhân, đề xuất chia sẻ công khai lên thư viện chung và chỉnh sửa hồ sơ.', 'views.py (Các API upload giáo án)')">
+                            <div class="comp-title"><i class="fa-solid fa-chalkboard-user text-primary"></i> Giáo viên (Teacher)</div>
+                            <div class="comp-desc">Tải lên và quản lý tài liệu giáo án riêng / đề xuất dùng chung.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Người dùng (User)', 'Tầng 1: Access Layer', 'Độc giả (Học sinh/Sinh viên/Người học) truy cập thư viện để đọc tài liệu giáo án đã xuất bản, quan sát đồ thị liên kết chéo và sử dụng chatbot AI để hỏi đáp tri thức.', 'App.tsx (Giao diện tra cứu dành cho người dùng)')">
+                            <div class="comp-title"><i class="fa-solid fa-user-graduate text-primary"></i> Người dùng (User)</div>
+                            <div class="comp-desc">Đọc tài liệu công khai và trò chuyện hỏi đáp ngữ nghĩa với AI.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAYER 2 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-window-restore"></i></div>
+                            <div class="layer-name">Tầng 2: Presentation Layer (Giao diện React)</div>
+                        </div>
+                        <span class="layer-badge">6 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('Admin Config Dashboard', 'Tầng 2: Presentation Layer', 'Khung giao diện cài đặt AI nâng cao của Admin. Cho phép thiết lập model AI (Local Qwen hoặc API GPT), khoá kết nối, và chiến lược cắt nhỏ văn bản (Chunk Size, Overlap).', 'App.tsx (Modal cài đặt AI)')">
+                            <div class="comp-title">Admin Config Dashboard</div>
+                            <div class="comp-desc">Giao diện điều khiển cấu hình tham số AI của Admin.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Chatbot Workspace Widget', 'Tầng 2: Presentation Layer', 'Giao diện Chatbot thông minh dạng thanh trượt/widget nổi. Hỗ trợ hiển thị text streaming thời gian thực, citation trích dẫn nguồn, MINI subgraph mạng lưới tri thức RAG và gợi ý câu hỏi liên quan.', 'ChatbotWorkspace.tsx')">
+                            <div class="comp-title">Chatbot Workspace Widget</div>
+                            <div class="comp-desc">Widget nổi hỗ trợ người dùng chat RAG với AI.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Dashboard & Library View', 'Tầng 2: Presentation Layer', 'Lưới hiển thị danh sách giáo án dạng thẻ phẳng. Hỗ trợ tìm kiếm, phân loại theo môn học/khối lớp và hiển thị tiến trình xử lý AI của giáo án.', 'LessonPlanListPage.tsx')">
+                            <div class="comp-title">Dashboard & Library View</div>
+                            <div class="comp-desc">Lưới thư viện giáo án công cộng và thư mục cá nhân.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Symmetrical Mindmap Canvas', 'Tầng 2: Presentation Layer', 'Bản đồ tư duy tương tác phân cấp hiển thị mục lục bài giảng. Dùng thư viện ReactFlow để vẽ sơ đồ dạng cây đối xứng tự động căn lề.', 'App.tsx (Tab sơ đồ tư duy)')">
+                            <div class="comp-title">Symmetrical Mindmap Canvas</div>
+                            <div class="comp-desc">Bản đồ tư duy đối xứng mục lục bài dạy tương tác.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Knowledge Graph Canvas 2D', 'Tầng 2: Presentation Layer', 'Bản đồ đồ thị liên kết tri thức 2D mạng lưới. Kết nối giữa các giáo án và các nút thực thể khái niệm bóc tách bởi LLM.', 'App.tsx (Tab Force-directed Graph)')">
+                            <div class="comp-title">Knowledge Graph Canvas 2D</div>
+                            <div class="comp-desc">Đồ thị mạng lưới 2D liên kết chéo giáo án & khái niệm.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Premium WikiNotes Split-Pane', 'Tầng 2: Presentation Layer', 'Khung làm việc ghi chú chia đôi màn hình: sidebar bên trái là list file Obsidian Vault, bên phải là Markdown Reader tương tác. Tự động chuyển đổi [[WikiLinks]] thành các Badge tím bóng bẩy để click đọc chéo tri thức liên tục.', 'App.tsx (Khung làm việc WikiNotes)')">
+                            <div class="comp-title">Premium WikiNotes Split-Pane</div>
+                            <div class="comp-desc">Khung đọc WikiNotes và liên kết chéo WikiLinks Obsidian.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAYER 3 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div class="layer-name">Tầng 3: Security & Integration Layer (Bảo mật & Phân tuyến)</div>
+                        </div>
+                        <span class="layer-badge">3 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('Axios Request Interceptor', 'Tầng 3: Security & Integration Layer', 'Thành phần cấu hình Axios tự động bắt (intercept) mọi request gửi đi từ client và nhúng mã Keycloak Token JWT vào Header để backend kiểm tra danh tính.', 'protoc/src/index.tsx')">
+                            <div class="comp-title">Axios Request Interceptor</div>
+                            <div class="comp-desc">Tự động nhúng JWT Token xác thực vào Header HTTP.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Keycloak / Local Auth Provider', 'Tầng 3: Security & Integration Layer', 'Máy chủ xác thực Identity Provider tập trung quản lý cơ chế đăng nhập SSO Keycloak ROPC Flow kết hợp cơ chế lưu mật khẩu mã hoá (PBKDF2) cục bộ tại DB.', 'backend/app/keycloak_auth.py')">
+                            <div class="comp-title">Keycloak / Local Auth Provider</div>
+                            <div class="comp-desc">Đăng nhập một lần SSO Keycloak hoặc xác thực CSDL cục bộ.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('API Gateways & Routers', 'Tầng 3: Security & Integration Layer', 'Bộ định tuyến URLs của Django. Định tuyến các REST API (ví dụ: /api/chat-sessions/ hoặc /api/lesson-plans/) và áp dụng các Class phân quyền (IsAuthenticated).', 'backend/app/urls.py')">
+                            <div class="comp-title">API Gateways & Routers</div>
+                            <div class="comp-desc">Hệ thống phân luồng API Django REST Framework.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAYER 4 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-gears"></i></div>
+                            <div class="layer-name">Tầng 4: Business Logic Layer (Xử lý nghiệp vụ Django)</div>
+                        </div>
+                        <span class="layer-badge">4 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('User & Account Controller', 'Tầng 4: Business Logic Layer', 'Quản lý logic về tài khoản người dùng, đăng ký, đồng bộ dữ liệu người dùng sang Keycloak khi có cập nhật email/số điện thoại mới.', 'views.py (UserProfileUpdateAPIView)')">
+                            <div class="comp-title">User & Account Controller</div>
+                            <div class="comp-desc">Xử lý tài khoản và đồng bộ chi tiết người dùng Keycloak.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Vault Synchronization Engine', 'Tầng 4: Business Logic Layer', 'Động cơ đồng bộ tệp. Nhận nhiệm vụ ghi vật lý tệp Markdown (.md) bài học/khái niệm lên ổ cứng server. Khi tài liệu bị xoá/đổi tên, engine này quét thư mục Obsidian Vault để dọn sạch file rác.', 'models.py (Tín hiệu xoá và dọn dẹp file vật lý)')">
+                            <div class="comp-title">Vault Synchronization Engine</div>
+                            <div class="comp-desc">Ghi tệp tin Markdown (.md) và dọn dẹp Obsidian Vault rác.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Document Lifecycle Manager', 'Tầng 4: Business Logic Layer', 'Quản lý vòng đời tài liệu giáo án từ trạng thái bản nháp (Draft), duyệt (Pending) đến xuất bản công khai (Published) và lưu vết Rating, History.', 'views.py (LessonPlanViewSet)')">
+                            <div class="comp-title">Document Lifecycle Manager</div>
+                            <div class="comp-desc">Quản lý vòng đời giáo án, xếp hạng và lịch sử chỉnh sửa.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Pedagogical & Word Parser', 'Tầng 4: Business Logic Layer', 'Bộ phân tách cấu trúc giáo án. Đọc tệp Word (.docx) tải lên, bóc tách cấu trúc XML của Office Open XML để lấy text thô cùng metadata (Khối lớp, Môn học, Tác giả).', 'views.py (Phần xử lý docx khi upload)')">
+                            <div class="comp-title">Pedagogical & Word Parser</div>
+                            <div class="comp-desc">Đọc cấu trúc file Word (.docx) trích xuất văn bản & metadata.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAYER 5 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-microchip"></i></div>
+                            <div class="layer-name">Tầng 5: AI Processing Layer (Tầng xử lý AI)</div>
+                        </div>
+                        <span class="layer-badge">4 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('Asynchronous Task Manager', 'Tầng 5: AI Processing Layer', 'Bộ quản lý tác vụ ngầm. Khi giáo án được tạo, Task Manager chạy bất đồng bộ 5 Phase để cắt chunk, sinh vector nhúng, trích thực thể qua LLM và đồng bộ Obsidian mà không chặn luồng chính.', 'bg_processor.py (BackgroundProcessManager)')">
+                            <div class="comp-title">Asynchronous Task Manager</div>
+                            <div class="comp-desc">Điều phối 5 Phase xử lý AI và đồng bộ chạy ngầm.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Graph RAG Retrieval Engine', 'Tầng 5: AI Processing Layer', 'Động cơ cốt lõi tìm kiếm tri thức. Nhận câu hỏi, tìm kiếm ngữ nghĩa trên pgvector để lấy chunk văn bản sát nhất, đồng thời truy vấn quan hệ PostgreSQL vẽ đồ thị con (subgraph), và đọc khái niệm từ Obsidian làm ngữ cảnh gửi LLM.', 'graph_rag_service.py')">
+                            <div class="comp-title">Graph RAG Retrieval Engine</div>
+                            <div class="comp-desc">Tìm kiếm ngữ nghĩa RAG kết hợp Vector DB và đồ thị tri thức.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('LLM Inference Bridge', 'Tầng 5: AI Processing Layer', 'Cầu nối gọi LLM. Nhận Prompt kết hợp, điều phối đến các mô hình cục bộ chạy qua Ollama (như Qwen2.5) hoặc các OpenAI API (như GPT-4o) tuỳ cấu hình của Admin.', 'llm_runner.py (generate_llm_response)')">
+                            <div class="comp-title">LLM Inference Bridge</div>
+                            <div class="comp-desc">Cầu nối gọi phản hồi LLM (Local Qwen2.5 hoặc API GPT-4o).</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Embedding Service', 'Tầng 5: AI Processing Layer', 'Dịch vụ sinh vector nhúng (vector embeddings) cho văn bản. Nhận chuỗi ký tự thô và chuyển thành mảng float 1536 chiều bằng API OpenAI hoặc Ollama cục bộ.', 'embedding_service.py')">
+                            <div class="comp-title">Embedding Service</div>
+                            <div class="comp-desc">Sinh vector nhúng ngữ nghĩa (OpenAI / Ollama Local Embed).</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LAYER 6 -->
+                <div class="layer-card">
+                    <div class="layer-header">
+                        <div class="layer-title-group">
+                            <div class="layer-icon"><i class="fa-solid fa-database"></i></div>
+                            <div class="layer-name">Tầng 6: Data Storage Layer (Tầng Lưu Trữ)</div>
+                        </div>
+                        <span class="layer-badge">2 Components</span>
+                    </div>
+                    <div class="components-grid">
+                        <div class="comp-card" onclick="showComponent('PostgreSQL DB (với pgvector)', 'Tầng 6: Data Storage Layer', 'Cơ sở dữ liệu trung tâm. Chứa các bảng quan hệ bình thường (Bảng quan hệ hệ thống thường) lưu dữ liệu bài giảng, tài khoản, đánh giá và tích hợp trực tiếp Extension pgvector để lưu trữ và so khớp vector cosine của Chunks.', 'Phân vùng CSDL Postgres trên Supabase')">
+                            <div class="comp-title">PostgreSQL DB (với pgvector)</div>
+                            <div class="comp-desc">CSDL quan hệ PostgreSQL tích hợp Extension pgvector.</div>
+                        </div>
+                        <div class="comp-card" onclick="showComponent('Obsidian Vault Store', 'Tầng 6: Data Storage Layer', 'Thư mục đĩa vật lý chứa các file ghi chú Markdown (.md). Bao gồm các file cấu trúc giáo án đính kèm liên kết [[WikiLinks]] và các file định nghĩa khái niệm do AI sinh ra.', 'Thư mục obsidian_vault/ ở thư mục gốc backend')">
+                            <div class="comp-title">Obsidian Vault Store</div>
+                            <div class="comp-desc">Kho lưu trữ tệp Markdown (.md) vật lý chuẩn Obsidian.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: FLOWS ================= -->
+        <div id="tab-flows" class="tab-content">
+            
+            <div class="nav-flow-selector">
+                <button id="flow-btn-ingress" class="flow-btn active" onclick="switchFlow('ingress')">1. Luồng Tải Lên & Xử Lý AI (Ingress)</button>
+                <button id="flow-btn-egress" class="flow-btn" onclick="switchFlow('egress')">2. Luồng Hỏi Đáp Chatbot AI (Egress)</button>
+            </div>
+
+            <!-- INGRESS FLOW TIMELINE -->
+            <div id="flow-ingress" class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">1</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Upload giáo án Word từ Giao diện</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Giáo viên click <b>Tải lên giáo án</b> trên Thư viện, chọn file Word (.docx) và nhấn Xác nhận.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Axios Interceptor gắn Token JWT gửi file. <b>Pedagogical Parser</b> đọc cấu trúc XML thô của file Word.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">2</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Khởi chạy Task Manager ngầm (Phase 1-2: Cắt Chunks)</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Giao diện nhận kết quả 200 OK và hiển thị vòng xoay tiến trình xử lý AI trên card bài học.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text"><b>Asynchronous Task Manager</b> chạy ngầm chia văn bản bài dạy thành các Chunks (~500 ký tự) và ghi SQL lưu vào PostgreSQL.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">3</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Phase 3: Nhúng Vector và lưu CSDL</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Trạng thái tiến trình AI hiển thị: "Đang sinh vector nhúng RAG..."</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Gọi <b>Embedding Service</b> nhúng các chunks văn bản thành vector. Thực hiện câu lệnh SQL ghi vector vào <b>pgvector Extension</b>.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">4</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Phase 4: LLM trích xuất Khái niệm cốt lõi</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Trạng thái tiến trình AI hiển thị: "Đang bóc tách thực thể tri thức..."</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Gửi văn bản qua <b>LLM Inference Bridge</b> để trích xuất 8-12 khái niệm cốt lõi. Đồng thời sinh mô tả định nghĩa học thuật cho khái niệm.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">5</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Phase 5: Đồng bộ tệp Markdown vào Obsidian</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Trạng thái hiển thị: "Hoàn thành xử lý!". Giáo án sẵn sàng hiển thị trên các Canvas bản đồ 3D/2D.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text"><b>Vault Synchronization Engine</b> tạo các file ghi chú (.md) bài học và khái niệm có WikiLinks [[Liên kết]], ghi trực tiếp vào thư mục đĩa <b>Obsidian Vault Store</b>.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EGRESS FLOW TIMELINE -->
+            <div id="flow-egress" class="timeline" style="display: none;">
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">1</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Đặt câu hỏi hỏi đáp với AI Chatbot</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Người dùng mở <b>Chatbot Widget</b>, nhập câu hỏi (Ví dụ: "Protein là gì?") và bấm gửi.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Gửi tin nhắn kèm JWT token qua <b>API Gateway</b> vào <b>Document Lifecycle Manager</b>.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">2</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">So khớp Vector tương đồng câu hỏi</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">UI hiển thị màn hình bong bóng chat của người dùng và hiển thị vòng xoay "AI đang trả lời...".</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text"><b>Graph RAG Engine</b> gọi <b>Embedding Service</b> đổi câu hỏi thành vector. Chạy truy vấn tương đồng (Cosine) trên <b>pgvector</b> tìm các đoạn văn bản tương đồng nhất.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">3</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Dựng đồ thị con và đọc mô tả Khái niệm</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">Frontend chuẩn bị bộ khung hiển thị đồ thị mạng lưới tri thức RAG thu nhỏ ngay trong khung chat.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Engine tìm quan hệ liên kết chéo trong <b>PostgreSQL DB</b>. Với mỗi nút khái niệm, nó <b>đọc file .md trực tiếp</b> trên <b>Obsidian Vault</b> để lấy chi tiết định nghĩa.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon-box">4</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">LLM sinh phản hồi và Stream kết quả lên UI</div>
+                        <div class="flow-block">
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title ui">Giao diện (Frontend)</div>
+                                <div class="sub-card-text">UI nhận luồng text streaming hiển thị chạy chữ thời gian thực kèm các Citation Badge trích nguồn và Mini Subgraph.</div>
+                            </div>
+                            <div class="flow-sub-card">
+                                <div class="sub-card-title backend">Xử lý (Backend)</div>
+                                <div class="sub-card-text">Engine ghép (Chunk + Mối quan hệ + Định nghĩa khái niệm) vào Prompt và truyền qua <b>LLM Inference Bridge</b> nhờ mô hình sinh và stream câu trả lời về Client.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= TAB 3: ADJUSTMENTS ================= -->
+        <div id="tab-adjustments" class="tab-content">
+            <div class="adjust-list">
+                
+                <div class="adjust-card">
+                    <div class="adjust-num">1</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Hợp nhất pgvector Extension vào PostgreSQL DB</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Ở sơ đồ cũ, pgvector được vẽ như một xi lanh dữ liệu độc lập chạy song song với PostgreSQL DB. Về mặt bản chất, pgvector là một Extension được cài đặt trực tiếp vào trong nhân PostgreSQL DB, dùng chung một tiến trình và tệp tin lưu trữ.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Tôi đã gom khối `pgvector Extension` nằm gọn gàng bên trong khối `PostgreSQL DB` trong tệp sơ đồ để phản ánh chính xác 100% cấu trúc vật lý của cơ sở dữ liệu.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">2</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Sửa hướng mũi tên của Vault Synchronization Engine về Obsidian</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Sơ đồ cũ vẽ mũi tên từ `Vault Synchronization Engine` trỏ vào PostgreSQL DB với nhãn "Ghi tệp vật lý". Điều này sai nghiêm trọng vì PostgreSQL chỉ lưu trữ các bản ghi quan hệ, còn tệp ghi chú vật lý Markdown `.md` của Obsidian phải được ghi xuống ổ đĩa thư mục Obsidian Vault.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Chuyển hướng mũi tên này trỏ trực tiếp sang `Obsidian Vault Store` với nhãn *"Ghi tệp tin vật lý / Dọn dẹp"*.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">3</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Xóa đường kết nối rác từ Task Manager trực tiếp xuống Obsidian</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Asynchronous Task Manager là lớp xử lý AI chạy ngầm. Nó không trực tiếp can thiệp I/O ghi file vật lý mà phải ủy quyền cho `Vault Synchronization Engine` ở tầng Logic (qua đường *"Phase 5: Đồng bộ ghi tệp"*). Đường kết nối trực tiếp xuống Obsidian là bị thừa và vi phạm quy chuẩn phân lớp.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Xóa bỏ hoàn toàn đường nối này khỏi sơ đồ.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">4</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Xóa đường kết nối rác từ Embedding Service sang Obsidian</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Embedding Service chỉ là thư viện tính toán sinh vector float, nó không lưu trữ vector hay đọc/ghi file trên Obsidian. Đường nối này gây hiểu nhầm nghiêm trọng về chức năng.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Xóa bỏ hoàn toàn đường nối này.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">5</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Đổi nhãn từ Vector Similarity Search thành Direct File I/O Read của Graph RAG trỏ vào Obsidian</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Obsidian Vault chứa các file tĩnh dạng Markdown, không có động cơ lưu hay chỉ mục vector để thực hiện tìm kiếm tương đồng vector. Khi Chatbot hoạt động, Graph RAG Engine mở tệp bằng lệnh Python I/O đọc trực tiếp nội dung văn bản khái niệm để lấy mô tả.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Đổi nhãn mũi tên này thành **`Direct File I/O Read`** (Đọc file trực tiếp).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">6</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Thêm kết nối "Sinh & Ghi Vector" từ Embedding Service trỏ vào pgvector Extension</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Ở sơ đồ cũ, pgvector Extension bị mồ côi (không có bất kỳ mũi tên nào kết nối do các luồng sai đã bị loại bỏ). Cần phải vẽ rõ luồng sinh và ghi vector nhúng của chunk tài liệu xuống CSDL lưu trữ.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Thêm mũi tên một chiều hướng xuống từ `Embedding Service` trỏ vào `pgvector Extension` với nhãn **`Sinh & Ghi Vector`**.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">7</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Thêm kết nối "Vector Similarity Search" từ Graph RAG Retrieval Engine trỏ vào pgvector Extension</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Bị thiếu luồng truy vấn đối chiếu khoảng cách tương đồng vector ngữ nghĩa của câu hỏi người dùng khi chat.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Thêm mũi tên một chiều hướng xuống từ `Graph RAG Retrieval Engine` trỏ vào `pgvector Extension` với nhãn **`Vector Similarity Search`**.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="adjust-card">
+                    <div class="adjust-num">8</div>
+                    <div class="adjust-body">
+                        <div class="adjust-title">Chuẩn hóa tất cả các mũi tên CSDL thành một chiều hướng từ trên xuống dưới và đổi tên nhãn SQL Queries</div>
+                        <div class="adjust-meta">
+                            <span class="meta-why"><i class="fa-solid fa-circle-question"></i> Tại sao sửa:</span>
+                            <span class="meta-how"><i class="fa-solid fa-circle-check"></i> Cách đã sửa:</span>
+                        </div>
+                        <p class="adjust-text">
+                            <span style="color: #f87171;">[Lý do]</span> Trong sơ đồ cũ, các mũi tên nối CSDL bị vẽ ngược hoặc hai chiều, điều này sai nguyên lý kiến trúc (CSDL là thành phần bị động, không bao giờ chủ động gọi lên Controller). Đồng thời nhãn "SQL Queries" cũ gây hiểu lầm là chỉ đọc dữ liệu mà không có ghi ghi dữ liệu vào CSDL.<br>
+                            <span style="color: #34d399;">[Cách sửa]</span> Tôi đã chuyển toàn bộ 7 đường kết nối trỏ xuống Data Storage Layer thành mũi tên 1 chiều hướng xuống dưới, đồng thời đổi tên nhãn "SQL Queries" thành **`SQL Queries (Đọc/Ghi)`** để làm rõ các hành động SELECT, INSERT, UPDATE, DELETE.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Info side panel detail -->
+    <div id="overlay" class="overlay" onclick="closePanel()"></div>
+    <div id="info-panel" class="info-panel">
+        <button class="close-panel-btn" onclick="closePanel()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="panel-header">
+            <span id="panel-tag" class="panel-tag">Access Layer</span>
+            <h3 id="panel-title" class="panel-title">Component Name</h3>
+        </div>
+        <div class="panel-body">
+            <div class="panel-section">
+                <h4 class="panel-section-title">Chức năng & Trách nhiệm</h4>
+                <p id="panel-desc" class="panel-text">Description of component...</p>
+            </div>
+            <div class="panel-section">
+                <h4 class="panel-section-title">Vị trí tương ứng trong Source Code</h4>
+                <code id="panel-code" class="code-badge">backend/app/...</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            // Update active buttons
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // Update active content
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+        }
+
+        function showComponent(name, layer, desc, codeLocation) {
+            document.getElementById('panel-title').innerText = name;
+            document.getElementById('panel-tag').innerText = layer;
+            document.getElementById('panel-desc').innerText = desc;
+            document.getElementById('panel-code').innerText = codeLocation;
+
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('info-panel').classList.add('active');
+        }
+
+        function closePanel() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('info-panel').classList.remove('active');
+        }
+
+        function switchFlow(flowId) {
+            const btns = document.querySelectorAll('.flow-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('flow-btn-' + flowId).classList.add('active');
+
+            const flowIngress = document.getElementById('flow-ingress');
+            const flowEgress = document.getElementById('flow-egress');
+
+            if (flowId === 'ingress') {
+                flowIngress.style.display = 'block';
+                flowEgress.style.display = 'none';
+            } else {
+                flowIngress.style.display = 'none';
+                flowEgress.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

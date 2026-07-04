@@ -35,7 +35,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng } from 'html-to-image';
-import { MarkdownViewer } from '../App';
+import { MarkdownViewer } from '../viewer/MarkdownViewer';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
