@@ -4974,7 +4974,8 @@ export default function ChatbotWorkspace({
                   )}
                 </div>
 
-                {/* SECTION 1.5: SYSTEM CONFIGURATION (BACKEND URL) */}
+                {/* SECTION 1.5: SYSTEM CONFIGURATION (BACKEND URL) - HIDDEN AS REQUESTED */}
+                {/*
                 <div style={{
                   background: '#ffffff',
                   border: '1px solid #e2e8f0',
@@ -5006,6 +5007,7 @@ export default function ChatbotWorkspace({
                     </p>
                   </div>
                 </div>
+                */}
 
                 {/* SECTION 2: AI ENGINE CONFIGURATION (LOCAL vs API) */}
                 <div style={{

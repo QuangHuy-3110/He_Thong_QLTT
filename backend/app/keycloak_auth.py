@@ -14,15 +14,21 @@ class KeycloakJWTAuthentication(authentication.BaseAuthentication):
     """
     def authenticate(self, request):
         auth_header = request.META.get('HTTP_AUTHORIZATION')
-        if not auth_header:
-            return None
+        token = None
+        if auth_header:
+            try:
+                prefix, token = auth_header.split(' ')
+                if prefix.lower() != 'bearer':
+                    token = None
+            except ValueError:
+                raise exceptions.AuthenticationFailed('Định dạng Header Authorization không hợp lệ (Bắt buộc: Bearer <token>)')
 
-        try:
-            prefix, token = auth_header.split(' ')
-            if prefix.lower() != 'bearer':
-                return None
-        except ValueError:
-            raise exceptions.AuthenticationFailed('Định dạng Header Authorization không hợp lệ (Bắt buộc: Bearer <token>)')
+        # Fallback to query parameter (needed for navigator.sendBeacon)
+        if not token:
+            token = request.query_params.get('token')
+
+        if not token:
+            return None
 
         try:
             # Giải mã header để tìm Key ID (kid) hoặc thuật toán

@@ -1173,6 +1173,22 @@ export default function UploadPage({ directories, currentUser, onBack, onSuccess
                 className="w-full pl-9 pr-4 py-2 border border-gray-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-850 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
               />
             </div>
+
+            {biologySearch.trim() && !BIOLOGY_CONNECTIONS.some(bio => bio.toLowerCase() === biologySearch.trim().toLowerCase()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const newTag = biologySearch.trim();
+                  if (!selectedBiologyConnections.includes(newTag)) {
+                    setSelectedBiologyConnections(prev => [...prev, newTag]);
+                  }
+                  setBiologySearch('');
+                }}
+                className="w-full mb-3 flex items-center justify-center gap-2 p-2 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-dashed border-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
+              >
+                <span>➕ Thêm "{biologySearch.trim()}" làm kiến thức sinh học liên quan</span>
+              </button>
+            )}
             
             <div className="grid grid-cols-1 gap-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
               {BIOLOGY_CONNECTIONS.filter(bio => bio.toLowerCase().includes(biologySearch.toLowerCase())).map(bio => {

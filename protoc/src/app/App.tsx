@@ -16,6 +16,14 @@ const getFallbackApiBase = (defaultLocal: string = '') => {
   return defaultLocal;
 };
 
+// Auto-cleanup dummy/invalid backend URLs from localStorage
+if (typeof window !== 'undefined') {
+  const stored = localStorage.getItem('kms_api_base_url');
+  if (stored && (stored.includes('api-cua-ban-ban.com') || stored === 'undefined' || stored === 'null')) {
+    localStorage.removeItem('kms_api_base_url');
+  }
+}
+
 // Force Vite cache refresh
 const getFileUrl = (url: string | undefined | null) => {
   if (!url) return '';
@@ -1488,8 +1496,11 @@ export default function App() {
   // Stop all active background tasks when exiting/closing the web page
   useEffect(() => {
     const handleUnload = () => {
+      const token = localStorage.getItem('keycloakToken');
+      if (!token || token === 'undefined' || token === 'null') return;
+      const tokenParam = `?token=${encodeURIComponent(token)}`;
       const data = new Blob([JSON.stringify({ all: true })], { type: 'application/json' });
-      navigator.sendBeacon('/api/bg-tasks/stop/', data);
+      navigator.sendBeacon(`/api/bg-tasks/stop/${tokenParam}`, data);
     };
     window.addEventListener('beforeunload', handleUnload);
     return () => {
@@ -2550,10 +2561,11 @@ export default function App() {
   };
 
   const handleAddChildDir = (parentId: number) => {
+    const parentDir = directories.find(d => d.id === parentId);
     setDirParentId(parentId.toString());
     setDirName('');
     setDirAttrs('{}');
-    setDirIsPublic(false);
+    setDirIsPublic(parentDir ? parentDir.is_public : false);
     setShowDirModal(true);
   };
 
@@ -5349,7 +5361,13 @@ export default function App() {
                 <label className="block text-sm mb-1">Thư mục cha</label>
                 <select value={dirParentId} onChange={e => setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Cấp cao nhất --</option>
-                  {getDirectoriesAsTreeOptions(directories).map(d => (
+                  {getDirectoriesAsTreeOptions(directories, (d) => {
+                    if (homeTab === 'personal') {
+                      return !d.is_public && d.user === currentUser.id;
+                    } else {
+                      return d.is_public;
+                    }
+                  }).map(d => (
                     <option key={d.id} value={d.id}>
                       {d.visualPrefix}{d.name} {d.is_public ? '👥' : '🔒'}
                     </option>
