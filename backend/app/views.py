@@ -37,7 +37,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
             return Response({"error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_queryset(self):
-        queryset = LessonPlan.objects.all()
+        queryset = LessonPlan.objects.select_related('creator').prefetch_related('directories')
         q = self.request.query_params.get('q', None)
         user_id = self.request.query_params.get('user_id', None)
         dir_id = self.request.query_params.get('directory_id', None)
@@ -3247,6 +3247,51 @@ class ObsidianNoteHistoryAPIView(APIView):
                 "edited_at": h.edited_at.isoformat()
             })
         return Response(data, status=200)
+
+
+class HealthCheckAPIView(APIView):
+    """
+    API dùng để kiểm tra trạng thái hoạt động (Health Check / Ping Test) của Backend.
+    Không yêu cầu xác thực, kiểm tra kết nối Database và trả về cấu hình hệ thống cơ bản.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        from django.db import connection
+        from django.conf import settings
+        from django.utils import timezone
+        
+        db_status = "healthy"
+        db_error = None
+        
+        # Kiểm tra kết nối database
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                row = cursor.fetchone()
+                if not row or row[0] != 1:
+                    db_status = "unhealthy"
+                    db_error = "Database returned invalid value"
+        except Exception as e:
+            db_status = "unhealthy"
+            db_error = str(e)
+
+        return Response({
+            "status": "ok" if db_status == "healthy" else "error",
+            "database": {
+                "status": db_status,
+                "error": db_error
+            },
+            "features": {
+                "use_keycloak": getattr(settings, 'USE_KEYCLOAK', False),
+                "use_ai_rag": getattr(settings, 'USE_AI_RAG', False),
+                "debug_mode": getattr(settings, 'DEBUG', False)
+            },
+            "timestamp": timezone.now().isoformat(),
+            "message": "Backend KMS đang hoạt động bình thường!"
+        }, status=200 if db_status == "healthy" else 500)
+
 
 
 

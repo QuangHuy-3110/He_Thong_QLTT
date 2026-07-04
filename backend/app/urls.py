@@ -15,7 +15,8 @@ from .views import (
     SystemSettingAPIView, BackgroundTasksStatusAPIView, ObsidianStatusAPIView,
     BackgroundTasksReprocessAPIView, ObsidianNotesListAPIView, ObsidianNoteContentAPIView,
     ObsidianNotesByLessonAPIView, BackgroundTasksStopAPIView, BackgroundTasksResumeAPIView,
-    ObsidianNoteSaveAPIView, ObsidianNoteRegenerateAPIView, ObsidianNoteHistoryAPIView
+    ObsidianNoteSaveAPIView, ObsidianNoteRegenerateAPIView, ObsidianNoteHistoryAPIView,
+    HealthCheckAPIView
 )
 
 urlpatterns = [
@@ -65,4 +66,7 @@ urlpatterns = [
     path('obsidian/notes/save/', ObsidianNoteSaveAPIView.as_view(), name='obsidian-notes-save'),
     path('obsidian/notes/regenerate/', ObsidianNoteRegenerateAPIView.as_view(), name='obsidian-notes-regenerate'),
     path('obsidian/notes/history/', ObsidianNoteHistoryAPIView.as_view(), name='obsidian-notes-history'),
+    
+    # API Health Check / Test
+    path('health/', HealthCheckAPIView.as_view(), name='health-check'),
 ]
