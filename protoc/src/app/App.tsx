@@ -5362,10 +5362,10 @@ export default function App() {
                 <select value={dirParentId} onChange={e => setDirParentId(e.target.value)} className="w-full border rounded-lg p-2 text-sm font-mono">
                   <option value="">-- Cấp cao nhất --</option>
                   {getDirectoriesAsTreeOptions(directories, (d) => {
-                    if (homeTab === 'personal') {
-                      return !d.is_public && d.user === currentUser.id;
-                    } else {
+                    if (dirIsPublic) {
                       return d.is_public;
+                    } else {
+                      return !d.is_public && d.user === currentUser.id;
                     }
                   }).map(d => (
                     <option key={d.id} value={d.id}>
