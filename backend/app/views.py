@@ -27,20 +27,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
     serializer_class = LessonPlanListSerializer
 
     def list(self, request, *args, **kwargs):
-        import traceback
-        from rest_framework.response import Response
-        from rest_framework import status
-        try:
-            res = super().list(request, *args, **kwargs)
-            q = request.query_params.get('q', '')
-            user_id = request.query_params.get('user_id', '')
-            import codecs
-            with codecs.open('api_call_logs.txt', 'a', 'utf-8') as f:
-                f.write(f"q: {q} | user_id: {user_id} | returned: {[item['id'] for item in res.data]}\n")
-            return res
-        except Exception as e:
-            tb = traceback.format_exc()
-            return Response({"error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = LessonPlan.objects.all()
