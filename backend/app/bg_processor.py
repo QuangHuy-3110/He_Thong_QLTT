@@ -506,11 +506,51 @@ class BackgroundProcessManager:
 
             extracted_tags = []
             try:
+                # Lọc các chunk chứa kiến thức cốt lõi (bỏ qua khởi động, củng cố, dặn dò...)
+                saved_chunks = DocumentChunk.objects.filter(lesson_plan=lp).order_by('chunk_index')
+                selected_contents = []
+                
+                pos_keywords = ["tìm hiểu", "kiến thức", "khái niệm", "nội dung", "thực hành", "luyện tập", "thí nghiệm", "phân tích", "đặc điểm", "cấu tạo", "chức năng", "mục tiêu", "yêu cầu cần đạt"]
+                neg_keywords = ["khởi động", "dẫn dắt", "dặn dò", "về nhà", "củng cố", "giao nhiệm vụ", "remind", "warm up", "wrap up"]
+                
+                char_budget = 4000
+                current_chars = 0
+                
+                for chk in saved_chunks:
+                    heading_lower = chk.heading.lower()
+                    is_core = False
+                    
+                    # Luôn chọn chunk đầu tiên chứa mục tiêu dạy học
+                    if chk.chunk_index == 0:
+                        is_core = True
+                    else:
+                        has_pos = any(pos in heading_lower for pos in pos_keywords)
+                        has_neg = any(neg in heading_lower for neg in neg_keywords)
+                        if has_pos and not has_neg:
+                            is_core = True
+                            
+                    if is_core:
+                        chunk_text = f"### Mục: {chk.heading}\n{chk.content}\n"
+                        if current_chars + len(chunk_text) <= char_budget:
+                            selected_contents.append(chunk_text)
+                            current_chars += len(chunk_text)
+                        else:
+                            remaining = char_budget - current_chars
+                            if remaining > 500:
+                                selected_contents.append(f"### Mục: {chk.heading}\n{chk.content[:remaining]}\n")
+                            break
+                            
+                # Fallback nếu không có chunk nào được chọn lọc
+                if not selected_contents:
+                    core_content_text = markdown_content[:3500]
+                else:
+                    core_content_text = "\n".join(selected_contents)
+
                 # Tạo prompt tối ưu để Qwen local bóc tách khái niệm chính xác, tránh từ chung chung
                 prompt_extract = (
-                    f"Dưới đây là nội dung văn bản của tài liệu \"{lp.title}\":\n"
+                    f"Dưới đây là nội dung văn bản cốt lõi của tài liệu \"{lp.title}\":\n"
                     f"Mô tả: {lp.description or 'Không có mô tả'}\n"
-                    f"Nội dung văn bản:\n{markdown_content[:3500]}\n\n"
+                    f"Nội dung văn bản lọc chọn:\n{core_content_text}\n\n"
                     f"Nhiệm vụ: Hãy phân tích sâu sắc văn bản trên và trích xuất đúng từ 8 đến 12 khái niệm/thuật ngữ/thực thể cốt lõi và đặc trưng nhất của bài học này.\n"
                     f"YÊU CẦU NGHIÊM NGẶT:\n"
                     f"1. Hãy trích xuất đa dạng cả khái niệm chuyên môn nội dung của bài học (ví dụ: các chủ đề khoa học, xã hội, hướng nghiệp, đời sống như 'Dinh dưỡng học đường', 'Khẩu phần ăn', 'Bảo vệ môi trường', 'Hướng nghiệp', 'Kế hoạch học tập', 'Kỹ năng sinh tồn', 'Nhịp sinh học', 'Giao tiếp xã hội'...) lẫn các mục tiêu năng lực/phẩm chất đặc thù cốt lõi đi kèm (ví dụ: 'Năng lực tự học', 'Năng lực hợp tác', 'Giải quyết vấn đề', 'Trung thực', 'Trách nhiệm', 'Chăm chỉ').\n"
