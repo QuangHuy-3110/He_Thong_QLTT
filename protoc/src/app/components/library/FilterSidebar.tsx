@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Card, Tree, Checkbox, Button, Collapse, Space } from 'antd';
+import { Card, Tree, Checkbox, Button, Collapse, Space, Drawer } from 'antd';
 import { 
   FilterOutlined, 
   FolderOutlined, 
@@ -307,6 +307,16 @@ export default function FilterSidebar({
 
   const rootDirs = directories.filter(d => !d.parent);
   const isResizing = React.useRef(false);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [directories]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -339,9 +349,197 @@ export default function FilterSidebar({
     };
   }, [setSidebarWidth]);
 
+  const renderSidebarContent = () => {
+    return (
+      <div className="p-6 overflow-y-auto flex-grow">
+        <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <FilterOutlined className="text-blue-500" />
+            <span>Bộ lọc</span>
+            <button
+              type="button"
+              onClick={() => {
+                onToggleDir(-1);
+                setSelectedTargetStudents([]);
+                setSelectedClasses([]);
+                setSelectedTypes([]);
+                setSelectedLocations([]);
+                setSelectedSubjects([]);
+              }}
+              className="text-blue-600 hover:text-blue-800 font-bold bg-transparent border-none cursor-pointer text-xs ml-3 transition-colors"
+            >
+              Xóa bộ lọc
+            </button>
+          </div>
+          {onCloseSidebar && (
+            <button
+              onClick={onCloseSidebar}
+              title="Đóng thanh bên"
+              className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-gray-700 hover:bg-gray-50 active:scale-95 shadow-sm transition-all duration-250 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+                <path d="M17 16l-4-4 4-4" />
+              </svg>
+            </button>
+          )}
+        </h2>
+
+        {/* Directory Category Tree */}
+        <div className="mb-6 pb-6 border-b border-gray-100">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Cây thư mục bài giảng</h3>
+          <div className="text-sm max-h-[65vh] overflow-y-auto overflow-x-auto pr-1 pb-2 custom-horizontal-scrollbar">
+            <div className="min-w-full w-max pr-4">
+              <div
+                className={`flex items-center gap-2 cursor-pointer py-2 px-3 rounded-lg transition-colors mb-1 ${
+                  selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-700 hover:bg-gray-50'
+                }`}
+                onClick={() => onToggleDir(-1)} // Clear selection
+              >
+                <HomeOutlined />
+                <span className="flex-grow">Tất cả tài liệu</span>
+                <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-bold">
+                  {allLessons.filter(l => l.status === 'PUBLISHED').length}
+                </span>
+              </div>
+              {rootDirs.map(dir => (
+                <DirectoryNode
+                  key={dir.id}
+                  dir={dir}
+                  directories={directories}
+                  selectedDirs={selectedDirs}
+                  onToggleDir={onToggleDir}
+                  allLessons={allLessons.filter(l => l.status === 'PUBLISHED')}
+                  currentUser={currentUser}
+                  onAddChild={onAddChildDir}
+                  onDelete={onDeleteDir}
+                  onRename={onRenameDir}
+                  onTogglePublic={onTogglePublicDir}
+                  onFileClick={setSelectedLessonForDetail}
+                  depth={0}
+                />
+              ))}
+            </div>
+          </div>
+          {currentUser && (
+            <Button
+              type="dashed"
+              block
+              icon={<PlusOutlined />}
+              onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(true); setShowDirModal(true); }}
+              className="mt-3 text-xs"
+            >
+              Thêm thư mục gốc
+            </Button>
+          )}
+        </div>
+
+        <Collapse defaultActiveKey={['targets', 'classes', 'types']} ghost size="small" className="antd-custom-collapse">
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Đối tượng</span>} key="targets">
+            <Space direction="vertical" className="w-full">
+              <Checkbox 
+                checked={selectedTargetStudents.includes('Học sinh thành thị')} 
+                onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh thành thị', e.target.checked)}
+              >
+                Học sinh thành thị
+              </Checkbox>
+              <Checkbox 
+                checked={selectedTargetStudents.includes('Học sinh nông thôn')} 
+                onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh nông thôn', e.target.checked)}
+              >
+                Học sinh nông thôn
+              </Checkbox>
+            </Space>
+          </Collapse.Panel>
+
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Lớp học</span>} key="classes">
+            <Space direction="vertical" className="w-full">
+              {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(cls => (
+                <Checkbox 
+                  key={cls}
+                  checked={selectedClasses.includes(cls)} 
+                  onChange={e => handleFilterChange(setSelectedClasses, cls, e.target.checked)}
+                >
+                  {cls}
+                </Checkbox>
+              ))}
+            </Space>
+          </Collapse.Panel>
+
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loại hình</span>} key="types">
+            <Space direction="vertical" className="w-full">
+              <Checkbox 
+                checked={selectedTypes.includes('Thực hành')} 
+                onChange={e => handleFilterChange(setSelectedTypes, 'Thực hành', e.target.checked)}
+              >
+                Thực hành
+              </Checkbox>
+              <Checkbox 
+                checked={selectedTypes.includes('Lý thuyết')} 
+                onChange={e => handleFilterChange(setSelectedTypes, 'Lý thuyết', e.target.checked)}
+              >
+                Lý thuyết
+              </Checkbox>
+            </Space>
+          </Collapse.Panel>
+
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Địa điểm</span>} key="locations">
+            <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-col gap-2">
+              {LOCATIONS.map(loc => (
+                <Checkbox 
+                  key={loc}
+                  checked={selectedLocations.includes(loc)} 
+                  onChange={e => handleFilterChange(setSelectedLocations, loc, e.target.checked)}
+                >
+                  {loc}
+                </Checkbox>
+              ))}
+            </div>
+          </Collapse.Panel>
+
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Kiến thức</span>} key="subjects">
+            {availableSubjects.length === 0 ? (
+              <p className="text-[10px] text-gray-400 italic">Không có môn học nào trong mục này.</p>
+            ) : (
+              <div className="max-h-[180px] overflow-y-auto pr-1 flex flex-col gap-2">
+                {availableSubjects.map(subj => (
+                  <Checkbox 
+                    key={subj}
+                    checked={selectedSubjects.includes(subj)} 
+                    onChange={e => handleFilterChange(setSelectedSubjects, subj, e.target.checked)}
+                  >
+                    {subj}
+                  </Checkbox>
+                ))}
+              </div>
+            )}
+          </Collapse.Panel>
+        </Collapse>
+      </div>
+    );
+  };
+
+  if (isMobile) {
+    return (
+      <Drawer
+        placement="left"
+        closable={false}
+        onClose={onCloseSidebar}
+        open={true}
+        width={320}
+        styles={{ body: { padding: 0 } }}
+      >
+        <div className="h-full bg-white flex flex-col">
+          {renderSidebarContent()}
+        </div>
+      </Drawer>
+    );
+  }
+
   return (
     <div 
-      className="relative bg-white border-r border-gray-200 flex flex-col hidden md:flex flex-shrink-0"
+      className="relative bg-white border-r border-gray-200 flex flex-col flex-shrink-0"
       style={{ width: `${sidebarWidth}px` }}
     >
       {/* Vạch kéo thả resize handle */}
@@ -354,159 +552,7 @@ export default function FilterSidebar({
           <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[2px] h-8 bg-gray-300 rounded group-hover:bg-blue-400 group-active:bg-blue-600 transition-colors"></div>
         </div>
       )}
-
-      <div className="p-6 overflow-y-auto flex-grow">
-        <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <FilterOutlined className="text-blue-500" />
-            Bộ lọc
-          </div>
-        {onCloseSidebar && (
-          <button
-            onClick={onCloseSidebar}
-            title="Đóng thanh bên"
-            className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-400 hover:text-gray-700 hover:bg-gray-50 active:scale-95 shadow-sm transition-all duration-250 cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="9" y1="3" x2="9" y2="21" />
-              <path d="M17 16l-4-4 4-4" />
-            </svg>
-          </button>
-        )}
-      </h2>
-
-      {/* Directory Category Tree */}
-      <div className="mb-6 pb-6 border-b border-gray-100">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Cây thư mục bài giảng</h3>
-        <div className="text-sm max-h-[38vh] overflow-y-auto overflow-x-auto pr-1 pb-2 custom-horizontal-scrollbar">
-          <div className="min-w-full w-max pr-4">
-            <div
-              className={`flex items-center gap-2 cursor-pointer py-2 px-3 rounded-lg transition-colors mb-1 ${
-                selectedDirs.length === 0 ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => onToggleDir(-1)} // Clear selection
-            >
-              <HomeOutlined />
-              <span className="flex-grow">Tất cả tài liệu</span>
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-bold">
-                {allLessons.filter(l => l.status === 'PUBLISHED').length}
-              </span>
-            </div>
-            {rootDirs.map(dir => (
-              <DirectoryNode
-                key={dir.id}
-                dir={dir}
-                directories={directories}
-                selectedDirs={selectedDirs}
-                onToggleDir={onToggleDir}
-                allLessons={allLessons.filter(l => l.status === 'PUBLISHED')}
-                currentUser={currentUser}
-                onAddChild={onAddChildDir}
-                onDelete={onDeleteDir}
-                onRename={onRenameDir}
-                onTogglePublic={onTogglePublicDir}
-                onFileClick={setSelectedLessonForDetail}
-                depth={0}
-              />
-            ))}
-          </div>
-        </div>
-        {currentUser && (
-          <Button
-            type="dashed"
-            block
-            icon={<PlusOutlined />}
-            onClick={() => { setDirParentId(''); setDirName(''); setDirAttrs('{}'); setDirIsPublic(false); setShowDirModal(true); }}
-            className="mt-3 text-xs"
-          >
-            Thêm thư mục gốc
-          </Button>
-        )}
-      </div>
-
-      <Collapse defaultActiveKey={['targets', 'classes', 'types']} ghost size="small" className="antd-custom-collapse">
-        <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Đối tượng</span>} key="targets">
-          <Space direction="vertical" className="w-full">
-            <Checkbox 
-              checked={selectedTargetStudents.includes('Học sinh thành thị')} 
-              onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh thành thị', e.target.checked)}
-            >
-              Học sinh thành thị
-            </Checkbox>
-            <Checkbox 
-              checked={selectedTargetStudents.includes('Học sinh nông thôn')} 
-              onChange={e => handleFilterChange(setSelectedTargetStudents, 'Học sinh nông thôn', e.target.checked)}
-            >
-              Học sinh nông thôn
-            </Checkbox>
-          </Space>
-        </Collapse.Panel>
-
-        <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Lớp học</span>} key="classes">
-          <Space direction="vertical" className="w-full">
-            {['Lớp 10', 'Lớp 11', 'Lớp 12'].map(cls => (
-              <Checkbox 
-                key={cls}
-                checked={selectedClasses.includes(cls)} 
-                onChange={e => handleFilterChange(setSelectedClasses, cls, e.target.checked)}
-              >
-                {cls}
-              </Checkbox>
-            ))}
-          </Space>
-        </Collapse.Panel>
-
-        <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loại hình</span>} key="types">
-          <Space direction="vertical" className="w-full">
-            <Checkbox 
-              checked={selectedTypes.includes('Thực hành')} 
-              onChange={e => handleFilterChange(setSelectedTypes, 'Thực hành', e.target.checked)}
-            >
-              Thực hành
-            </Checkbox>
-            <Checkbox 
-              checked={selectedTypes.includes('Lý thuyết')} 
-              onChange={e => handleFilterChange(setSelectedTypes, 'Lý thuyết', e.target.checked)}
-            >
-              Lý thuyết
-            </Checkbox>
-          </Space>
-        </Collapse.Panel>
-
-        <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Địa điểm</span>} key="locations">
-          <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-col gap-2">
-            {LOCATIONS.map(loc => (
-              <Checkbox 
-                key={loc}
-                checked={selectedLocations.includes(loc)} 
-                onChange={e => handleFilterChange(setSelectedLocations, loc, e.target.checked)}
-              >
-                {loc}
-              </Checkbox>
-            ))}
-          </div>
-        </Collapse.Panel>
-
-        <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Kiến thức</span>} key="subjects">
-          {availableSubjects.length === 0 ? (
-            <p className="text-[10px] text-gray-400 italic">Không có môn học nào trong mục này.</p>
-          ) : (
-            <div className="max-h-[180px] overflow-y-auto pr-1 flex flex-col gap-2">
-              {availableSubjects.map(subj => (
-                <Checkbox 
-                  key={subj}
-                  checked={selectedSubjects.includes(subj)} 
-                  onChange={e => handleFilterChange(setSelectedSubjects, subj, e.target.checked)}
-                >
-                  {subj}
-                </Checkbox>
-              ))}
-            </div>
-          )}
-        </Collapse.Panel>
-      </Collapse>
-      </div>
+      {renderSidebarContent()}
     </div>
   );
 }

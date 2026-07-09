@@ -974,6 +974,22 @@ export default function UploadPage({
                   />
                 </div>
 
+                {biologySearch.trim() && !BIOLOGY_CONNECTIONS.some(bio => bio.toLowerCase() === biologySearch.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTag = biologySearch.trim();
+                      if (!selectedBiologyConnections.includes(newTag)) {
+                        setSelectedBiologyConnections(prev => [...prev, newTag]);
+                      }
+                      setBiologySearch('');
+                    }}
+                    className="w-full mb-3 flex items-center justify-center gap-2 p-2 bg-emerald-50 text-emerald-700 border border-dashed border-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                  >
+                    <span>➕ Thêm "{biologySearch.trim()}" làm kiến thức sinh học liên quan</span>
+                  </button>
+                )}
+
                 <div className="border border-gray-250 rounded-lg p-2 max-h-[160px] overflow-y-auto bg-white flex flex-col gap-1.5">
                   {BIOLOGY_CONNECTIONS.filter(b => b.toLowerCase().includes(biologySearch.toLowerCase())).map(bio => {
                     const isSelected = selectedBiologyConnections.includes(bio);

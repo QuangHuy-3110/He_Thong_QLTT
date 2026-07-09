@@ -30,7 +30,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        queryset = LessonPlan.objects.all()
+        queryset = LessonPlan.objects.select_related('creator').prefetch_related('directories')
         q = self.request.query_params.get('q', None)
         user_id = self.request.query_params.get('user_id', None)
         dir_id = self.request.query_params.get('directory_id', None)
@@ -336,7 +336,9 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 default_detail = 'Duplicate document.'
             raise DuplicateException({'error': dup_error, 'duplicate_id': dup_id})
         was_published = (lesson.status == 'PUBLISHED')
-        is_owner_or_admin = (user.role == 'ADMIN')
+        is_owner = (lesson.creator == user)
+        is_dir_manager = lesson.directories.filter(user=user).exists()
+        is_owner_or_admin = (user.role == 'ADMIN' or is_owner or is_dir_manager)
 
         # Check if the file is changing and back up the old one
         file_changed = False
@@ -352,7 +354,7 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 except Exception as e:
                     print(f"Error backing up old file: {e}")
 
-        # If it was published and the editor is not admin, change status to PENDING
+        # If it was published and the editor is not admin/owner/manager, change status to PENDING
         if was_published and not is_owner_or_admin:
             save_kwargs['status'] = 'PENDING'
 
@@ -395,7 +397,7 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         if has_changed:
             from .models import LessonPlanEditHistory
             history_status = 'PENDING'
-            if user.role == 'ADMIN':
+            if is_owner_or_admin:
                 history_status = 'APPROVED'
             elif was_published:
                 history_status = 'PENDING'
@@ -2538,6 +2540,7 @@ class AIChatSendMessageAPIView(APIView):
             meta_payload = {
                 'type': 'meta',
                 'retrieved_graph': rag_data['retrieved_graph'],
+                'retrieved_node_ids': rag_data.get('retrieved_node_ids', []),
                 'suggested_questions': rag_data['suggested_questions'],
                 'session_title': session.title
             }
@@ -2830,10 +2833,20 @@ class BackgroundTasksStopAPIView(APIView):
         from .bg_processor import BackgroundProcessManager
         
         if stop_all:
-            if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
-                return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền dừng toàn bộ tiến trình hệ thống."}, status=status.HTTP_403_FORBIDDEN)
-            BackgroundProcessManager.cancel_all_tasks()
-            return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
+            if not request.user or not request.user.is_authenticated:
+                return Response({"error": "Bạn cần đăng nhập để thực hiện tác vụ này."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            if request.user.role == 'ADMIN':
+                BackgroundProcessManager.cancel_all_tasks()
+                return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
+            else:
+                from .models import LessonPlan
+                user_lps = LessonPlan.objects.filter(creator=request.user, ai_processing_status__in=['PENDING', 'PROCESSING'])
+                count = 0
+                for lp in user_lps:
+                    BackgroundProcessManager.cancel_task(lp.id)
+                    count += 1
+                return Response({"message": f"Đã dừng {count} tiến trình AI RAG của bạn thành công!"}, status=status.HTTP_200_OK)
             
         if lesson_id:
             try:
@@ -3407,6 +3420,50 @@ class EditHistoryReviewAPIView(APIView):
 
         serializer = LessonPlanEditHistorySerializer(history, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class HealthCheckAPIView(APIView):
+    """
+    API dùng để kiểm tra trạng thái hoạt động (Health Check / Ping Test) của Backend.
+    Không yêu cầu xác thực, kiểm tra kết nối Database và trả về cấu hình hệ thống cơ bản.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        from django.db import connection
+        from django.conf import settings
+        from django.utils import timezone
+        
+        db_status = "healthy"
+        db_error = None
+        
+        # Kiểm tra kết nối database
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                row = cursor.fetchone()
+                if not row or row[0] != 1:
+                    db_status = "unhealthy"
+                    db_error = "Database returned invalid value"
+        except Exception as e:
+            db_status = "unhealthy"
+            db_error = str(e)
+
+        return Response({
+            "status": "ok" if db_status == "healthy" else "error",
+            "database": {
+                "status": db_status,
+                "error": db_error
+            },
+            "features": {
+                "use_keycloak": getattr(settings, 'USE_KEYCLOAK', False),
+                "use_ai_rag": getattr(settings, 'USE_AI_RAG', False),
+                "debug_mode": getattr(settings, 'DEBUG', False)
+            },
+            "timestamp": timezone.now().isoformat(),
+            "message": "Backend KMS đang hoạt động bình thường!"
+        }, status=200 if db_status == "healthy" else 500)
 
 
 

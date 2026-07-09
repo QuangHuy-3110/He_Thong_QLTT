@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Button, Input, Dropdown, Space, Avatar, Tag, Popover } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Button, Input, Dropdown, Space, Avatar, Tag, Popover, Modal } from 'antd';
 import {
   SearchOutlined,
   SettingOutlined,
@@ -86,8 +86,48 @@ export default function Navbar({
 }: NavbarProps) {
 
   const [advancedBiologySearch, setAdvancedBiologySearch] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
-  const userMenuItems = [
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const userMenuItems: any[] = [];
+
+  if (isMobile && currentUser) {
+    if (currentUser.role === 'ADMIN') {
+      userMenuItems.push({
+        key: 'admin',
+        icon: <SettingOutlined />,
+        label: 'Quản trị hệ thống',
+        onClick: () => setCurrentView('admin'),
+      });
+    }
+    if (currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') {
+      userMenuItems.push({
+        key: 'approval',
+        icon: <span>🛡️</span>,
+        label: `Xét duyệt (${pendingApprovalsCount})`,
+        onClick: () => setShowApprovalModal(true),
+      });
+    }
+    userMenuItems.push({
+      key: 'upload',
+      icon: <span>+</span>,
+      label: 'Đăng bài giảng',
+      onClick: () => { setUploadMode('public'); setCurrentView('upload'); },
+    });
+    userMenuItems.push({
+      type: 'divider' as const,
+    });
+  }
+
+  userMenuItems.push(
     {
       key: 'profile',
       icon: <UserOutlined />,
@@ -111,12 +151,12 @@ export default function Navbar({
       label: 'Đăng xuất',
       danger: true,
       onClick: handleLogout,
-    },
-  ];
+    }
+  );
 
   const renderAdvancedFilterPopover = () => {
     return (
-      <div className="w-[420px] max-h-[70vh] overflow-y-auto pr-2 text-xs font-sans">
+      <div className="w-full max-w-[420px] lg:w-[420px] max-h-[70vh] overflow-y-auto pr-2 text-xs font-sans">
         {/* Header */}
         <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100 bg-white sticky top-0 z-10">
           <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-1.5">🎛️ Bộ lọc nâng cao</h4>
@@ -320,26 +360,53 @@ export default function Navbar({
                 }
               />
 
-              <Popover
-                content={renderAdvancedFilterPopover()}
-                title={null}
-                trigger="click"
-                open={showAdvancedFilter}
-                onOpenChange={setShowAdvancedFilter}
-                placement="bottomRight"
-                overlayClassName="advanced-filter-popover"
-              >
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<FilterOutlined className={showAdvancedFilter ? 'text-blue-600' : 'text-gray-400'} />}
-                  className={`rounded-full flex items-center justify-center mr-1 ${showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0 || selectedTracks.length > 0 || selectedTopics.length > 0 || selectedLocations.length > 0 || selectedBiologies.length > 0
-                      ? 'bg-blue-50 text-blue-600'
-                      : ''
-                    }`}
-                  title="Bộ lọc nâng cao"
-                />
-              </Popover>
+              {isMobile ? (
+                <>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<FilterOutlined className={showAdvancedFilter ? 'text-blue-600' : 'text-gray-400'} />}
+                    className={`rounded-full flex items-center justify-center mr-1 ${showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0 || selectedTracks.length > 0 || selectedTopics.length > 0 || selectedLocations.length > 0 || selectedBiologies.length > 0
+                        ? 'bg-blue-50 text-blue-600'
+                        : ''
+                      }`}
+                    onClick={() => setShowAdvancedFilter(true)}
+                    title="Bộ lọc nâng cao"
+                  />
+                  <Modal
+                    open={showAdvancedFilter}
+                    onCancel={() => setShowAdvancedFilter(false)}
+                    footer={null}
+                    title={null}
+                    width="92%"
+                    style={{ top: 24 }}
+                    styles={{ body: { maxHeight: '75vh', overflowY: 'auto', padding: '12px 0' } }}
+                  >
+                    {renderAdvancedFilterPopover()}
+                  </Modal>
+                </>
+              ) : (
+                <Popover
+                  content={renderAdvancedFilterPopover()}
+                  title={null}
+                  trigger="click"
+                  open={showAdvancedFilter}
+                  onOpenChange={setShowAdvancedFilter}
+                  placement="bottomRight"
+                  overlayClassName="advanced-filter-popover"
+                >
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<FilterOutlined className={showAdvancedFilter ? 'text-blue-600' : 'text-gray-400'} />}
+                    className={`rounded-full flex items-center justify-center mr-1 ${showAdvancedFilter || selectedTietDay.length > 0 || selectedSubjects.length > 0 || selectedTracks.length > 0 || selectedTopics.length > 0 || selectedLocations.length > 0 || selectedBiologies.length > 0
+                        ? 'bg-blue-50 text-blue-600'
+                        : ''
+                      }`}
+                    title="Bộ lọc nâng cao"
+                  />
+                </Popover>
+              )}
 
               <Button
                 type="primary"
@@ -356,17 +423,17 @@ export default function Navbar({
           <div className="flex items-center">
             {currentUser ? (
               <div className="flex items-center gap-3">
-                {currentUser.role === 'ADMIN' && (
+                {!isMobile && currentUser.role === 'ADMIN' && (
                   <Button
                     type={currentView === 'admin' ? 'primary' : 'default'}
                     onClick={() => setCurrentView('admin')}
-                    className={currentView === 'admin' ? 'bg-purple-800 border-purple-800' : 'hover:border-purple-500 hover:text-purple-600'}
+                    className={currentView === 'admin' ? 'bg-purple-800 border-purple-800 text-white' : 'hover:border-purple-500 hover:text-purple-600'}
                   >
                     ⚙️ Quản trị
                   </Button>
                 )}
 
-                {(currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') && (
+                {!isMobile && (currentUser.role === 'ADMIN' || currentUser.role === 'TEACHER') && (
                   <Button
                     type="default"
                     onClick={() => setShowApprovalModal(true)}
@@ -381,13 +448,15 @@ export default function Navbar({
                   </Button>
                 )}
 
-                <Button
-                  type="primary"
-                  onClick={() => { setUploadMode('public'); setCurrentView('upload'); }}
-                  className="bg-blue-600 hover:bg-blue-700 border-none"
-                >
-                  + Đăng bài giảng
-                </Button>
+                {!isMobile && (
+                  <Button
+                    type="primary"
+                    onClick={() => { setUploadMode('public'); setCurrentView('upload'); }}
+                    className="bg-blue-600 hover:bg-blue-700 border-none text-white font-semibold"
+                  >
+                    + Đăng bài giảng
+                  </Button>
+                )}
 
                 <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
                   <div className="flex items-center gap-2 cursor-pointer hover:bg-blue-50/50 p-1.5 px-3 rounded-2xl transition-all select-none">

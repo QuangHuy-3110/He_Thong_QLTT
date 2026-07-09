@@ -191,7 +191,7 @@ export default function LibraryList({
       ) : filteredLessonPlans.length === 0 ? (
         <Empty description="Không có tài liệu nào trong mục này." className="py-12" />
       ) : (
-        <div className={`grid grid-cols-1 ${isFilterSidebarOpen ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-6`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isFilterSidebarOpen ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-6`}>
           {paginatedLessonPlans.map((lesson) => (
             <Card
               key={lesson.id}

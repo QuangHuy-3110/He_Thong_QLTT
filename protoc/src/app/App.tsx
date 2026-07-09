@@ -256,6 +256,13 @@ export default function App() {
     fetchPendingApprovals,
     fetchLessonPlans,
     fetchDirectories,
+    allEditHistories, setAllEditHistories,
+    adminUsers, setAdminUsers,
+    loadingPendingApprovals,
+    loadingEditHistories,
+    loadingAdminUsers,
+    fetchAllEditHistories,
+    fetchAdminUsers,
     handleAvatarCropped,
     handleSaveProfile,
     fetchEditHistory,
@@ -284,6 +291,17 @@ export default function App() {
     handleSearch,
     openProposeModal
   } = useKmsApp();
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   if (currentView === 'upload') {
     return (
@@ -340,6 +358,10 @@ export default function App() {
         setSelectedLessonForDetail={setSelectedLessonForDetail}
         setCurrentView={setCurrentView}
         fetchDirectories={fetchDirectories}
+        adminUsers={adminUsers}
+        setAdminUsers={setAdminUsers}
+        loadingAdminUsers={loadingAdminUsers}
+        fetchAdminUsers={fetchAdminUsers}
       />
     );
   }
@@ -436,28 +458,28 @@ export default function App() {
                 </svg>
               </button>
             )}
-            <div className="inline-flex p-1.5 bg-gray-200/60 backdrop-blur-md rounded-2xl border border-gray-300/40 shadow-sm">
+            <div className="flex flex-row justify-between w-full sm:w-auto p-1 bg-gray-200/60 backdrop-blur-md rounded-2xl border border-gray-300/40 shadow-sm gap-1 sm:gap-0 max-w-full">
               <button
                 id="tab-library"
                 onClick={() => setHomeTab('library')}
-                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${homeTab === 'library'
+                className={`flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 px-2.5 py-1.5 text-[10px] sm:px-5 sm:py-2.5 sm:text-sm font-bold rounded-xl transition-all duration-200 ${homeTab === 'library'
                     ? 'bg-white text-blue-700 shadow-sm border border-gray-200/50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                   }`}
               >
-                <span>📚</span> Thư viện chung
+                <span>📚</span> {isMobile ? 'Chung' : 'Thư viện chung'}
               </button>
               {currentUser && (
                 <>
                   <button
                     id="tab-personal"
                     onClick={() => setHomeTab('personal')}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 relative ml-1 ${homeTab === 'personal'
+                    className={`flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 px-2.5 py-1.5 text-[10px] sm:px-5 sm:py-2.5 sm:text-sm font-bold rounded-xl transition-all duration-200 relative ml-0 sm:ml-1 ${homeTab === 'personal'
                         ? 'bg-white text-sky-700 shadow-sm border border-gray-200/50'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                       }`}
                   >
-                    <span>💾</span> Thư viện cá nhân
+                    <span>💾</span> {isMobile ? 'Cá nhân' : 'Thư viện cá nhân'}
                     {allLessonPlans.filter(l => l.creator?.id === currentUser.id && (l.status === 'LOCAL')).length > 0 && (
                       <span className="ml-1 text-[10px] bg-sky-100 text-sky-700 px-1.5 py-0.5 rounded-full font-bold">
                         {allLessonPlans.filter(l => l.creator?.id === currentUser.id && (l.status === 'LOCAL')).length}
@@ -467,12 +489,12 @@ export default function App() {
                   <button
                     id="tab-history"
                     onClick={() => setHomeTab('history')}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ml-1 ${homeTab === 'history'
-                        ? 'bg-white text-emerald-750 shadow-sm border border-gray-200/50'
+                    className={`flex-grow sm:flex-grow-0 flex items-center justify-center gap-1 px-2.5 py-1.5 text-[10px] sm:px-5 sm:py-2.5 sm:text-sm font-bold rounded-xl transition-all duration-200 ml-0 sm:ml-1 ${homeTab === 'history'
+                        ? 'bg-white text-emerald-755 shadow-sm border border-gray-200/50'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white/40'
                       }`}
                   >
-                    <span>⏱️</span> Lịch sử đóng góp
+                    <span>⏱️</span> {isMobile ? 'Lịch sử' : 'Lịch sử đóng góp'}
                   </button>
                 </>
               )}
@@ -661,6 +683,14 @@ export default function App() {
         allLessonPlans={unfilteredLessons}
         fetchLessonPlans={() => fetchLessonPlans(searchQuery)}
         setSelectedLessonForDetail={setSelectedLessonForDetail}
+        pendingApprovals={pendingApprovals}
+        setPendingApprovals={setPendingApprovals}
+        allEditHistories={allEditHistories}
+        setAllEditHistories={setAllEditHistories}
+        loadingPendingApprovals={loadingPendingApprovals}
+        loadingEditHistories={loadingEditHistories}
+        fetchPendingApprovals={fetchPendingApprovals}
+        fetchAllEditHistories={fetchAllEditHistories}
       />
 
       {/* Main Detail View Overlay */}
@@ -744,6 +774,7 @@ export default function App() {
         dirIsPublic={dirIsPublic}
         setDirIsPublic={setDirIsPublic}
         onSubmit={handleCreateDir}
+        homeTab={homeTab}
       />
 
       {/* Propose Public Modal */}

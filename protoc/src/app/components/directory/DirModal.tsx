@@ -10,6 +10,7 @@ interface DirModalProps {
   dirIsPublic: boolean;
   setDirIsPublic: (pub: boolean) => void;
   onSubmit: (e: React.FormEvent) => void;
+  homeTab?: string;
 }
 
 export default function DirModal({
@@ -20,7 +21,8 @@ export default function DirModal({
   setDirName,
   dirIsPublic,
   setDirIsPublic,
-  onSubmit
+  onSubmit,
+  homeTab
 }: DirModalProps) {
   if (!open) return null;
 
@@ -44,7 +46,7 @@ export default function DirModal({
             />
           </div>
 
-          {currentUser?.role === 'ADMIN' && (
+          {currentUser?.role === 'ADMIN' && homeTab !== 'personal' && (
             <div className="flex items-center gap-2 py-1">
               <input
                 type="checkbox"

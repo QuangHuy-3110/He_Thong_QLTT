@@ -12,6 +12,10 @@ interface AdminDashboardProps {
   setSelectedLessonForDetail: (lesson: LessonPlan | null) => void;
   setCurrentView: (view: 'home' | 'upload' | 'admin') => void;
   fetchDirectories: () => Promise<void>;
+  adminUsers: any[];
+  setAdminUsers: React.Dispatch<React.SetStateAction<any[]>>;
+  loadingAdminUsers: boolean;
+  fetchAdminUsers: (force?: boolean) => Promise<void>;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -21,9 +25,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   unfilteredLessons,
   setSelectedLessonForDetail,
   setCurrentView,
-  fetchDirectories
+  fetchDirectories,
+  adminUsers,
+  setAdminUsers,
+  loadingAdminUsers,
+  fetchAdminUsers
 }) => {
-  const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const [selectedUserDirIds, setSelectedUserDirIds] = useState<number[]>([]);
 
@@ -44,19 +51,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminActiveTab, setAdminActiveTab] = useState<'profile' | 'permissions'>('profile');
   const [adminPermissionSubTab, setAdminPermissionSubTab] = useState<'personal' | 'public'>('personal');
 
-  const fetchAdminUsers = async () => {
-    if (!currentUser || currentUser.role !== 'ADMIN') return;
-    try {
-      const res = await axios.get(`/api/admin/users/?admin_id=${currentUser.id}`);
-      setAdminUsers(res.data);
-    } catch (err) {
-      console.error('Error fetching admin users:', err);
-    }
-  };
-
   useEffect(() => {
-    fetchAdminUsers();
-  }, [currentUser]);
+    fetchAdminUsers(false);
+  }, [currentUser, fetchAdminUsers]);
 
   useEffect(() => {
     if (selectedUserForPerms) {
@@ -89,7 +86,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const url = currentUser ? `/api/directories/?user_id=${currentUser.id}` : '/api/directories/';
       const freshRes = await axios.get(url);
       setDirectories(freshRes.data);
-      fetchAdminUsers();
+      fetchAdminUsers(true);
     } catch (err) {
       alert('Lỗi cập nhật phân quyền.');
     }
@@ -117,7 +114,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setNewPassword('');
       setNewFullName('');
       setNewRole('TEACHER');
-      fetchAdminUsers();
+      fetchAdminUsers(true);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Lỗi khi tạo tài khoản.');
     }
@@ -138,7 +135,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setEditPassword('');
       // Update local state for selected user
       setSelectedUserForPerms(response.data.user);
-      fetchAdminUsers();
+      fetchAdminUsers(true);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Lỗi khi cập nhật tài khoản.');
     }
@@ -158,7 +155,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       await axios.delete(`/api/admin/users/${userId}/?admin_id=${currentUser.id}`);
       alert('Đã xóa tài khoản thành công!');
       setSelectedUserForPerms(null);
-      fetchAdminUsers();
+      fetchAdminUsers(true);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Lỗi khi xóa tài khoản.');
     }
@@ -181,7 +178,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       alert(`Đã ${actionText} tài khoản thành công!`);
       setSelectedUserForPerms(response.data.user);
-      fetchAdminUsers();
+      fetchAdminUsers(true);
     } catch (err: any) {
       alert(err.response?.data?.error || `Lỗi khi ${actionText} tài khoản.`);
     }
@@ -210,6 +207,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => fetchAdminUsers(true)}
+                disabled={loadingAdminUsers}
+                className="px-4 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <span className={`inline-block ${loadingAdminUsers ? 'animate-spin' : ''}`}>🔄</span>
+                Làm mới
+              </button>
               <button
                 onClick={() => { setCurrentView('home'); setSelectedUserForPerms(null); }}
                 className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
@@ -262,57 +267,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </select>
           </div>
 
-          {/* Scrollable list of accounts */}
-          <div className="flex-grow space-y-2.5 overflow-y-auto pr-1">
-            {filteredAdminUsers.map((u: any) => {
-              const isSelected = selectedUserForPerms && selectedUserForPerms.id === u.id;
-              return (
-                <div
-                  key={u.id}
-                  onClick={() => {
-                    setSelectedUserForPerms(u);
-                    setSelectedUserDirIds(u.managed_directories || []);
-                    setShowCreateUserForm(false);
-                    setAdminActiveTab('profile');
-                  }}
-                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex justify-between items-center relative group ${isSelected
-                    ? 'border-purple-650 bg-purple-50/50 shadow-sm'
-                    : 'border-gray-250 bg-white hover:border-purple-300 hover:bg-purple-50/10'
-                    }`}
-                >
-                  <div className="space-y-1">
-                    <p className="font-bold text-sm text-gray-900 leading-tight group-hover:text-purple-600 transition-colors">
-                      {u.full_name || u.username}
-                    </p>
-                    <p className="text-[10px] text-gray-400 font-semibold">@{u.username}</p>
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${u.role === 'ADMIN'
-                        ? 'bg-red-50 text-red-700 border-red-100'
-                        : u.role === 'TEACHER'
-                          ? 'bg-blue-50 text-blue-700 border-blue-100'
-                          : 'bg-gray-50 text-gray-600 border-gray-200'
-                        }`}>
-                        {u.role === 'ADMIN' ? 'Admin' : u.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
-                      </span>
-                      <span className="text-[10px] text-gray-400 font-medium">
-                        • {u.managed_directories?.length || 0} thư mục
-                      </span>
-                      {u.is_active === false && (
-                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-250 bg-amber-50 text-amber-700 uppercase tracking-wide flex items-center gap-0.5">
-                          🔒 Khóa
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-gray-400 group-hover:text-purple-600 transition-colors font-bold text-sm">➔</span>
-                </div>
-              );
-            })}
-
-            {filteredAdminUsers.length === 0 && (
+          <div className="flex-grow space-y-2.5 overflow-y-auto pr-1 relative min-h-[150px]">
+            {loadingAdminUsers && adminUsers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-gray-500 gap-2 absolute inset-0 bg-white/70">
+                <div className="w-6 h-6 border-2 border-purple-650 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-semibold">Đang tải tài khoản...</span>
+              </div>
+            ) : filteredAdminUsers.length === 0 ? (
               <div className="text-center py-8 text-gray-400 text-xs italic">
                 Không tìm thấy tài khoản phù hợp.
               </div>
+            ) : (
+              filteredAdminUsers.map((u: any) => {
+                const isSelected = selectedUserForPerms && selectedUserForPerms.id === u.id;
+                return (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setSelectedUserForPerms(u);
+                      setSelectedUserDirIds(u.managed_directories || []);
+                      setShowCreateUserForm(false);
+                      setAdminActiveTab('profile');
+                    }}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex justify-between items-center relative group ${isSelected
+                      ? 'border-purple-650 bg-purple-50/50 shadow-sm'
+                      : 'border-gray-250 bg-white hover:border-purple-300 hover:bg-purple-50/10'
+                      }`}
+                  >
+                    <div className="space-y-1">
+                      <p className="font-bold text-sm text-gray-900 leading-tight group-hover:text-purple-600 transition-colors">
+                        {u.full_name || u.username}
+                      </p>
+                      <p className="text-[10px] text-gray-400 font-semibold">@{u.username}</p>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border tracking-wide uppercase ${u.role === 'ADMIN'
+                          ? 'bg-red-50 text-red-700 border-red-100'
+                          : u.role === 'TEACHER'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : 'bg-gray-50 text-gray-600 border-gray-200'
+                          }`}>
+                          {u.role === 'ADMIN' ? 'Admin' : u.role === 'TEACHER' ? 'Giáo viên' : 'Thành viên'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-medium">
+                          • {u.managed_directories?.length || 0} thư mục
+                        </span>
+                        {u.is_active === false && (
+                          <span className="text-[9px] font-black px-2 py-0.5 rounded-full border border-amber-250 bg-amber-50 text-amber-700 uppercase tracking-wide flex items-center gap-0.5">
+                            🔒 Khóa
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-gray-400 group-hover:text-purple-600 transition-colors font-bold text-sm">➔</span>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

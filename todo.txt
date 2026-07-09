@@ -292,9 +292,15 @@ IV. KIẾN TRÚC KỸ THUẬT HIỆN TẠI
 
 V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
 ------------------------------------
-  main                  : stable (origin/main - không thay đổi)
-  feature/refactor-and-fixes : active (đang phát triển - 3 commits)
-    - feat: refactor frontend components, fix login/chatbot/UI bugs
-    - chore: remove unnecessary files (32 files xóa)
-    - chore: clean debug code in LessonPlanListAPIView
+  main                       : stable (không thay đổi)
+  feature/refactor-and-fixes : active (đang phát triển)
+    - perf: optimize concept extraction using intelligent semantic chunk filtering
+    - docs: add prompt evaluation report for chatbot and concept extraction
+    - docs+fix: system evaluation report + clean debug logging code in views.py
+    - chore: remove old App.tsx backups and backend log/evaluation files
+    - chore: remove unnecessary files (scratch, debug logs, test files, temp docs, PDF)
+    - [Current modifications]:
+      * Ported remote bugfixes/features (DirModal public checkbox, custom biology connections tags creation, DB select_related/prefetch_related optimizations, Query param Keycloak authentication fallback for beacon APIs, normal users stopping own tasks).
+      * Added RAM caching and loading spinner feedback for AdminDashboard & ApprovalModal.
+      * Refactored Chatbot with minimize button, redo input reloading, dynamic sync context banners, proper Obsidian by-lesson pathing, and Hover Popover on term links.
 

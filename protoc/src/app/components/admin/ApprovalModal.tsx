@@ -13,6 +13,14 @@ interface ApprovalModalProps {
   allLessonPlans: LessonPlan[];
   fetchLessonPlans: (query?: string) => Promise<void>;
   setSelectedLessonForDetail: (lesson: LessonPlan | null) => void;
+  pendingApprovals: any[];
+  setPendingApprovals: React.Dispatch<React.SetStateAction<any[]>>;
+  allEditHistories: any[];
+  setAllEditHistories: React.Dispatch<React.SetStateAction<any[]>>;
+  loadingPendingApprovals: boolean;
+  loadingEditHistories: boolean;
+  fetchPendingApprovals: (force?: boolean) => Promise<void>;
+  fetchAllEditHistories: (force?: boolean) => Promise<void>;
 }
 
 export const ApprovalModal: React.FC<ApprovalModalProps> = ({
@@ -22,39 +30,21 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   directories,
   allLessonPlans,
   fetchLessonPlans,
-  setSelectedLessonForDetail
+  setSelectedLessonForDetail,
+  pendingApprovals,
+  setPendingApprovals,
+  allEditHistories,
+  setAllEditHistories,
+  loadingPendingApprovals,
+  loadingEditHistories,
+  fetchPendingApprovals,
+  fetchAllEditHistories
 }) => {
   const [approvalActiveTab, setApprovalActiveTab] = useState<'pending' | 'history'>('pending');
-  const [allEditHistories, setAllEditHistories] = useState<any[]>([]);
-  const [editHistoryLoading, setEditHistoryLoading] = useState<boolean>(false);
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<any | null>(null);
   const [selectedEditHistory, setSelectedEditHistory] = useState<any | null>(null);
   const [feedback, setFeedback] = useState<string>('');
   const [editHistoryFeedback, setEditHistoryFeedback] = useState<string>('');
-
-  const fetchPendingApprovals = async () => {
-    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'TEACHER')) return;
-    try {
-      const res = await axios.get(`/api/approval-requests/?user_id=${currentUser.id}`);
-      setPendingApprovals(res.data);
-    } catch (err) {
-      console.error('Error fetching pending approvals:', err);
-    }
-  };
-
-  const fetchAllEditHistories = async () => {
-    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'TEACHER')) return;
-    setEditHistoryLoading(true);
-    try {
-      const res = await axios.get(`/api/lesson-plans/edit-histories/all/?user_id=${currentUser.id}`);
-      setAllEditHistories(res.data);
-    } catch (err) {
-      console.error('Error fetching all edit histories:', err);
-    } finally {
-      setEditHistoryLoading(false);
-    }
-  };
 
   const handleActionApproval = async (reqId: number, action: 'APPROVE' | 'REJECT', currentFeedback: string = '') => {
     if (!currentUser) return;
@@ -67,7 +57,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
       alert(action === 'APPROVE' ? 'Đã duyệt bài giảng thành công!' : 'Đã từ chối bài giảng!');
       setSelectedApproval(null);
       setFeedback('');
-      fetchPendingApprovals();
+      fetchPendingApprovals(true);
       fetchLessonPlans(); // Refresh list
     } catch (err) {
       alert('Lỗi xét duyệt bài giảng.');
@@ -97,10 +87,10 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
 
   useEffect(() => {
     if (open) {
-      fetchPendingApprovals();
-      fetchAllEditHistories();
+      fetchPendingApprovals(false);
+      fetchAllEditHistories(false);
     }
-  }, [open, approvalActiveTab, currentUser]);
+  }, [open, currentUser, fetchPendingApprovals, fetchAllEditHistories]);
 
   if (!open) return null;
 
@@ -124,29 +114,43 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-gray-150 px-6 bg-gray-50 flex-shrink-0">
+        {/* Tab Navigation & Refresh */}
+        <div className="flex justify-between items-center border-b border-gray-150 px-6 bg-gray-50 flex-shrink-0">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => setApprovalActiveTab('pending')}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                approvalActiveTab === 'pending'
+                  ? 'border-amber-600 text-amber-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📂 Yêu cầu chờ duyệt ({pendingApprovals.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setApprovalActiveTab('history')}
+              className={`px-6 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                approvalActiveTab === 'history'
+                  ? 'border-amber-600 text-amber-700'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📜 Lịch sử chỉnh sửa ({allEditHistories.length})
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setApprovalActiveTab('pending')}
-            className={`px-6 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              approvalActiveTab === 'pending'
-                ? 'border-amber-600 text-amber-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            onClick={() => {
+              fetchPendingApprovals(true);
+              fetchAllEditHistories(true);
+            }}
+            disabled={loadingPendingApprovals || loadingEditHistories}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
           >
-            📂 Yêu cầu chờ duyệt ({pendingApprovals.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setApprovalActiveTab('history')}
-            className={`px-6 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-              approvalActiveTab === 'history'
-                ? 'border-amber-600 text-amber-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📜 Lịch sử chỉnh sửa ({allEditHistories.length})
+            <span className={`inline-block ${(loadingPendingApprovals || loadingEditHistories) ? 'animate-spin' : ''}`}>🔄</span>
+            Làm mới
           </button>
         </div>
 
@@ -155,15 +159,20 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
           {approvalActiveTab === 'pending' ? (
             <>
               {/* LEFT: Request list */}
-              <div className="w-80 flex-shrink-0 border-r border-gray-100 flex flex-col overflow-hidden">
+              <div className={`w-full lg:w-80 flex-shrink-0 lg:border-r border-gray-100 flex flex-col overflow-hidden ${selectedApproval ? 'hidden lg:flex' : 'flex'}`}>
                 <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
                   <h4 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                     Chờ duyệt ({pendingApprovals.length})
                   </h4>
                 </div>
-                <div className="overflow-y-auto flex-grow p-3 space-y-2">
-                  {pendingApprovals.length === 0 ? (
+                <div className="overflow-y-auto flex-grow p-3 space-y-2 relative min-h-[150px]">
+                  {loadingPendingApprovals && pendingApprovals.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-500 gap-2 absolute inset-0 bg-white/70">
+                      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-semibold">Đang tải yêu cầu...</span>
+                    </div>
+                  ) : pendingApprovals.length === 0 ? (
                     <p className="text-sm text-gray-400 italic py-8 text-center">Không có bài giảng nào đang chờ duyệt.</p>
                   ) : (
                     pendingApprovals.map((req: any) => {
@@ -195,11 +204,18 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
               </div>
 
               {/* RIGHT: Detail + Preview */}
-              <div className="flex-grow flex flex-col overflow-hidden min-w-0">
+              <div className={`flex-grow flex flex-col overflow-hidden min-w-0 ${selectedApproval ? 'flex' : 'hidden lg:flex'}`}>
                 {selectedApproval ? (
                   <>
                     {/* Info section (scrollable) */}
                     <div className="flex-grow overflow-y-auto p-5 space-y-4">
+                      {/* Mobile Back Button */}
+                      <button
+                        onClick={() => setSelectedApproval(null)}
+                        className="lg:hidden mb-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold flex items-center gap-1.5 self-start cursor-pointer border border-gray-200"
+                      >
+                        ← Quay lại danh sách
+                      </button>
                       {/* Title & meta */}
                       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                         <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1">Chi tiết yêu cầu xét duyệt</p>
@@ -328,16 +344,19 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             <>
               {/* HISTORIES VIEW */}
               {/* LEFT: History requests list */}
-              <div className="w-80 flex-shrink-0 border-r border-gray-100 flex flex-col overflow-hidden">
+              <div className={`w-full lg:w-80 flex-shrink-0 lg:border-r border-gray-100 flex flex-col overflow-hidden ${selectedEditHistory ? 'hidden lg:flex' : 'flex'}`}>
                 <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
                   <h4 className="font-bold text-gray-800 text-sm flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    Yêu cầu chỉnh sửa ({allEditHistories.filter(h => h.review_status === 'PENDING').length})
+                    Yêu cầu chỉnh sửa ({allEditHistories.filter(h => h.status === 'PENDING').length})
                   </h4>
                 </div>
-                <div className="overflow-y-auto flex-grow p-3 space-y-2 bg-slate-50/50">
-                  {editHistoryLoading ? (
-                    <p className="text-xs text-gray-400 py-8 text-center">Đang tải lịch sử...</p>
+                <div className="overflow-y-auto flex-grow p-3 space-y-2 bg-slate-50/50 relative min-h-[150px]">
+                  {loadingEditHistories && allEditHistories.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-gray-500 gap-2 absolute inset-0 bg-white/70">
+                      <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-semibold">Đang tải lịch sử...</span>
+                    </div>
                   ) : allEditHistories.length === 0 ? (
                     <p className="text-sm text-gray-400 italic py-8 text-center">Không có lịch sử chỉnh sửa nào.</p>
                   ) : (
@@ -356,11 +375,11 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
                           <p className="text-xs text-gray-400 mt-0.5">👤 {hist.editor_name || 'Người sửa'}</p>
                           <div className="flex items-center justify-between mt-1.5">
                             <span className={`px-1.5 py-0.5 text-[8px] rounded uppercase font-black border tracking-wider ${
-                              hist.review_status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                              hist.review_status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                              hist.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                              hist.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-100' :
                               'bg-amber-50 text-amber-700 border-amber-100 animate-pulse'
                             }`}>
-                              {hist.review_status === 'APPROVED' ? 'Đã duyệt' : hist.review_status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                              {hist.status === 'APPROVED' ? 'Đã duyệt' : hist.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
                             </span>
                             <span className="text-[9px] text-gray-400">
                               {new Date(hist.created_at).toLocaleDateString('vi-VN')}
@@ -374,10 +393,17 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
               </div>
 
               {/* RIGHT: Detail + Comparison diff */}
-              <div className="flex-grow flex flex-col overflow-hidden min-w-0">
+              <div className={`flex-grow flex flex-col overflow-hidden min-w-0 ${selectedEditHistory ? 'flex' : 'hidden lg:flex'}`}>
                 {selectedEditHistory ? (
                   <div className="flex-grow flex flex-col overflow-hidden">
                     <div className="flex-grow overflow-y-auto p-5 space-y-4">
+                      {/* Mobile Back Button */}
+                      <button
+                        onClick={() => setSelectedEditHistory(null)}
+                        className="lg:hidden mb-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-250 text-gray-700 rounded-lg text-xs font-bold flex items-center gap-1.5 self-start cursor-pointer border border-gray-200"
+                      >
+                        ← Quay lại danh sách
+                      </button>
                       {/* Title & meta */}
                       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                         <span className="text-xs font-semibold text-amber-750 uppercase tracking-wider block mb-1">So sánh lịch sử chỉnh sửa</span>

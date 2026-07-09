@@ -43,6 +43,11 @@ export function useKmsApp() {
   const [showApprovalModal, setShowApprovalModal] = useState<boolean>(false);
   const [myManagedDirIds, setMyManagedDirIds] = useState<number[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [allEditHistories, setAllEditHistories] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [loadingPendingApprovals, setLoadingPendingApprovals] = useState<boolean>(false);
+  const [loadingEditHistories, setLoadingEditHistories] = useState<boolean>(false);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState<boolean>(false);
 
   // Rating & Comment states
   const [lessonRatings, setLessonRatings] = useState<any[]>([]);
@@ -209,8 +214,11 @@ export function useKmsApp() {
   // Stop active background tasks on exit
   useEffect(() => {
     const handleUnload = () => {
+      const token = localStorage.getItem('keycloakToken');
+      if (!token || token === 'undefined' || token === 'null') return;
+      const tokenParam = `?token=${encodeURIComponent(token)}`;
       const data = new Blob([JSON.stringify({ all: true })], { type: 'application/json' });
-      navigator.sendBeacon('/api/bg-tasks/stop/', data);
+      navigator.sendBeacon(`/api/bg-tasks/stop/${tokenParam}`, data);
     };
     window.addEventListener('beforeunload', handleUnload);
     return () => {
@@ -265,13 +273,45 @@ export function useKmsApp() {
     }
   };
 
-  const fetchPendingApprovals = async () => {
+  const fetchPendingApprovals = async (force = false) => {
     if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'TEACHER')) return;
+    if (!force && pendingApprovals.length > 0) return;
+    setLoadingPendingApprovals(true);
     try {
       const res = await axios.get(`/api/approval-requests/?user_id=${currentUser.id}`);
       setPendingApprovals(res.data);
     } catch (err) {
       console.error('Error fetching pending approvals:', err);
+    } finally {
+      setLoadingPendingApprovals(false);
+    }
+  };
+
+  const fetchAllEditHistories = async (force = false) => {
+    if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'TEACHER')) return;
+    if (!force && allEditHistories.length > 0) return;
+    setLoadingEditHistories(true);
+    try {
+      const res = await axios.get(`/api/lesson-plans/edit-histories/all/?user_id=${currentUser.id}`);
+      setAllEditHistories(res.data);
+    } catch (err) {
+      console.error('Error fetching all edit histories:', err);
+    } finally {
+      setLoadingEditHistories(false);
+    }
+  };
+
+  const fetchAdminUsers = async (force = false) => {
+    if (!currentUser || currentUser.role !== 'ADMIN') return;
+    if (!force && adminUsers.length > 0) return;
+    setLoadingAdminUsers(true);
+    try {
+      const res = await axios.get(`/api/admin/users/?admin_id=${currentUser.id}`);
+      setAdminUsers(res.data);
+    } catch (err) {
+      console.error('Error fetching admin users:', err);
+    } finally {
+      setLoadingAdminUsers(false);
     }
   };
 
@@ -826,10 +866,11 @@ export function useKmsApp() {
   };
 
   const handleAddChildDir = (parentId: number) => {
+    const parentDir = directories.find(d => d.id === parentId);
     setDirParentId(parentId.toString());
     setDirName('');
     setDirAttrs('{}');
-    setDirIsPublic(false);
+    setDirIsPublic(parentDir ? parentDir.is_public : false);
     setShowDirModal(true);
   };
 
@@ -1066,6 +1107,10 @@ export function useKmsApp() {
   };
 
   const handleToggleDir = (dirId: number) => {
+    if (dirId === -1) {
+      setSelectedDirs([]);
+      return;
+    }
     setSelectedDirs(prev => prev.includes(dirId) ? prev.filter(d => d !== dirId) : [...prev, dirId]);
   };
 
@@ -1606,6 +1651,13 @@ export function useKmsApp() {
     handleGoBackDoc,
     handleViewLessonDetail,
     handleSearch,
-    openProposeModal
+    openProposeModal,
+    allEditHistories, setAllEditHistories,
+    adminUsers, setAdminUsers,
+    loadingPendingApprovals,
+    loadingEditHistories,
+    loadingAdminUsers,
+    fetchAllEditHistories,
+    fetchAdminUsers
   };
 }
