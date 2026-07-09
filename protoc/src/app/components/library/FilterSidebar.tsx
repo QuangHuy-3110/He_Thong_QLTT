@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, Tree, Checkbox, Button, Collapse, Space, Drawer } from 'antd';
 import { 
   FilterOutlined, 
@@ -10,7 +10,7 @@ import {
   LockOutlined,
   HomeOutlined
 } from '@ant-design/icons';
-import { User } from '../../context';
+import { User } from '../../utils/types';
 
 interface Directory {
   id: number;
@@ -306,10 +306,10 @@ export default function FilterSidebar({
 }: FilterSidebarProps) {
 
   const rootDirs = directories.filter(d => !d.parent);
-  const isResizing = React.useRef(false);
-  const [isMobile, setIsMobile] = React.useState(false);
+  const isResizing = useRef(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
     };
@@ -325,7 +325,7 @@ export default function FilterSidebar({
     document.body.style.userSelect = 'none';
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing.current || !setSidebarWidth) return;
       // Giới hạn chiều rộng từ 250px đến 600px

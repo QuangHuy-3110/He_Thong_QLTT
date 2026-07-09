@@ -39,6 +39,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
 
   // Proxy API and Media requests during development to avoid CORS & Cross-Origin download restrictions

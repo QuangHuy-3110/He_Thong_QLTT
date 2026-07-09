@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // ─── Pedagogical tips map (CTGDPT 2018) ──────────────────────────────────────
 function getPedagogyTip(cat: string, label: string): string {
@@ -324,87 +325,178 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
 
 const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => void }) => (
   <div
+    className="modal-backdrop-custom"
     style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      position: 'fixed',
+      inset: 0,
+      zIndex: 9999,
+      background: 'rgba(15, 23, 42, 0.55)',
+      backdropFilter: 'blur(10px)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
     }}
     onClick={onClose}
   >
     <div
+      className="modal-card-custom"
       style={{
-        background: '#fff', borderRadius: 24, width: '100%', maxWidth: 1140,
-        boxShadow: '0 24px 80px rgba(15,23,42,0.18)',
-        overflow: 'hidden', display: 'flex', flexDirection: 'column',
-        animation: 'modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        background: '#ffffff',
+        borderRadius: 24,
+        width: '100%',
+        maxWidth: 1080,
+        maxHeight: '90vh',
+        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
         borderTop: `6px solid ${item.color}`,
+        border: '1px solid rgba(226, 232, 240, 0.8)',
       }}
       onClick={e => e.stopPropagation()}
     >
       {/* Header */}
-      <div style={{ background: '#ffffff', padding: '22px 28px', borderBottom: '1px solid #f1f5f9' }}>
-        <div style={{ display: 'flex', justifySelf: 'stretch', justifyItems: 'stretch', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-          <div>
-            <span style={{
-              display: 'inline-block', padding: '3px 12px', borderRadius: 99,
-              background: `${item.color}15`, border: `1px solid ${item.color}33`,
-              fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase',
-              color: item.color, marginBottom: 8,
-            }}>📂 {item.category}</span>
-            <div style={{ fontWeight: 900, fontSize: 22, lineHeight: 1.4, color: '#0f172a' }}>
-              {item.title.split('\n')[0].replace(/^(Tên:|Mục tiêu:)\s*/i, '')}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: '#f1f5f9', border: 'none', borderRadius: 99,
-              width: 32, height: 32, cursor: 'pointer', color: '#64748b', fontSize: 16,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
-          >✕</button>
+      <div style={{ 
+        background: `linear-gradient(180deg, ${item.color}08, #ffffff)`,
+        padding: '24px 32px', 
+        borderBottom: '1px solid #f1f5f9',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 16
+      }}>
+        <div style={{ flex: 1 }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 14px',
+            borderRadius: 99,
+            background: `${item.color}12`,
+            border: `1.5px solid ${item.color}25`,
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '1px',
+            textTransform: 'uppercase',
+            color: item.color,
+            marginBottom: 10,
+          }}>
+            📂 {item.category}
+          </span>
+          <h2 style={{ 
+            fontWeight: 900, 
+            fontSize: 20, 
+            lineHeight: 1.4, 
+            color: '#0f172a',
+            margin: 0,
+            letterSpacing: '-0.3px'
+          }}>
+            {item.title.split('\n')[0].replace(/^(Tên:|Mục tiêu:)\s*/i, '')}
+          </h2>
         </div>
+        <button
+          onClick={onClose}
+          className="modal-close-btn"
+          style={{
+            background: '#f1f5f9',
+            border: 'none',
+            borderRadius: 99,
+            width: 36,
+            height: 36,
+            cursor: 'pointer',
+            color: '#64748b',
+            fontSize: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'all 0.2s ease',
+          }}
+        >✕</button>
       </div>
 
       {/* Body */}
-      <div style={{
-        padding: '24px 28px',
-        maxHeight: '72vh',
-        overflowY: 'auto',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
-        gap: 24,
-        background: '#fafbfc',
-      }}>
+      <div 
+        className="modal-body-custom"
+        style={{
+          padding: '32px',
+          overflowY: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: 28,
+          background: '#fafbfc',
+          flexGrow: 1
+        }}
+      >
         {/* Left Column: Description */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>📝 MÔ TẢ NỘI DUNG</div>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', flexGrow: 1, overflowX: 'auto', fontSize: 14.5, lineHeight: 1.75 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ 
+            fontSize: 11, 
+            fontWeight: 800, 
+            color: '#64748b', 
+            letterSpacing: '1.5px', 
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>📝</span> Mô tả nội dung
+          </div>
+          <div style={{ 
+            background: '#ffffff', 
+            border: '1px solid #e2e8f0', 
+            borderRadius: 16, 
+            padding: '24px', 
+            boxShadow: '0 4px 18px rgba(0,0,0,0.015)', 
+            flexGrow: 1, 
+            overflowX: 'auto', 
+            fontSize: 14.5, 
+            lineHeight: 1.8,
+            color: '#334155'
+          }}>
             <MarkdownViewer markdown={item.details} />
           </div>
         </div>
 
         {/* Right Column: Pedagogical Tip */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 11, fontWeight: 900, color: '#059669', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>💡 ĐỊNH HƯỚNG SƯ PHẠM – CTGDPT 2018</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ 
+            fontSize: 11, 
+            fontWeight: 800, 
+            color: '#059669', 
+            letterSpacing: '1.5px', 
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}>
+            <span>💡</span> Định hướng sư phạm – CTGDPT 2018
+          </div>
           <div style={{
-            background: 'linear-gradient(135deg,#ffffff,#f0fdf4)',
+            background: 'linear-gradient(135deg, #ffffff, #f0fdf4)',
             border: '1.5px solid #a7f3d0',
             borderRadius: 16,
-            padding: '20px',
-            boxShadow: '0 4px 12px rgba(5,150,105,0.03)',
+            padding: '24px',
+            boxShadow: '0 4px 18px rgba(5,150,105,0.025)',
             flexGrow: 1,
             display: 'flex',
             flexDirection: 'column',
           }}>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
               <span style={{ fontSize: 22 }}>🏫</span>
-              <span style={{ fontSize: 12, fontWeight: 900, color: '#065f46', letterSpacing: 0.5 }}>Căn cứ: Thông tư 32/2018/TT-BGDĐT – Bộ GD&ĐT</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46', letterSpacing: '0.2px' }}>
+                Căn cứ: Thông tư 32/2018/TT-BGDĐT – Bộ GD&ĐT
+              </span>
             </div>
-            <div style={{ fontSize: 14.5, fontWeight: 600, color: '#064e3b', lineHeight: 1.95, whiteSpace: 'pre-line' }}>
+            <div style={{ 
+              fontSize: 14.5, 
+              fontWeight: 600, 
+              color: '#064e3b', 
+              lineHeight: 2.0, 
+              whiteSpace: 'pre-line',
+              flexGrow: 1
+            }}>
               {item.tip}
             </div>
           </div>
@@ -412,20 +504,78 @@ const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => v
       </div>
 
       {/* Footer */}
-      <div style={{ padding: '16px 28px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#fff' }}>
+      <div style={{ 
+        padding: '20px 32px', 
+        borderTop: '1px solid #f1f5f9', 
+        display: 'flex', 
+        justifyContent: 'flex-end', 
+        background: '#ffffff',
+        boxShadow: '0 -4px 12px rgba(0,0,0,0.01)'
+      }}>
         <button
           onClick={onClose}
+          className="modal-footer-close-btn"
           style={{
-            background: '#0f172a', color: '#fff', border: 'none', borderRadius: 12,
-            padding: '10px 28px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-            transition: 'opacity 0.15s',
+            background: '#0f172a',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: 12,
+            padding: '12px 32px',
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-        >Đóng cửa sổ</button>
+        >
+          Đóng cửa sổ
+        </button>
       </div>
     </div>
-    <style>{`@keyframes modalIn { from { opacity:0; transform:scale(0.94) } to { opacity:1; transform:scale(1) } }`}</style>
+    <style>{`
+      @keyframes fadeIn {
+        from { opacity: 0; backdrop-filter: blur(0px); }
+        to { opacity: 1; backdrop-filter: blur(10px); }
+      }
+      @keyframes modalIn {
+        from { opacity: 0; transform: translateY(30px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .modal-backdrop-custom {
+        animation: fadeIn 0.2s ease-out forwards;
+      }
+      .modal-card-custom {
+        animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+      .modal-close-btn:hover {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+        transform: rotate(90deg);
+      }
+      .modal-footer-close-btn:hover {
+        background-color: #1e293b !important;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25) !important;
+      }
+      .modal-footer-close-btn:active {
+        transform: translateY(0);
+      }
+      .modal-body-custom::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      .modal-body-custom::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 9999px;
+      }
+      .modal-body-custom::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 9999px;
+      }
+      .modal-body-custom::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    `}</style>
   </div>
 );
 
@@ -568,7 +718,7 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
         >📸 Tải ảnh</button>
       </div>
 
-      {activeItem && <DetailModal item={activeItem} onClose={() => setActiveItem(null)} />}
+      {activeItem && createPortal(<DetailModal item={activeItem} onClose={() => setActiveItem(null)} />, document.body)}
     </div>
   );
 };

@@ -23,6 +23,7 @@ def get_embedding(text: str) -> list:
     global _transformer_model
     try:
         if _transformer_model is None:
+            # pyrefly: ignore [missing-import]
             from sentence_transformers import SentenceTransformer
             print('[Embedding Engine] Loading local sentence-transformer model (paraphrase-multilingual-MiniLM-L12-v2)...')
             _transformer_model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
