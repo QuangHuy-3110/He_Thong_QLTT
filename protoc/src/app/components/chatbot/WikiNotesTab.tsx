@@ -27,6 +27,7 @@ interface WikiNotesTabProps {
   renderWikiContent: (contentStr: string) => React.ReactNode;
   cleanContentStr: (content: string) => string;
   focusLessonId: number | null;
+  loadingNotesList: boolean;
 }
 
 export default function WikiNotesTab({
@@ -55,6 +56,7 @@ export default function WikiNotesTab({
   renderWikiContent,
   cleanContentStr,
   focusLessonId,
+  loadingNotesList,
 }: WikiNotesTabProps) {
   return (
     <div style={{ flexGrow: 1, display: 'flex', overflow: 'hidden', height: '100%', minHeight: 0 }}>
@@ -169,8 +171,13 @@ export default function WikiNotesTab({
               )}
             </div>
           </div>
-          <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            {!focusLessonId && wikiFilterMode === 'lesson' ? (
+          <div style={{ flexGrow: 1, overflowY: 'auto', overscrollBehavior: 'contain', padding: '8px', display: 'flex', flexDirection: 'column', gap: '5px', position: 'relative', minHeight: '100px' }}>
+            {loadingNotesList && currentNotes.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 8px', gap: '8px', color: '#94a3b8', fontSize: '11px' }}>
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Đang tải tài liệu RAG...</span>
+              </div>
+            ) : !focusLessonId && wikiFilterMode === 'lesson' ? (
               <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8', lineHeight: 1.5 }}>
                 💡 Hãy chọn một bài giảng ở danh sách ngoài để xem ghi chú tương ứng.
               </div>

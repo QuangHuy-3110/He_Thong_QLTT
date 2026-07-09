@@ -221,6 +221,7 @@ export default function ChatbotWorkspace({
   // --- OBSIDIAN WIKINOTES VIEWER STATES ---
   const [obsidianNotes, setObsidianNotes] = useState<any[]>([]);
   const [obsidianLessonNotes, setObsidianLessonNotes] = useState<any[]>([]);
+  const [loadingNotesList, setLoadingNotesList] = useState<boolean>(false);
   const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'all'>('lesson');
   const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
   const currentNotes = useMemo(() => {
@@ -348,20 +349,26 @@ export default function ChatbotWorkspace({
 
   // --- API CALL METHODS ---
   const fetchObsidianNotesList = useCallback(async () => {
+    setLoadingNotesList(true);
     try {
       const res = await axios.get('/api/obsidian/notes/');
       setObsidianNotes(res.data);
     } catch (err) {
       console.error('Error fetching Obsidian notes list:', err);
+    } finally {
+      setLoadingNotesList(false);
     }
   }, []);
 
   const fetchObsidianLessonNotes = useCallback(async (lessonId: number) => {
+    setLoadingNotesList(true);
     try {
       const res = await axios.get(`/api/obsidian/notes/by-lesson/?lesson_id=${lessonId}`);
       setObsidianLessonNotes(res.data);
     } catch (err) {
       console.error('Error fetching Obsidian lesson notes:', err);
+    } finally {
+      setLoadingNotesList(false);
     }
   }, []);
 
@@ -660,13 +667,13 @@ export default function ChatbotWorkspace({
 
   // Fetch Obsidian WikiNotes lists when chatbot is open
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentUser) {
       fetchObsidianNotesList();
       if (focusLessonId) {
         fetchObsidianLessonNotes(focusLessonId);
       }
     }
-  }, [isOpen, focusLessonId, fetchObsidianNotesList, fetchObsidianLessonNotes]);
+  }, [isOpen, focusLessonId, currentUser, apiBaseUrl, fetchObsidianNotesList, fetchObsidianLessonNotes]);
 
   // Stop response stream
   const cancelSourceRef = useRef<any>(null);
@@ -1517,6 +1524,7 @@ export default function ChatbotWorkspace({
                 renderWikiContent={renderWikiContent}
                 cleanContentStr={cleanContentStr}
                 focusLessonId={focusLessonId}
+                loadingNotesList={loadingNotesList}
               />
             )}
 
