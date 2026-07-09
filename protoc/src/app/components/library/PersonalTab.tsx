@@ -27,7 +27,7 @@ interface PersonalTabProps {
   setShowDirModal: (show: boolean) => void;
   
   handleAddChildDir: (parentDirId: number) => void;
-  handleDeleteDir: (dirId: number) => void;
+  handleDeleteDir: (dirId: number, name: string) => void;
   handleRenameDir: (dirId: number) => void;
   handleTogglePublicDir: (dirId: number) => void;
   

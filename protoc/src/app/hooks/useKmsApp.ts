@@ -875,11 +875,12 @@ export function useKmsApp() {
   };
 
   const handleDeleteDir = async (id: number, name: string) => {
-    if (!window.confirm(`Xóa thư mục "${name}"? Tài liệu bên trong sẽ không bị xóa nhưng sẽ mất liên kết.`)) return;
+    if (!window.confirm(`Xóa thư mục "${name}"? Tất cả tài liệu và thư mục con bên trong cũng sẽ bị xóa vĩnh viễn.`)) return;
     try {
       await axios.delete(`/api/directories/${id}/`);
       setSelectedDirs(prev => prev.filter(d => d !== id));
       fetchDirectories();
+      fetchLessonPlans(debouncedSearchQuery);
     } catch (err) {
       alert('Lỗi xóa thư mục.');
     }

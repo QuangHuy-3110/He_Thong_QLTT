@@ -507,6 +507,27 @@ class DirectoryDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         serializer.save()
         return Response(serializer.data)
 
+    def perform_destroy(self, instance):
+        # Recursively collect all descendant directories
+        def get_all_descendants(dir_obj):
+            descendants = [dir_obj]
+            for child in dir_obj.subdirectories.all():
+                descendants.extend(get_all_descendants(child))
+            return descendants
+
+        all_dirs = get_all_descendants(instance)
+        all_dir_ids = [d.id for d in all_dirs]
+
+        # Find all LessonPlans linked to these directories
+        lessons_to_delete = LessonPlan.objects.filter(directories__id__in=all_dir_ids).distinct()
+
+        # Delete each lesson plan (triggers pre_delete signal to clean up physical files)
+        for lesson in lessons_to_delete:
+            lesson.delete()
+
+        # Delete the directory itself (will cascade to subdirectories on Django/DB level)
+        instance.delete()
+
 
 def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclude_id=None):
     from difflib import SequenceMatcher
