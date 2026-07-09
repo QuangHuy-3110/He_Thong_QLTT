@@ -305,7 +305,13 @@ export default function FilterSidebar({
   setSidebarWidth
 }: FilterSidebarProps) {
 
-  const rootDirs = directories.filter(d => !d.parent);
+  const publicDirs = useMemo(() => {
+    return Array.isArray(directories) ? directories.filter(d => d.is_public) : [];
+  }, [directories]);
+
+  const rootDirs = useMemo(() => {
+    return publicDirs.filter(d => !d.parent);
+  }, [publicDirs]);
   const isResizing = useRef(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -407,7 +413,7 @@ export default function FilterSidebar({
                 <DirectoryNode
                   key={dir.id}
                   dir={dir}
-                  directories={directories}
+                  directories={publicDirs}
                   selectedDirs={selectedDirs}
                   onToggleDir={onToggleDir}
                   allLessons={allLessons.filter(l => l.status === 'PUBLISHED')}
