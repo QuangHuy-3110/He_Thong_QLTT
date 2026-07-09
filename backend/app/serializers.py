@@ -26,6 +26,55 @@ class DirectorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'parent', 'user', 'is_public', 'attributes']
         read_only_fields = ['user']
 
+    def validate(self, attrs):
+        name = attrs.get('name')
+        parent = attrs.get('parent')
+        is_public = attrs.get('is_public', False)
+        
+        # Determine the user context
+        request = self.context.get('request')
+        user = None
+        if request:
+            user_id = request.data.get('user_id')
+            if user_id:
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    pass
+            if not user and request.user and request.user.is_authenticated:
+                user = request.user
+                
+        # If updating, merge values from instance
+        if self.instance:
+            if name is None:
+                name = self.instance.name
+            if 'parent' not in attrs:
+                parent = self.instance.parent
+            if 'is_public' not in attrs:
+                is_public = self.instance.is_public
+            user = self.instance.user
+
+        # Query directories at the same level (same parent)
+        qs = Directory.objects.filter(name__iexact=name, parent=parent)
+        if is_public:
+            # For public directories, same level name must be unique globally among public dirs
+            qs = qs.filter(is_public=True)
+        else:
+            # For private directories, same level name must be unique per user
+            if user:
+                qs = qs.filter(user=user, is_public=False)
+            else:
+                qs = qs.filter(is_public=False)
+
+        # Exclude current instance if updating
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        if qs.exists():
+            raise serializers.ValidationError("Thư mục cùng cấp không được trùng tên.")
+
+        return attrs
+
 def resolve_content_preview(obj):
     if obj.content_preview and ("## " in obj.content_preview or "# " in obj.content_preview):
         return obj.content_preview

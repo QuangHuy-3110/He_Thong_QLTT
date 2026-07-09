@@ -854,15 +854,28 @@ export function useKmsApp() {
         attributes: dirAttrs,
         parent: dirParentId || null
       });
-      alert('Tạo thư mục thành công!');
+      Modal.success({
+        title: 'Thành công',
+        content: 'Tạo thư mục thành công!'
+      });
       setShowDirModal(false);
       setDirName('');
       setDirParentId('');
       setDirAttrs('{}');
       setDirIsPublic(false);
       fetchDirectories();
-    } catch (err) {
-      alert('Lỗi tạo thư mục.');
+    } catch (err: any) {
+      if (err.response?.data?.non_field_errors) {
+        Modal.error({
+          title: 'Lỗi tạo thư mục',
+          content: err.response.data.non_field_errors.join('\n')
+        });
+      } else {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Lỗi tạo thư mục.'
+        });
+      }
     }
   };
 
@@ -937,10 +950,24 @@ export function useKmsApp() {
       } else {
         fetchDirectories();
       }
-    } catch (err) {
+      Modal.success({
+        title: 'Thành công',
+        content: 'Đổi tên thư mục thành công!'
+      });
+    } catch (err: any) {
       console.error('Rename dir error:', err);
       fetchDirectories();
-      alert('Lỗi đổi tên thư mục.');
+      if (err.response?.data?.non_field_errors) {
+        Modal.error({
+          title: 'Lỗi đổi tên thư mục',
+          content: err.response.data.non_field_errors.join('\n')
+        });
+      } else {
+        Modal.error({
+          title: 'Lỗi',
+          content: 'Lỗi đổi tên thư mục.'
+        });
+      }
     }
   };
 
