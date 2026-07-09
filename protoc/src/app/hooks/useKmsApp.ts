@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { Modal } from 'antd';
 import { User, Directory, LessonPlan } from '../utils/types';
 import { getFallbackApiBase } from '../utils/helpers';
 import { getLessonsInDir } from '../utils/directoryHelpers';
@@ -875,38 +876,54 @@ export function useKmsApp() {
   };
 
   const handleDeleteDir = async (id: number, name: string) => {
-    if (!window.confirm(`Xóa thư mục "${name}"? Tất cả tài liệu và thư mục con bên trong cũng sẽ bị xóa vĩnh viễn.`)) return;
-    try {
-      await axios.delete(`/api/directories/${id}/`);
-      setSelectedDirs(prev => prev.filter(d => d !== id));
-      fetchDirectories();
-      fetchLessonPlans(debouncedSearchQuery);
-    } catch (err) {
-      alert('Lỗi xóa thư mục.');
-    }
+    Modal.confirm({
+      title: 'Xác nhận xóa thư mục',
+      content: `Bạn có chắc chắn muốn xóa thư mục "${name}"? Tất cả tài liệu và thư mục con bên trong cũng sẽ bị xóa vĩnh viễn.`,
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          await axios.delete(`/api/directories/${id}/`);
+          setSelectedDirs(prev => prev.filter(d => d !== id));
+          fetchDirectories();
+          fetchLessonPlans(debouncedSearchQuery);
+        } catch (err) {
+          alert('Lỗi xóa thư mục.');
+        }
+      }
+    });
   };
 
   const handleDeleteLesson = async (id: number) => {
-    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
-    try {
-      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
-      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
-      await fetch(`${cleanApiBase}/api/lesson-plans/${id}/`, { method: 'DELETE' });
-      alert('Xóa thành công!');
-      
-      setAllLessonPlans(prev => prev.filter(p => p.id !== id));
-      setUnfilteredLessons(prev => prev.filter(p => p.id !== id));
-      setDetailCache(prev => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      if (selectedLessonForDetail?.id === id) {
-        setSelectedLessonForDetail(null);
+    Modal.confirm({
+      title: 'Xác nhận xóa tài liệu',
+      content: 'Bạn có chắc chắn muốn xóa tài liệu này?',
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
+          const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+          await fetch(`${cleanApiBase}/api/lesson-plans/${id}/`, { method: 'DELETE' });
+          alert('Xóa thành công!');
+          
+          setAllLessonPlans(prev => prev.filter(p => p.id !== id));
+          setUnfilteredLessons(prev => prev.filter(p => p.id !== id));
+          setDetailCache(prev => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+          if (selectedLessonForDetail?.id === id) {
+            setSelectedLessonForDetail(null);
+          }
+        } catch (err) {
+          alert('Lỗi khi xóa.');
+        }
       }
-    } catch (err) {
-      alert('Lỗi khi xóa.');
-    }
+    });
   };
 
   const handleRenameDir = async (id: number, newName: string) => {
