@@ -743,7 +743,7 @@ export default function DetailView({
                       <div key={review.id} className="border-b border-gray-50 pb-2.5 space-y-1">
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
-                            <UserOutlined /> {review.user_name || 'Người dùng'}
+                            <UserOutlined /> {review.user_full_name || review.user_username || 'Người dùng'}
                           </span>
                           <span className="text-[9px] text-gray-400">
                             {new Date(review.created_at).toLocaleDateString('vi-VN')}
