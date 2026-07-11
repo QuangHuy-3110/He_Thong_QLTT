@@ -26,6 +26,97 @@ class DirectorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'parent', 'user', 'is_public', 'attributes']
         read_only_fields = ['user']
 
+    def validate(self, attrs):
+        name = attrs.get('name')
+        parent = attrs.get('parent')
+        is_public = attrs.get('is_public', False)
+        
+        # Determine the user context
+        request = self.context.get('request')
+        user = None
+        if request:
+            user_id = request.data.get('user_id')
+            if user_id:
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    pass
+            if not user and request.user and request.user.is_authenticated:
+                user = request.user
+                
+        # If updating, merge values from instance
+        if self.instance:
+            if name is None:
+                name = self.instance.name
+            if 'parent' not in attrs:
+                parent = self.instance.parent
+            if 'is_public' not in attrs:
+                is_public = self.instance.is_public
+            user = self.instance.user
+
+        # Query directories at the same level (same parent)
+        qs = Directory.objects.filter(name__iexact=name, parent=parent)
+        if is_public:
+            # For public directories, same level name must be unique globally among public dirs
+            qs = qs.filter(is_public=True)
+        else:
+            # For private directories, same level name must be unique per user
+            if user:
+                qs = qs.filter(user=user, is_public=False)
+            else:
+                qs = qs.filter(is_public=False)
+
+        # Exclude current instance if updating
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        if qs.exists():
+            raise serializers.ValidationError("Thư mục cùng cấp không được trùng tên.")
+
+        return attrs
+
+def resolve_content_preview(obj):
+    if obj.content_preview and ("## " in obj.content_preview or "# " in obj.content_preview):
+        return obj.content_preview
+    # Fallback for existing or seeded documents: parse on-the-fly and save back
+    if obj.file_path and obj.file_path.name.endswith('.docx'):
+        import os
+        from .docx_parser import convert_docx_to_markdown
+        try:
+            has_local_path = False
+            try:
+                file_path = obj.file_path.path
+                if os.path.exists(file_path):
+                    has_local_path = True
+            except (NotImplementedError, AttributeError, ValueError):
+                has_local_path = False
+
+            if has_local_path:
+                file_path = obj.file_path.path
+                markdown = convert_docx_to_markdown(file_path)
+                if markdown:
+                    obj.content_preview = markdown
+                    obj.save(update_fields=['content_preview'])
+                    return markdown
+            else:
+                # Nếu file được lưu trên Remote Storage, đọc file qua memory/tempfile
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
+                    temp_file.write(obj.file_path.read())
+                    temp_path = temp_file.name
+                try:
+                    markdown = convert_docx_to_markdown(temp_path)
+                    if markdown:
+                        obj.content_preview = markdown
+                        obj.save(update_fields=['content_preview'])
+                        return markdown
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+        except Exception as e:
+            print(f"Error parsing fallback docx: {e}")
+    return obj.content_preview or ""
+
 class LessonPlanSerializer(serializers.ModelSerializer):
     creator = UserSerializer(read_only=True)
     directory_ids = serializers.SerializerMethodField()
@@ -66,46 +157,7 @@ class LessonPlanSerializer(serializers.ModelSerializer):
         return req.feedback if req else None
 
     def get_content_preview(self, obj):
-        if obj.content_preview and ("## " in obj.content_preview or "# " in obj.content_preview):
-            return obj.content_preview
-        # Fallback for existing or seeded documents: parse on-the-fly and save back
-        if obj.file_path and obj.file_path.name.endswith('.docx'):
-            import os
-            from .docx_parser import convert_docx_to_markdown
-            try:
-                has_local_path = False
-                try:
-                    file_path = obj.file_path.path
-                    if os.path.exists(file_path):
-                        has_local_path = True
-                except (NotImplementedError, AttributeError, ValueError):
-                    has_local_path = False
-
-                if has_local_path:
-                    file_path = obj.file_path.path
-                    markdown = convert_docx_to_markdown(file_path)
-                    if markdown:
-                        obj.content_preview = markdown
-                        obj.save(update_fields=['content_preview'])
-                        return markdown
-                else:
-                    # Nếu file được lưu trên Remote Storage, đọc file qua memory/tempfile
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as temp_file:
-                        temp_file.write(obj.file_path.read())
-                        temp_path = temp_file.name
-                    try:
-                        markdown = convert_docx_to_markdown(temp_path)
-                        if markdown:
-                            obj.content_preview = markdown
-                            obj.save(update_fields=['content_preview'])
-                            return markdown
-                    finally:
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
-            except Exception as e:
-                print(f"Error parsing fallback docx: {e}")
-        return obj.content_preview or ""
+        return resolve_content_preview(obj)
 
     class Meta:
         model = LessonPlan
@@ -117,6 +169,7 @@ class LessonPlanListSerializer(serializers.ModelSerializer):
     directory_names = serializers.SerializerMethodField()
     file_path = serializers.SerializerMethodField()
     latest_feedback = serializers.SerializerMethodField()
+    content_preview = serializers.SerializerMethodField()
 
     def get_directory_ids(self, obj):
         return list(obj.directories.values_list('id', flat=True))
@@ -140,9 +193,12 @@ class LessonPlanListSerializer(serializers.ModelSerializer):
         req = ApprovalRequest.objects.filter(lesson_plan=obj).order_by('-created_at').first()
         return req.feedback if req else None
 
+    def get_content_preview(self, obj):
+        return obj.content_preview or ""
+
     class Meta:
         model = LessonPlan
-        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings']
+        fields = ['id', 'title', 'description', 'target_student', 'status', 'creator', 'created_at', 'file_path', 'attributes', 'directory_ids', 'directory_names', 'latest_feedback', 'average_rating', 'total_ratings', 'content_preview']
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title')
@@ -212,7 +268,12 @@ class AIChatSessionSerializer(serializers.ModelSerializer):
 class LessonPlanEditHistorySerializer(serializers.ModelSerializer):
     edited_by_name = serializers.ReadOnlyField(source='edited_by.full_name')
     edited_by_username = serializers.ReadOnlyField(source='edited_by.username')
+    edited_by_role = serializers.ReadOnlyField(source='edited_by.role')
     edited_by_avatar = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.ReadOnlyField(source='reviewed_by.full_name')
+    lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title')
+    file_path_before = serializers.SerializerMethodField()
+    file_path_after = serializers.SerializerMethodField()
 
     def get_edited_by_avatar(self, obj):
         if not obj.edited_by or not obj.edited_by.avatar:
@@ -226,14 +287,41 @@ class LessonPlanEditHistorySerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url)
         return url
 
+    def get_file_path_before(self, obj):
+        if not obj.file_path_before:
+            return None
+        request = self.context.get('request')
+        try:
+            url = obj.file_path_before.url
+        except ValueError:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_file_path_after(self, obj):
+        if not obj.file_path_after:
+            return None
+        request = self.context.get('request')
+        try:
+            url = obj.file_path_after.url
+        except ValueError:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
+
     class Meta:
         model = LessonPlanEditHistory
         fields = [
-            'id', 'lesson_plan', 'edited_by', 'edited_by_name', 'edited_by_username', 'edited_by_avatar',
+            'id', 'lesson_plan', 'lesson_plan_title',
+            'edited_by', 'edited_by_name', 'edited_by_username', 'edited_by_role', 'edited_by_avatar',
             'title_before', 'title_after',
             'description_before', 'description_after',
             'target_student_before', 'target_student_after',
             'attributes_before', 'attributes_after',
             'file_name_before', 'file_name_after',
-            'edited_at'
-        ]
+            'file_path_before', 'file_path_after',
+            'edited_at',
+            'status', 'reviewed_by', 'reviewed_by_name', 'reviewed_at', 'review_feedback',
+        ]

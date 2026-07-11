@@ -137,5 +137,170 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
     * Backend: Tối ưu hóa truy cập database (thêm `prefetch_related('directories')`, `.only(...)` và `.values_list(...)`) để loại bỏ triệt để lỗi N+1 query và giảm dung lượng truyền tải mạng giữa máy chủ Render và cơ sở dữ liệu Supabase/Neon.
     * Frontend: Khai báo React ref `abortControllerRef` chính xác bằng `useRef` tại `ChatbotWorkspace.tsx` để khắc phục lỗi runtime JS console khiến ngắt luồng tương tác của chatbot.
 - Fix user profile update bug: only validate email and phone number uniqueness when they are modified to prevent duplicate conflicts with existing historical duplicates, and handle empty values safely => xong
+- Chia nhỏ tệp App.tsx (dưới 1000 dòng): Tiến hành tách biệt toàn bộ logic và giao diện sang các file riêng lẻ giúp giảm từ hơn 2580 dòng xuống còn 793 dòng => xong:
+    * Frontend: Tạo mới custom hook `useKmsApp.ts` chứa toàn bộ State, Effect và API Handlers của hệ thống.
+    * Frontend: Tách các Modals ra khỏi App.tsx thành `DirModal.tsx`, `ProposePublicModal.tsx`, `CreatorProfileModal.tsx`.
+    * Frontend: Tách các Tab làm việc chính thành `HistoryTab.tsx` (Lịch sử đóng góp) và `PersonalTab.tsx` (Thư viện cá nhân).
+    * Frontend: Sửa lỗi tham chiếu runtime `setUpDirId` chưa được định nghĩa và cấu hình lại `UploadPage.tsx` nhận prop `initialDirId` khi upload tài liệu cá nhân.
+    * Frontend: Biên dịch sản xuất (`npm run build`) thành công vượt trội không lỗi TypeScript.
+- Sửa đổi logic tìm kiếm ô tìm kiếm chính: Hỗ trợ tìm kiếm mờ (fuzzy/substring) trong nội dung file (.docx, .md, .txt), tiêu đề và mô tả, sắp xếp theo độ tương đồng giảm dần (tiêu đề khớp > mô tả khớp > nội dung khớp), đồng thời ưu tiên bài giảng nhiều sao (*), nếu bằng sao thì ưu tiên lượt đánh giá/bình chọn cao hơn => xong
+- Sửa lỗi khoảng trắng dọc lớn giữa header tìm kiếm và grid danh sách card ở LibraryList.tsx do thuộc tính justify-between ép dãn chiều cao min-h-[650px] khi ẩn phân trang => xong
+- Tích hợp tính năng bôi sáng từ khóa tìm kiếm (Search Query Highlighting): Hỗ trợ bôi sáng (highlight bằng thẻ mark màu vàng) từ khóa tìm kiếm trong Tiêu đề, Mô tả và nạp lại trường content_preview trong danh sách card để tự động hiển thị snippet bôi sáng nội dung tài liệu trùng khớp => xong
+- Sửa lỗi không hiển thị snippet ở card tìm kiếm đối với các giáo án seed chưa từng được mở (do LessonPlanListSerializer không nạp bóc tách dự phòng) bằng cách chuyển phương thức get_content_preview thành hàm dùng chung resolve_content_preview => xong
+- Đồng bộ chuyển tiếp từ khóa tìm kiếm vào chi tiết tài liệu (DetailView) khi bấm card ở các tab, tự động bôi sáng và cuộn mượt mà (scrollIntoView smooth) đưa đoạn văn bản trùng khớp đầu tiên của tài liệu lên chính giữa màn hình (block center) => xong
+- Sửa lỗi chỉnh sửa tài liệu và chọn lớp học từ cơ sở dữ liệu: => xong
+    * Frontend: Tải và trích xuất danh sách lớp học duy nhất (availableClasses) động từ tất cả tài liệu trong cơ sở dữ liệu, hiển thị danh sách lớp gợi ý dưới dạng dropdown Select mode="tags" để giáo viên chọn trực tiếp thay vì tự gõ nhập tay.
+    * Backend: Tái cấu trúc logic cập nhật tài liệu (perform_update) và xét duyệt lịch sử (EditHistoryReviewAPIView). Khi người dùng/giáo viên chỉnh sửa tài liệu công khai (PUBLISHED), trạng thái của tài liệu sẽ chuyển sang PENDING (chờ duyệt) và tự động tạo Yêu cầu xét duyệt (ApprovalRequest) và Lịch sử chỉnh sửa (LessonPlanEditHistory) ở trạng thái PENDING.
+    * Backend: Thêm cơ chế khôi phục (Rollback) hoàn hảo khi ADMIN từ chối (REJECT) thay đổi: hệ thống sẽ tự động khôi phục các trường dữ liệu của tài liệu (tiêu đề, mô tả, đối tượng, attributes) về giá trị lịch sử trước khi chỉnh sửa (title_before, description_before,...) và đưa trạng thái tài liệu trở lại PUBLISHED. Khi chấp nhận (APPROVE), tài liệu sẽ được phê duyệt và đổi lại trạng thái PUBLISHED.
+    * Hệ thống & So sánh Tệp (Word/PDF): Lưu trữ bản sao vật lý của cả tệp tin cũ (`file_path_before`) và tệp tin mới (`file_path_after`) trong cơ sở dữ liệu khi sửa đổi tài liệu. Cho phép Admin/Teacher tải xuống cả hai phiên bản trực tiếp từ giao diện Lịch sử chỉnh sửa hoặc Xét duyệt chỉnh sửa để so sánh và kiểm tra trực quan sự khác biệt của tệp Word. Đồng thời khôi phục lại tệp tin gốc nếu yêu cầu chỉnh sửa bị từ chối.
+- Sửa lỗi đăng nhập bằng email hoặc số điện thoại: => xong
+- Sửa lỗi hiển thị nút "Thêm mới" tài khoản, hiển thị Logo & Favicon hệ thống: => xong
+    * Frontend: Khai báo định nghĩa các màu sắc trung gian tuỳ chỉnh mới (`--color-purple-650`, `--color-blue-650`,...) vào khối `@theme inline` của Tailwind CSS v4 trong tệp `theme.css`. Điều này giải quyết triệt để lỗi thiết lập nền màu trong suốt khiến nút "Thêm mới" và biểu tượng Logo thương hiệu (`bg-blue-650`) bị ẩn hoàn toàn (màu trắng trên nền trắng).
+    * Frontend: Thiết lập thư mục `public` cho Vite và thêm tệp tin vector `favicon.svg` chất lượng cao. Đồng thời liên kết thẻ `<link rel="icon" ...>` tương ứng vào `index.html` và tối ưu hoá tiêu đề trang phục vụ SEO tốt nhất.
+- Sửa lỗi tự động đồng bộ/chuyển đổi phiên Chatbot khi AI đang phản hồi: => xong
+    * Frontend: Cập nhật các hook `useEffect` đồng bộ ngữ cảnh (focusLessonId) và lịch sử phiên (`fetchSessions`) trong `ChatbotWorkspace.tsx`. Khi AI đang phản hồi (`sending` bằng `true`), hệ thống sẽ bỏ qua mọi lệnh tự động chuyển đổi ngữ cảnh chat hoặc tự động tạo phiên mới khi người dùng thoát/mở card giáo án khác. Điều này bảo vệ an toàn cho cuộc trò chuyện hiện tại và câu truy vấn đang được trả lời không bị ngắt quãng vô lý.
+- Tái cấu trúc dự án Frontend (Refactor App.tsx + dọn dẹp file): => xong
+    * Tách toàn bộ components thành thư mục con (admin/, auth/, chatbot/, directory/, library/, viewer/)
+    * Tạo nhánh git feature/refactor-and-fixes, commit 80 files (16.467 dòng thêm, 10.962 dòng xóa)
+    * Xóa 32 file không cần thiết: backup, scratch scripts, debug logs, test files, PDF tạm
+    * Xóa debug code ghi log tạm thời (api_call_logs.txt writer) trong LessonPlanListAPIView.list()
 
+==============================================================================
+ĐÁNH GIÁ TỔNG THỂ HỆ THỐNG - 04/07/2026
+==============================================================================
+
+I. TỔNG QUAN HỆ THỐNG
+----------------------
+Hệ thống Quản lý Tri thức Giáo án (KMS) là nền tảng chia sẻ và khám phá tài
+liệu giảng dạy dành cho giáo viên phổ thông, tích hợp AI RAG (Retrieval-
+Augmented Generation) cục bộ, đồ thị tri thức tương tác và trợ lý hỏi đáp
+thông minh. Hệ thống gồm 2 tầng chính: Backend Django + Frontend React/Vite.
+
+II. ĐÁNH GIÁ TỪNG NHÓM CHỨC NĂNG
+-----------------------------------
+
+[✅ HOẠT ĐỘNG TỐT] Xác thực & Phân quyền
+  - Đăng nhập bằng username / email / số điện thoại (Q() query LoginAPIView)
+  - Đăng ký tài khoản, tìm kiếm tài khoản theo email
+  - Khôi phục mật khẩu qua mã OTP (otp_code / otp_created_at trên model User)
+  - 3 vai trò: ADMIN / TEACHER / USER với phân quyền khác nhau
+  - ADMIN có quyền chỉnh sửa tài liệu của tất cả người dùng
+  - Khóa / Mở khóa tài khoản người dùng trực tiếp trên Dashboard Admin
+  - Logo thương hiệu và Favicon SVG hiển thị đúng
+
+[✅ HOẠT ĐỘNG TỐT] Quản lý Thư viện & Tài liệu
+  - Tải lên file Word (.docx), Markdown (.md), văn bản (.txt)
+  - Auto-fill thông tin giáo án từ file (.docx parser bóc tách metadata)
+  - Chống trùng lặp thông minh (difflib SequenceMatcher >= 95%)
+  - Hiển thị dạng lưới card (Grid) với phân trang 10-20 tài liệu/trang
+  - Sắp xếp: mới nhất / đánh giá cao / nhiều lượt đánh giá
+  - Bộ lọc đa chiều client-side (Lớp học, Môn học, Đối tượng, Địa điểm,
+    Mạch kiến thức, Chủ đề, Kiến thức liên quan)
+  - Xem tài liệu dạng Markdown có bảng biểu, tiêu đề, rich format
+  - Xem trước file Word (.docx) trực tiếp trên browser (docx-preview)
+  - Tải xuống file Word gốc và bản Markdown đã chuyển đổi
+  - Cây thư mục đệ quy (public/private), kéo thả, tạo inline, đổi tên
+
+[✅ HOẠT ĐỘNG TỐT] Tìm kiếm
+  - Tìm kiếm fuzzy/substring trên tiêu đề, mô tả và nội dung file
+  - Xếp hạng độ liên quan: tiêu đề bắt đầu (100) > tiêu đề chứa (50)
+    > mô tả (20) > nội dung (10)
+  - Bôi sáng từ khóa (highlight) trong card danh sách và trong DetailView
+  - Cuộn mượt mà (scrollIntoView smooth) đến đoạn trùng khớp đầu tiên
+  - Kết quả tìm kiếm hiển thị snippet nội dung file tại chỗ khớp
+
+[✅ HOẠT ĐỘNG TỐT] Đánh giá & Bình luận
+  - Hệ thống đánh giá sao (1-5) cho từng tài liệu
+  - Biểu đồ thống kê phân bổ sao (Rating bar chart) tương tác
+  - Chỉnh sửa / xóa nhận xét của bản thân inline trực tiếp
+  - Bảo mật chống XSS (HTML Escape phía Backend)
+  - Cache đánh giá theo session (0 request lần 2)
+
+[✅ HOẠT ĐỘNG TỐT] Sơ đồ Tư duy Tương tác
+  - Sơ đồ 4 nhánh đối xứng (Mục tiêu / Thiết bị / Tiến trình / Hoạt động)
+  - Tự động zoom về trung tâm mượt mà (fitView 800ms)
+  - Nút Reset vị trí & Nút 🎯 Về giữa
+  - Bộ giải mã thích ứng (Adaptive Parser) hỗ trợ cả cấu trúc bảng và danh sách
+
+[✅ HOẠT ĐỘNG TỐT] Trợ lý AI RAG (ChatbotWorkspace)
+  - Hybrid Search: Vector Search pgvector + FTS Keyword Fallback + Graph BFS
+  - Chế độ Focus Mode (bind ngữ cảnh tài liệu đang xem)
+  - Nút 🛑 Dừng câu trả lời (AbortController)
+  - Nút 🔄 Làm lại câu trước (thu hồi lịch sử + đưa lại câu hỏi cũ)
+  - Chỉnh sửa câu hỏi cũ inline (✏️ bút chì), tự cắt lịch sử từ đó
+  - Render Markdown phong phú trong chat (tiêu đề, danh sách, bảng biểu)
+  - Resize cửa sổ chat (kéo phân cách), lưu độ rộng vào localStorage
+  - Sidebar lịch sử ghim/ẩn bằng tab ▶ cạnh trái
+  - Bảo toàn ngữ cảnh khi AI đang phản hồi (sending flag guard)
+  - Không tạo session trống khi tải lại trang (chỉ tạo khi isOpen + có chat)
+
+[✅ HOẠT ĐỘNG TỐT] Đồ thị Tri thức (Graph Canvas)
+  - Vẽ đồ thị 2D Force-Directed (Nodes + Edges)
+  - BFS Hop Coloring (1-4 hops, gradient 5 màu)
+  - Legend tương tác bật/tắt từng loại thực thể
+  - Double-click node mở tài liệu / chọn thư mục
+  - Zoom & Pan, chống scroll chaining (overscroll-behavior: contain)
+  - Popup thông tin thực thể ghim được, kéo co giãn 4 góc
+
+[✅ HOẠT ĐỘNG TỐT] WikiNotes (Obsidian Vault)
+  - Split-pane 35%/65% hiển thị danh sách note và trình đọc
+  - Phân tích WikiLinks [[Khái niệm]] → Purple badge tương tác
+  - Lọc note theo tài liệu đang focus (API /obsidian/notes/by-lesson/)
+  - Định nghĩa khái niệm học thuật tự động bằng LLM
+
+[✅ HOẠT ĐỘNG TỐT] Xử lý AI Ngầm (Background Processor)
+  - 5 giai đoạn: Parse Word → Chunking → Embedding → Concept Extraction → Obsidian Sync
+  - Progress Roadmap thời gian thực (polling 3 giây)
+  - Nút Dừng xử lý (Stop Task) giữa các Phase
+  - Beacon API tự dừng khi tắt/thoát trình duyệt
+  - Thread Lock bảo vệ GGUF (n_ctx=4096) tránh crash đa luồng
+
+[✅ HOẠT ĐỘNG TỐT] Chỉnh sửa & Duyệt Tài liệu (Edit History Workflow)
+  - Giáo viên chỉnh sửa tài liệu PUBLISHED → tự động chuyển sang PENDING
+  - Tạo LessonPlanEditHistory lưu bản sao vật lý file cũ/mới (file_path_before/after)
+  - Admin duyệt (APPROVE): cập nhật tài liệu + trạng thái PUBLISHED
+  - Admin từ chối (REJECT): rollback hoàn toàn về giá trị cũ + PUBLISHED
+  - Giao diện xem và tải xuống cả 2 phiên bản file (HistoryModal, ApprovalModal)
+  - Chọn lớp học từ danh sách có sẵn trong DB (dropdown, không gõ tay)
+
+[✅ HOẠT ĐỘNG TỐT] Quản trị Admin
+  - Dashboard thống kê tổng quan
+  - Quản lý tài khoản (tạo, khóa, nâng/hạ vai trò)
+  - Phân quyền thư mục đệ quy (2 sub-tab: cá nhân / public)
+  - Cấu hình AI Model Engine (3B / 7B / API)
+  - Cấu hình chiến lược chia chunk (Heading / Fixed)
+  - Duyệt đề xuất công khai tài liệu
+
+III. CÁC VẤN ĐỀ ĐÃ BIẾT / GIỚI HẠN HIỆN TẠI
+-----------------------------------------------
+  - AI GGUF offline (Qwen 7B) yêu cầu phần cứng mạnh (RAM >= 8GB)
+  - Deploy cloud: cần dùng Gemini API thay GGUF cục bộ
+  - Chưa có tính năng gợi ý tài liệu tự động (Recommendation Engine)
+  - Chưa có thông báo real-time (Notification) khi được duyệt/từ chối
+  - Chưa có tính năng chia sẻ link trực tiếp đến tài liệu
+  - Chưa có export báo cáo thống kê (PDF/Excel)
+
+IV. KIẾN TRÚC KỸ THUẬT HIỆN TẠI
+-----------------------------------
+  Backend:  Django 6.0 + DRF + PostgreSQL (pgvector cổng 5433)
+  Frontend: React 18 + TypeScript + Vite 6 + Tailwind CSS v4
+  AI Local: Qwen 7B GGUF (llama.cpp) + nomic-embed-text (Ollama)
+  AI Cloud: Gemini 2.5 Flash/Pro API (fallback tự động)
+  Vault:    Obsidian Vault Sync (Markdown note + WikiLinks)
+  Auth:     JWT Token (local) + Keycloak SSO (tích hợp sẵn)
+  Deploy:   Render (Backend) + Vercel/GitHub Pages (Frontend)
+
+V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
+------------------------------------
+  main                       : stable (không thay đổi)
+  feature/refactor-and-fixes : active (đang phát triển)
+    - perf: optimize concept extraction using intelligent semantic chunk filtering
+    - docs: add prompt evaluation report for chatbot and concept extraction
+    - docs+fix: system evaluation report + clean debug logging code in views.py
+    - chore: remove old App.tsx backups and backend log/evaluation files
+    - chore: remove unnecessary files (scratch, debug logs, test files, temp docs, PDF)
+    - [Current modifications]:
+      * Ported remote bugfixes/features (DirModal public checkbox, custom biology connections tags creation, DB select_related/prefetch_related optimizations, Query param Keycloak authentication fallback for beacon APIs, normal users stopping own tasks).
+      * Added RAM caching and loading spinner feedback for AdminDashboard & ApprovalModal.
+      * Refactored Chatbot with minimize button, redo input reloading, dynamic sync context banners, proper Obsidian by-lesson pathing, and Hover Popover on term links.
 

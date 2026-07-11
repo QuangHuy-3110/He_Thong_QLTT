@@ -27,14 +27,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
     serializer_class = LessonPlanListSerializer
 
     def list(self, request, *args, **kwargs):
-        import traceback
-        from rest_framework.response import Response
-        from rest_framework import status
-        try:
-            return super().list(request, *args, **kwargs)
-        except Exception as e:
-            tb = traceback.format_exc()
-            return Response({"error": str(e), "traceback": tb}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = LessonPlan.objects.select_related('creator').prefetch_related('directories')
@@ -42,12 +35,31 @@ class LessonPlanListAPIView(generics.ListAPIView):
         user_id = self.request.query_params.get('user_id', None)
         dir_id = self.request.query_params.get('directory_id', None)
         
-        # 1. PostgreSQL Full-Text Search (FTS)
+        # 1. Substring & Fuzzy Match Search within file content, title, and description
         if q:
-            from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-            vector = SearchVector('title', weight='A') + SearchVector('content_preview', weight='B')
-            query = SearchQuery(q)
-            queryset = queryset.annotate(rank=SearchRank(vector, query)).filter(rank__gte=0.01).order_by('-rank')
+            from django.db.models import Case, When, Value, IntegerField
+            # Substring matching filter (Vietnamese-friendly, including fuzzy substring)
+            queryset = queryset.filter(
+                Q(title__icontains=q) | 
+                Q(content_preview__icontains=q) | 
+                Q(description__icontains=q)
+            )
+            # Relevance scoring:
+            # - Matches title start -> 100
+            # - Matches title contains -> 50
+            # - Matches description contains -> 20
+            # - Matches content_preview contains -> 10
+            # - default -> 0
+            queryset = queryset.annotate(
+                relevance=Case(
+                    When(title__istartswith=q, then=Value(100)),
+                    When(title__icontains=q, then=Value(50)),
+                    When(description__icontains=q, then=Value(20)),
+                    When(content_preview__icontains=q, then=Value(10)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            ).order_by('-relevance', '-average_rating', '-total_ratings')
         else:
             queryset = queryset.order_by('-created_at')
             
@@ -323,13 +335,37 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 status_code = 400
                 default_detail = 'Duplicate document.'
             raise DuplicateException({'error': dup_error, 'duplicate_id': dup_id})
+        was_published = (lesson.status == 'PUBLISHED')
+        is_owner = (lesson.creator == user)
+        is_dir_manager = lesson.directories.filter(user=user).exists()
+        is_owner_or_admin = (user.role == 'ADMIN' or is_owner or is_dir_manager)
 
-        if user.role == 'USER' and save_kwargs.get('status') != 'LOCAL':
-            # Bắt buộc phê duyệt lại cho người dùng bình thường
+        # Check if the file is changing and back up the old one
+        file_changed = False
+        old_file_copy = None
+        if file_obj:
+            file_changed = True
+            if lesson.file_path:
+                from django.core.files.base import ContentFile
+                try:
+                    lesson.file_path.open()
+                    old_file_content = lesson.file_path.read()
+                    old_file_copy = ContentFile(old_file_content, name=os.path.basename(lesson.file_path.name))
+                except Exception as e:
+                    print(f"Error backing up old file: {e}")
+
+        # If it was published and the editor is not admin/owner/manager, change status to PENDING
+        if was_published and not is_owner_or_admin:
             save_kwargs['status'] = 'PENDING'
-            serializer.save(**save_kwargs)
-            
-            # Tự động tạo/cập nhật yêu cầu phê duyệt
+
+        # If the editor is USER, they always need approval unless saving to a LOCAL folder
+        if user.role == 'USER' and save_kwargs.get('status') != 'LOCAL':
+            save_kwargs['status'] = 'PENDING'
+
+        serializer.save(**save_kwargs)
+
+        # Create or update approval request if status is PENDING
+        if save_kwargs.get('status') == 'PENDING':
             directory = lesson.directories.first()
             if directory:
                 ApprovalRequest.objects.update_or_create(
@@ -341,8 +377,6 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                         'feedback': ''
                     }
                 )
-        else:
-            serializer.save(**save_kwargs)
 
         # Ghi nhận lịch sử chỉnh sửa
         lesson.refresh_from_db()
@@ -362,7 +396,16 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         if has_changed:
             from .models import LessonPlanEditHistory
-            LessonPlanEditHistory.objects.create(
+            history_status = 'PENDING'
+            if is_owner_or_admin:
+                history_status = 'APPROVED'
+            elif was_published:
+                history_status = 'PENDING'
+            else:
+                # If not previously published, no separate edit review is needed
+                history_status = 'APPROVED'
+
+            history = LessonPlanEditHistory.objects.create(
                 lesson_plan=lesson,
                 edited_by=user,
                 title_before=title_before,
@@ -374,9 +417,22 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 attributes_before=attributes_before,
                 attributes_after=attributes_after,
                 file_name_before=file_name_before,
-                file_name_after=file_name_after
+                file_name_after=file_name_after,
+                status=history_status
             )
-
+            if file_changed:
+                if old_file_copy:
+                    history.file_path_before.save(file_name_before, old_file_copy, save=False)
+                if lesson.file_path:
+                    try:
+                        lesson.file_path.open()
+                        new_file_content = lesson.file_path.read()
+                        from django.core.files.base import ContentFile
+                        new_file_copy = ContentFile(new_file_content, name=file_name_after)
+                        history.file_path_after.save(file_name_after, new_file_copy, save=False)
+                    except Exception as e:
+                        print(f"Error copying new file to history: {e}")
+                history.save()
 class LessonPlanEditHistoryAPIView(generics.ListAPIView):
     serializer_class = LessonPlanEditHistorySerializer
 
@@ -450,6 +506,27 @@ class DirectoryDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        # Recursively collect all descendant directories
+        def get_all_descendants(dir_obj):
+            descendants = [dir_obj]
+            for child in dir_obj.subdirectories.all():
+                descendants.extend(get_all_descendants(child))
+            return descendants
+
+        all_dirs = get_all_descendants(instance)
+        all_dir_ids = [d.id for d in all_dirs]
+
+        # Find all LessonPlans linked to these directories
+        lessons_to_delete = LessonPlan.objects.filter(directories__id__in=all_dir_ids).distinct()
+
+        # Delete each lesson plan (triggers pre_delete signal to clean up physical files)
+        for lesson in lessons_to_delete:
+            lesson.delete()
+
+        # Delete the directory itself (will cascade to subdirectories on Django/DB level)
+        instance.delete()
 
 
 def check_duplicate_lesson_plan(title, content_preview, status_val, user, exclude_id=None):
@@ -1236,8 +1313,15 @@ class LoginAPIView(APIView):
         # Check if the user is disabled because of expired password reset
         from django.utils import timezone
         from datetime import timedelta
+        from django.db.models import Q
         
-        user_obj = User.objects.filter(username=username).first()
+        user_obj = User.objects.filter(
+            Q(username=username) | Q(email=username) | Q(phone_number=username)
+        ).first()
+        
+        resolved_username = username
+        if user_obj:
+            resolved_username = user_obj.username
         if user_obj and user_obj.password_reset_temp and user_obj.password_reset_at:
             if timezone.now() > user_obj.password_reset_at + timedelta(hours=24):
                 if user_obj.is_active:
@@ -1267,7 +1351,7 @@ class LoginAPIView(APIView):
                 payload = {
                     'grant_type': 'password',
                     'client_id': settings.KEYCLOAK_CLIENT_ID,
-                    'username': username,
+                    'username': resolved_username,
                     'password': password
                 }
                 token_res = requests.post(token_url, data=payload, timeout=5)
@@ -1350,7 +1434,7 @@ class LoginAPIView(APIView):
             }, status=status.HTTP_200_OK)
             
         # Standard local auth
-        user = authenticate(username=username, password=password)
+        user = authenticate(username=resolved_username, password=password)
         if user is not None:
             serializer = UserSerializer(user)
             data = serializer.data
@@ -2477,6 +2561,7 @@ class AIChatSendMessageAPIView(APIView):
             meta_payload = {
                 'type': 'meta',
                 'retrieved_graph': rag_data['retrieved_graph'],
+                'retrieved_node_ids': rag_data.get('retrieved_node_ids', []),
                 'suggested_questions': rag_data['suggested_questions'],
                 'session_title': session.title
             }
@@ -2769,10 +2854,20 @@ class BackgroundTasksStopAPIView(APIView):
         from .bg_processor import BackgroundProcessManager
         
         if stop_all:
-            if not request.user or not request.user.is_authenticated or request.user.role != 'ADMIN':
-                return Response({"error": "Chỉ Quản trị viên (Admin) mới có quyền dừng toàn bộ tiến trình hệ thống."}, status=status.HTTP_403_FORBIDDEN)
-            BackgroundProcessManager.cancel_all_tasks()
-            return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
+            if not request.user or not request.user.is_authenticated:
+                return Response({"error": "Bạn cần đăng nhập để thực hiện tác vụ này."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            if request.user.role == 'ADMIN':
+                BackgroundProcessManager.cancel_all_tasks()
+                return Response({"message": "Đã dừng toàn bộ các tiến trình AI RAG ngầm thành công!"}, status=status.HTTP_200_OK)
+            else:
+                from .models import LessonPlan
+                user_lps = LessonPlan.objects.filter(creator=request.user, ai_processing_status__in=['PENDING', 'PROCESSING'])
+                count = 0
+                for lp in user_lps:
+                    BackgroundProcessManager.cancel_task(lp.id)
+                    count += 1
+                return Response({"message": f"Đã dừng {count} tiến trình AI RAG của bạn thành công!"}, status=status.HTTP_200_OK)
             
         if lesson_id:
             try:
@@ -3247,6 +3342,105 @@ class ObsidianNoteHistoryAPIView(APIView):
                 "edited_at": h.edited_at.isoformat()
             })
         return Response(data, status=200)
+
+
+class AllLessonPlanEditHistoryAPIView(generics.ListAPIView):
+    serializer_class = LessonPlanEditHistorySerializer
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+        if not user_id:
+            raise PermissionDenied("Vui lòng cung cấp user_id.")
+            
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            raise PermissionDenied("Không tìm thấy thông tin người dùng.")
+            
+        if user.role != 'ADMIN' and user.role != 'TEACHER':
+            raise PermissionDenied("Bạn không có quyền xem lịch sử chỉnh sửa hệ thống.")
+            
+        from .models import LessonPlanEditHistory
+        return LessonPlanEditHistory.objects.all().order_by('-edited_at')
+
+class EditHistoryReviewAPIView(APIView):
+    def patch(self, request, pk):
+        from .models import LessonPlanEditHistory
+        from django.utils import timezone
+
+        user_id = request.data.get('user_id')
+        action = request.data.get('action')  # 'APPROVE' or 'REJECT'
+        feedback = request.data.get('feedback', '')
+
+        if not user_id or action not in ('APPROVE', 'REJECT'):
+            return Response(
+                {'error': 'Thiếu user_id hoặc action không hợp lệ.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            reviewer = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Không tìm thấy người dùng.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Kiểm tra chi tiết quyền duyệt:
+        if reviewer.role != 'ADMIN':
+            # Phải là chủ sở hữu tài liệu hoặc giáo viên quản lý thư mục chứa tài liệu đó
+            try:
+                history = LessonPlanEditHistory.objects.get(id=pk)
+            except LessonPlanEditHistory.DoesNotExist:
+                return Response({'error': 'Không tìm thấy bản ghi chỉnh sửa.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            lesson = history.lesson_plan
+            is_owner = (lesson.creator == reviewer)
+            is_dir_manager = lesson.directories.filter(user=reviewer).exists()
+            if not (is_owner or is_dir_manager):
+                return Response(
+                    {'error': 'Bạn không có quyền xét duyệt lịch sử chỉnh sửa tài liệu này (bạn không phải chủ sở hữu tài liệu và cũng không quản lý thư mục chứa tài liệu này).'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        try:
+            history = LessonPlanEditHistory.objects.get(id=pk)
+        except LessonPlanEditHistory.DoesNotExist:
+            return Response({'error': 'Không tìm thấy bản ghi chỉnh sửa.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if history.status != 'PENDING':
+            return Response(
+                {'error': 'Bản ghi này đã được xét duyệt rồi.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        history.status = 'APPROVED' if action == 'APPROVE' else 'REJECTED'
+        history.reviewed_by = reviewer
+        history.reviewed_at = timezone.now()
+        history.review_feedback = feedback
+        history.save()
+
+        lesson = history.lesson_plan
+        if action == 'APPROVE':
+            lesson.status = 'PUBLISHED'
+            lesson.save()
+        else:
+            # Roll back changes on REJECT
+            lesson.title = history.title_before
+            lesson.description = history.description_before
+            lesson.target_student = history.target_student_before
+            lesson.attributes = history.attributes_before
+            lesson.content_preview = "" # Clear preview cache to trigger re-parse of restored file
+            if history.file_path_before:
+                try:
+                    history.file_path_before.open()
+                    content = history.file_path_before.read()
+                    from django.core.files.base import ContentFile
+                    lesson.file_path = ContentFile(content, name=history.file_name_before)
+                except Exception as e:
+                    print(f"Error restoring file on rollback: {e}")
+            lesson.status = 'PUBLISHED'
+            lesson.save()
+
+        serializer = LessonPlanEditHistorySerializer(history, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class HealthCheckAPIView(APIView):
