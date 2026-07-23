@@ -136,19 +136,6 @@ khi mà họ chọn thì bấm nút tìm nó ra cái gì?
     * Backend: Thiết lập các response header (`Cache-Control: no-cache` và `X-Accel-Buffering: no`) để vô hiệu hóa tính năng đệm proxy ngược của Render/Nginx, trả stream thời gian thực lập tức.
     * Backend: Tối ưu hóa truy cập database (thêm `prefetch_related('directories')`, `.only(...)` và `.values_list(...)`) để loại bỏ triệt để lỗi N+1 query và giảm dung lượng truyền tải mạng giữa máy chủ Render và cơ sở dữ liệu Supabase/Neon.
     * Frontend: Khai báo React ref `abortControllerRef` chính xác bằng `useRef` tại `ChatbotWorkspace.tsx` để khắc phục lỗi runtime JS console khiến ngắt luồng tương tác của chatbot.
-- Fix user profile update bug: only validate email and phone number uniqueness when they are modified to prevent duplicate conflicts with existing historical duplicates, and handle empty values safely => xong
-- Chia nhỏ tệp App.tsx (dưới 1000 dòng): Tiến hành tách biệt toàn bộ logic và giao diện sang các file riêng lẻ giúp giảm từ hơn 2580 dòng xuống còn 793 dòng => xong:
-    * Frontend: Tạo mới custom hook `useKmsApp.ts` chứa toàn bộ State, Effect và API Handlers của hệ thống.
-    * Frontend: Tách các Modals ra khỏi App.tsx thành `DirModal.tsx`, `ProposePublicModal.tsx`, `CreatorProfileModal.tsx`.
-    * Frontend: Tách các Tab làm việc chính thành `HistoryTab.tsx` (Lịch sử đóng góp) và `PersonalTab.tsx` (Thư viện cá nhân).
-    * Frontend: Sửa lỗi tham chiếu runtime `setUpDirId` chưa được định nghĩa và cấu hình lại `UploadPage.tsx` nhận prop `initialDirId` khi upload tài liệu cá nhân.
-    * Frontend: Biên dịch sản xuất (`npm run build`) thành công vượt trội không lỗi TypeScript.
-- Sửa đổi logic tìm kiếm ô tìm kiếm chính: Hỗ trợ tìm kiếm mờ (fuzzy/substring) trong nội dung file (.docx, .md, .txt), tiêu đề và mô tả, sắp xếp theo độ tương đồng giảm dần (tiêu đề khớp > mô tả khớp > nội dung khớp), đồng thời ưu tiên bài giảng nhiều sao (*), nếu bằng sao thì ưu tiên lượt đánh giá/bình chọn cao hơn => xong
-- Sửa lỗi khoảng trắng dọc lớn giữa header tìm kiếm và grid danh sách card ở LibraryList.tsx do thuộc tính justify-between ép dãn chiều cao min-h-[650px] khi ẩn phân trang => xong
-- Tích hợp tính năng bôi sáng từ khóa tìm kiếm (Search Query Highlighting): Hỗ trợ bôi sáng (highlight bằng thẻ mark màu vàng) từ khóa tìm kiếm trong Tiêu đề, Mô tả và nạp lại trường content_preview trong danh sách card để tự động hiển thị snippet bôi sáng nội dung tài liệu trùng khớp => xong
-- Sửa lỗi không hiển thị snippet ở card tìm kiếm đối với các giáo án seed chưa từng được mở (do LessonPlanListSerializer không nạp bóc tách dự phòng) bằng cách chuyển phương thức get_content_preview thành hàm dùng chung resolve_content_preview => xong
-- Đồng bộ chuyển tiếp từ khóa tìm kiếm vào chi tiết tài liệu (DetailView) khi bấm card ở các tab, tự động bôi sáng và cuộn mượt mà (scrollIntoView smooth) đưa đoạn văn bản trùng khớp đầu tiên của tài liệu lên chính giữa màn hình (block center) => xong
-- Sửa lỗi chỉnh sửa tài liệu và chọn lớp học từ cơ sở dữ liệu: => xong
     * Frontend: Tải và trích xuất danh sách lớp học duy nhất (availableClasses) động từ tất cả tài liệu trong cơ sở dữ liệu, hiển thị danh sách lớp gợi ý dưới dạng dropdown Select mode="tags" để giáo viên chọn trực tiếp thay vì tự gõ nhập tay.
     * Backend: Tái cấu trúc logic cập nhật tài liệu (perform_update) và xét duyệt lịch sử (EditHistoryReviewAPIView). Khi người dùng/giáo viên chỉnh sửa tài liệu công khai (PUBLISHED), trạng thái của tài liệu sẽ chuyển sang PENDING (chờ duyệt) và tự động tạo Yêu cầu xét duyệt (ApprovalRequest) và Lịch sử chỉnh sửa (LessonPlanEditHistory) ở trạng thái PENDING.
     * Backend: Thêm cơ chế khôi phục (Rollback) hoàn hảo khi ADMIN từ chối (REJECT) thay đổi: hệ thống sẽ tự động khôi phục các trường dữ liệu của tài liệu (tiêu đề, mô tả, đối tượng, attributes) về giá trị lịch sử trước khi chỉnh sửa (title_before, description_before,...) và đưa trạng thái tài liệu trở lại PUBLISHED. Khi chấp nhận (APPROVE), tài liệu sẽ được phê duyệt và đổi lại trạng thái PUBLISHED.
@@ -300,7 +287,13 @@ V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
     - chore: remove old App.tsx backups and backend log/evaluation files
     - chore: remove unnecessary files (scratch, debug logs, test files, temp docs, PDF)
     - [Current modifications]:
-      * Ported remote bugfixes/features (DirModal public checkbox, custom biology connections tags creation, DB select_related/prefetch_related optimizations, Query param Keycloak authentication fallback for beacon APIs, normal users stopping own tasks).
-      * Added RAM caching and loading spinner feedback for AdminDashboard & ApprovalModal.
-      * Refactored Chatbot with minimize button, redo input reloading, dynamic sync context banners, proper Obsidian by-lesson pathing, and Hover Popover on term links.
+      * Refactored Word document parser and UploadPage auto-fill engine (`UploadPage.tsx` & `docx_parser.py`): Auto-extract title, subject, grade, duration/periods, teaching location, knowledge track, topic, integrated biology connections tags, and pedagogical execution tables into real-time preview and auto-filled form.
+      * Enhanced Inline Detailed Lesson Editing (`DetailView.tsx` & `ApprovalModal.tsx`): Added comprehensive editing fields for metadata (Title, System Directory, Duration/Periods, Target Students, Lesson Type, Location, Knowledge Track, Topic, Multi-tag Class Selector, Summary Description, and Word/PDF attachment file replacement) with seamless PENDING approval & rollback workflows.
+      * Fixed Period / Duration Filter logic (`FilterSidebar.tsx`, `LibraryList.tsx` & `useKmsApp.ts`): Standardized filtering by lesson execution period (`Thời gian thực hiện` / `Số tiết`), enabling accurate 1-period, 2-period, and 3+-period filtering in client-side AND/OR filter pipelines.
+      * Unified lesson activity data pipeline across Mindmap and DetailView using helper functions (`getLessonMindmapData`, `getLessonActivitiesTimeline`).
+      * Expanded Activity Detail Modal dimensions (94vw x 90vh) and table cell rendering with HTML line-break parsing `<br/>`.
+      * Redesigned Activity Timeline into a connected vertical blue line diagram with node circles, standardized step labels (`Hoạt động 1`, `Hoạt động 2`...), and duration badges (`⏱️ 10 phút`).
+      * Optimized Mobile/Portrait responsive order: Metadata -> Activity Timeline -> Document Preview -> Pedagogical Reviews at the end.
+      * Redesigned sidebar toggle button into a sleek circular icon button `[|<]` / `[|>]` placed at the far right end of the top navbar.
+      * Redesigned metadata header card: prominent color-coded badges, combined System Directory and Subject/Grade into 1 block, and expanded space for Integrated Knowledge tags (`lg:grid-cols-[1fr_1.1fr_1.5fr]`).
 

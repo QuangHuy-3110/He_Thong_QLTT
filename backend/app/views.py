@@ -42,12 +42,14 @@ class LessonPlanListAPIView(generics.ListAPIView):
             queryset = queryset.filter(
                 Q(title__icontains=q) | 
                 Q(content_preview__icontains=q) | 
-                Q(description__icontains=q)
+                Q(description__icontains=q) |
+                Q(attributes__icontains=q)
             )
             # Relevance scoring:
             # - Matches title start -> 100
             # - Matches title contains -> 50
             # - Matches description contains -> 20
+            # - Matches attributes contains -> 15
             # - Matches content_preview contains -> 10
             # - default -> 0
             queryset = queryset.annotate(
@@ -55,6 +57,7 @@ class LessonPlanListAPIView(generics.ListAPIView):
                     When(title__istartswith=q, then=Value(100)),
                     When(title__icontains=q, then=Value(50)),
                     When(description__icontains=q, then=Value(20)),
+                    When(attributes__icontains=q, then=Value(15)),
                     When(content_preview__icontains=q, then=Value(10)),
                     default=Value(0),
                     output_field=IntegerField()
@@ -173,6 +176,22 @@ class LessonPlanListAPIView(generics.ListAPIView):
                     else:
                         loc_queries |= Q(**{"attributes__Địa điểm__icontains": loc_clean})
             queryset = queryset.filter(loc_queries)
+
+        # F. Thời gian thực hiện / Số tiết (duration)
+        durations = self.request.query_params.getlist('duration')
+        if len(durations) == 1 and ',' in durations[0]:
+            durations = durations[0].split(',')
+        if durations:
+            dur_queries = Q()
+            for dur in durations:
+                dur_clean = dur.strip()
+                if dur_clean:
+                    dur_queries |= (
+                        Q(**{"attributes__Thời gian thực hiện__icontains": dur_clean}) |
+                        Q(**{"attributes__Thời gian__icontains": dur_clean}) |
+                        Q(**{"attributes__Số tiết__icontains": dur_clean})
+                    )
+            queryset = queryset.filter(dur_queries)
 
         # 5. Directory Filter
         if dir_id:

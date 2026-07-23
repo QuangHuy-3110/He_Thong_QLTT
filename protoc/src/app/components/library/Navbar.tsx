@@ -49,6 +49,7 @@ interface NavbarProps {
   pendingApprovalsCount: number;
   setShowApprovalModal: (s: boolean) => void;
   setUploadMode: (mode: 'personal' | 'public') => void;
+  allLessons?: any[];
 }
 
 export default function Navbar({
@@ -82,11 +83,23 @@ export default function Navbar({
   handleLogout,
   pendingApprovalsCount,
   setShowApprovalModal,
-  setUploadMode
+  setUploadMode,
+  allLessons = []
 }: NavbarProps) {
 
   const [advancedBiologySearch, setAdvancedBiologySearch] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+
+  const availableDurations = React.useMemo(() => {
+    const set = new Set<string>();
+    (allLessons || []).forEach((l: any) => {
+      const dur = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'];
+      if (dur && typeof dur === 'string' && dur.trim()) {
+        set.add(dur.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [allLessons]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -181,27 +194,31 @@ export default function Navbar({
           <span className="text-gray-400 font-bold uppercase tracking-widest block mb-2 text-[10px]">
             Số tiết học (Tiết dạy)
           </span>
-          <div className="flex gap-2">
-            {['1 tiết', '2 tiết', '3 tiết'].map(tiet => {
-              const isActive = selectedTietDay.includes(tiet);
-              return (
-                <button
-                  key={tiet}
-                  type="button"
-                  onClick={() => {
-                    if (isActive) setSelectedTietDay(prev => prev.filter(t => t !== tiet));
-                    else setSelectedTietDay(prev => [...prev, tiet]);
-                  }}
-                  className={`px-4 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer ${isActive
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-sm font-semibold'
-                      : 'bg-gray-50 border-gray-250 text-gray-700 hover:bg-gray-100'
-                    }`}
-                >
-                  {tiet}
-                </button>
-              );
-            })}
-          </div>
+          {availableDurations.length === 0 ? (
+            <span className="text-gray-400 italic text-xs">Chưa có dữ liệu số tiết</span>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {availableDurations.map(tiet => {
+                const isActive = selectedTietDay.includes(tiet);
+                return (
+                  <button
+                    key={tiet}
+                    type="button"
+                    onClick={() => {
+                      if (isActive) setSelectedTietDay(prev => prev.filter(t => t !== tiet));
+                      else setSelectedTietDay(prev => [...prev, tiet]);
+                    }}
+                    className={`px-3.5 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer ${isActive
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm font-semibold'
+                        : 'bg-gray-50 border-gray-250 text-gray-700 hover:bg-gray-100'
+                      }`}
+                  >
+                    ⏱️ {tiet}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 2. ĐỊA ĐIỂM (NƠI HỌC / THỰC HÀNH) */}

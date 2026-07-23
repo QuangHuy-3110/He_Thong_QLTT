@@ -229,6 +229,11 @@ export default function App() {
     editAttrs, setEditAttrs,
     editFile, setEditFile,
     editLocation, setEditLocation,
+    editDuration, setEditDuration,
+    editTrack, setEditTrack,
+    editTopic, setEditTopic,
+    editType, setEditType,
+    editBiologyConnections, setEditBiologyConnections,
     isInlineEditingDetail, setIsInlineEditingDetail,
     dirName, setDirName,
     dirParentId, setDirParentId,
@@ -400,6 +405,7 @@ export default function App() {
         pendingApprovalsCount={pendingApprovals.length}
         setShowApprovalModal={setShowApprovalModal}
         setUploadMode={setUploadMode}
+        allLessons={allLessonPlans}
       />
 
       <div className="flex flex-grow max-w-[1600px] w-full mx-auto overflow-hidden">
@@ -427,6 +433,8 @@ export default function App() {
             setSelectedClasses={setSelectedClasses}
             selectedTypes={selectedTypes}
             setSelectedTypes={setSelectedTypes}
+            selectedTietDay={selectedTietDay}
+            setSelectedTietDay={setSelectedTietDay}
             selectedLocations={selectedLocations}
             setSelectedLocations={setSelectedLocations}
             availableSubjects={availableSubjects}
@@ -760,6 +768,16 @@ export default function App() {
           LOCATIONS={LOCATIONS}
           editLocation={editLocation}
           setEditLocation={setEditLocation}
+          editDuration={editDuration}
+          setEditDuration={setEditDuration}
+          editTrack={editTrack}
+          setEditTrack={setEditTrack}
+          editTopic={editTopic}
+          setEditTopic={setEditTopic}
+          editType={editType}
+          setEditType={setEditType}
+          editBiologyConnections={editBiologyConnections}
+          setEditBiologyConnections={setEditBiologyConnections}
           availableClasses={availableClasses}
         />
       )}

@@ -166,6 +166,11 @@ export function useKmsApp() {
   const [editAttrs, setEditAttrs] = useState('');
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editLocation, setEditLocation] = useState<string>('');
+  const [editDuration, setEditDuration] = useState<string>('');
+  const [editTrack, setEditTrack] = useState<string>('');
+  const [editTopic, setEditTopic] = useState<string>('');
+  const [editType, setEditType] = useState<string>('');
+  const [editBiologyConnections, setEditBiologyConnections] = useState<string[]>([]);
   const [isInlineEditingDetail, setIsInlineEditingDetail] = useState(false);
 
   // Dir Form States
@@ -338,6 +343,7 @@ export function useKmsApp() {
       selectedTopics.forEach(tp => params.append('topic', tp));
       selectedBiologies.forEach(b => params.append('biology', b));
       selectedLocations.forEach(loc => params.append('location', loc));
+      selectedTietDay.forEach(dur => params.append('duration', dur));
 
       const paramStr = params.toString();
       if (paramStr) url += `?${paramStr}`;
@@ -403,8 +409,8 @@ export function useKmsApp() {
   }, [searchQuery]);
 
   useEffect(() => {
-    fetchLessonPlans(debouncedSearchQuery);
-  }, [currentUser?.id, debouncedSearchQuery]);
+    fetchLessonPlans('');
+  }, [currentUser?.id]);
 
   useEffect(() => {
     setPersonalSearchQuery(debouncedSearchQuery);
@@ -1005,6 +1011,13 @@ export function useKmsApp() {
     setEditFile(null);
     const loc = lesson.attributes && lesson.attributes['Địa điểm'] ? lesson.attributes['Địa điểm'] : '';
     setEditLocation(loc);
+    const dur = lesson.attributes?.['Thời gian thực hiện'] || lesson.attributes?.['Thời gian'] || lesson.attributes?.['Số tiết'] || '';
+    setEditDuration(dur);
+    setEditTrack(lesson.attributes?.['Mạch kiến thức'] || '');
+    setEditTopic(lesson.attributes?.['Chủ đề'] || '');
+    setEditType(lesson.attributes?.['Loại hình'] || '');
+    const bioVal = lesson.attributes?.['Kiến thức sinh học liên quan'];
+    setEditBiologyConnections(Array.isArray(bioVal) ? bioVal : (typeof bioVal === 'string' ? bioVal.split(',').map(s => s.trim()) : []));
     setIsInlineEditingDetail(true);
   };
 
@@ -1021,8 +1034,15 @@ export function useKmsApp() {
       formData.append('directory_id', editDirId);
 
       const attrsObj = JSON.parse(editAttrs || '{}');
+      delete attrsObj['Thời gian'];
+      delete attrsObj['Số tiết'];
       attrsObj['lop'] = editLops;
       attrsObj['Địa điểm'] = editLocation;
+      attrsObj['Thời gian thực hiện'] = editDuration;
+      attrsObj['Mạch kiến thức'] = editTrack;
+      attrsObj['Chủ đề'] = editTopic;
+      attrsObj['Loại hình'] = editType;
+      attrsObj['Kiến thức sinh học liên quan'] = editBiologyConnections.join(', ');
       formData.append('attributes', JSON.stringify(attrsObj));
       if (editFile) {
         formData.append('file_path', editFile);
@@ -1058,6 +1078,10 @@ export function useKmsApp() {
       setAllLessonPlans(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
       setUnfilteredLessons(prev => prev.map(p => p.id === updatedPlan.id ? updatedPlan : p));
       setDetailCache(prev => ({ ...prev, [updatedPlan.id]: updatedPlan }));
+
+      // Refresh edit histories & pending approvals list
+      fetchAllEditHistories(true);
+      fetchPendingApprovals(true);
     } catch (err: any) {
       console.error('Edit Error:', err);
       alert('Lỗi cập nhật tài liệu: ' + err.message);
@@ -1321,7 +1345,7 @@ export function useKmsApp() {
         const lpLop = l.attributes?.['lop'] || l.attributes?.['Lớp'];
         if (!lpLop) return false;
         const lopList = Array.isArray(lpLop) ? lpLop : [lpLop];
-        return selectedClasses.every(c => lopList.some((val: any) => String(val).toLowerCase().includes(c.toLowerCase())));
+        return selectedClasses.some(c => lopList.some((val: any) => String(val).toLowerCase().includes(c.toLowerCase())));
       });
     }
 
@@ -1330,7 +1354,7 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpType = l.attributes?.['Loại hình'] || l.attributes?.['loai_hinh'];
         if (!lpType) return false;
-        return selectedTypes.every(t => String(lpType).toLowerCase().includes(t.toLowerCase()));
+        return selectedTypes.some(t => String(lpType).toLowerCase().includes(t.toLowerCase()));
       });
     }
 
@@ -1339,7 +1363,7 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpTarget = l.target_student;
         if (!lpTarget) return false;
-        return selectedTargetStudents.every(ts => {
+        return selectedTargetStudents.some(ts => {
           if (ts === 'Học sinh nông thôn') {
             return lpTarget.toLowerCase().includes('nông thôn') || lpTarget.toLowerCase().includes('ns') || lpTarget.toLowerCase().includes('hs nông thôn') || lpTarget.toLowerCase().includes('tat ca') || lpTarget.toLowerCase().includes('tất cả');
           }
@@ -1356,7 +1380,7 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpLoc = l.attributes?.['Địa điểm'] || l.attributes?.['dia_diem'];
         if (!lpLoc) return false;
-        return selectedLocations.every(loc => {
+        return selectedLocations.some(loc => {
           if (loc.toLowerCase().includes('ngoài trời')) {
             return String(lpLoc).toLowerCase().includes('ngoài trời') || String(lpLoc).toLowerCase().includes('ngoai troi');
           }
@@ -1376,7 +1400,7 @@ export function useKmsApp() {
         const tk = l.attributes?.['Từ khóa kiến thức'] || [];
         const bio = l.attributes?.['Kiến thức sinh học liên quan'] || '';
 
-        return selectedSubjects.every(sub => {
+        return selectedSubjects.some(sub => {
           const lSubjMatches = lpSub && String(lpSub).toLowerCase().includes(sub.toLowerCase());
           const tagsMatches = Array.isArray(tags) && tags.some((t: any) => String(t).toLowerCase() === sub.toLowerCase());
           const tkMatches = Array.isArray(tk) && tk.some((t: any) => String(t).toLowerCase() === sub.toLowerCase());
@@ -1386,12 +1410,22 @@ export function useKmsApp() {
       });
     }
 
-    // Filter by Tiết dạy (selectedTietDay)
+    // Filter by Tiết dạy / Thời gian thực hiện (selectedTietDay)
     if (selectedTietDay.length > 0) {
       list = list.filter(l => {
-        const lpTiet = l.attributes?.['Tiết dạy'] || l.attributes?.['tiet_day'];
+        const lpTiet = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'] || l.attributes?.['Tiết dạy'] || l.attributes?.['tiet_day'];
         if (!lpTiet) return false;
-        return selectedTietDay.every(td => String(lpTiet).toLowerCase().includes(td.toLowerCase()));
+        const lpTietStr = String(lpTiet).toLowerCase();
+        return selectedTietDay.some(td => {
+          const tdClean = td.toLowerCase().trim();
+          if (/^\d+$/.test(tdClean)) {
+            const matchDigit = lpTietStr.match(/\d+/);
+            if (matchDigit && parseInt(matchDigit[0], 10) === parseInt(tdClean, 10)) {
+              return true;
+            }
+          }
+          return lpTietStr.includes(tdClean);
+        });
       });
     }
 
@@ -1400,7 +1434,7 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpTrack = l.attributes?.['Mạch kiến thức'] || l.attributes?.['mach_kien_thuc'];
         if (!lpTrack) return false;
-        return selectedTracks.every(tr => String(lpTrack).toLowerCase().includes(tr.toLowerCase()));
+        return selectedTracks.some(tr => String(lpTrack).toLowerCase().includes(tr.toLowerCase()));
       });
     }
 
@@ -1409,7 +1443,7 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpTopic = l.attributes?.['Chủ đề'] || l.attributes?.['chu_de'];
         if (!lpTopic) return false;
-        return selectedTopics.every(tp => String(lpTopic).toLowerCase().includes(tp.toLowerCase()));
+        return selectedTopics.some(tp => String(lpTopic).toLowerCase().includes(tp.toLowerCase()));
       });
     }
 
@@ -1418,13 +1452,26 @@ export function useKmsApp() {
       list = list.filter(l => {
         const lpBio = l.attributes?.['Kiến thức sinh học liên quan'] || l.attributes?.['kien_thuc_sinh_hoc'];
         if (!lpBio) return false;
-        return selectedBiologies.every(b => String(lpBio).toLowerCase().includes(b.toLowerCase()));
+        return selectedBiologies.some(b => String(lpBio).toLowerCase().includes(b.toLowerCase()));
+      });
+    }
+
+    // Filter by Từ khóa tìm kiếm (searchQuery / debouncedSearchQuery)
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.trim().toLowerCase();
+      list = list.filter(l => {
+        const titleMatch = l.title && l.title.toLowerCase().includes(q);
+        const descMatch = l.description && l.description.toLowerCase().includes(q);
+        const previewMatch = l.content_preview && l.content_preview.toLowerCase().includes(q);
+        const attrMatch = l.attributes && JSON.stringify(l.attributes).toLowerCase().includes(q);
+        return titleMatch || descMatch || previewMatch || attrMatch;
       });
     }
 
     return list;
   }, [
     dirFilteredLessons,
+    debouncedSearchQuery,
     selectedClasses,
     selectedTypes,
     selectedTargetStudents,
@@ -1643,6 +1690,11 @@ export function useKmsApp() {
     editAttrs, setEditAttrs,
     editFile, setEditFile,
     editLocation, setEditLocation,
+    editDuration, setEditDuration,
+    editTrack, setEditTrack,
+    editTopic, setEditTopic,
+    editType, setEditType,
+    editBiologyConnections, setEditBiologyConnections,
     isInlineEditingDetail, setIsInlineEditingDetail,
     dirName, setDirName,
     dirParentId, setDirParentId,

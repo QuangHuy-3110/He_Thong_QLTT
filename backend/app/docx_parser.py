@@ -5,19 +5,19 @@ import docx
 def parse_docx_lesson_plan(file_path):
     """
     Parses a lesson plan Word document (.docx) and extracts core metadata.
-    If any fields (subject, grade, duration, target students, type, activities, tags)
-    are missing, it returns empty strings/lists so the user can fill them manually.
+    Matches standard format from doc templates (Tên chủ đề, Môn, Lớp, Mô tả tóm tắt, Đối tượng, Loại hình).
+    Returns clean metadata and attributes dict for automated form filling.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found at {file_path}")
 
     doc = docx.Document(file_path)
     
-    # Extract all paragraph texts
+    # Extract all paragraph texts cleanly
     paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
     full_text = "\n".join(paragraphs).lower()
     
-    # Extract all table cells
+    # Extract table texts
     table_texts = []
     for table in doc.tables:
         for row in table.rows:
@@ -28,7 +28,7 @@ def parse_docx_lesson_plan(file_path):
     full_table_text = "\n".join(table_texts).lower()
     combined_text = (full_text + "\n" + full_table_text)
 
-    # Detect if the document is actually a lesson plan (Kế hoạch bài dạy / Giáo án)
+    # Detect lesson plan document type
     lesson_plan_keywords = [
         "giáo án", "kế hoạch bài dạy", "kế hoạch dạy học", "mục tiêu dạy học", 
         "thiết bị dạy học", "học liệu", "tiến trình dạy học", "tiến trình dạy",
@@ -36,98 +36,148 @@ def parse_docx_lesson_plan(file_path):
     ]
     is_lesson_plan = any(kw in combined_text for kw in lesson_plan_keywords)
 
-    # 1. Extract Title
+    # 1. Extract Clean Title (Tên chủ đề / Bài)
     title = ""
-    if paragraphs:
-        first_p = paragraphs[0]
-        if len(paragraphs) > 1 and (first_p.upper().startswith("CHỦ ĐỀ") or first_p.upper().startswith("BÀI")):
-            second_p = paragraphs[1]
-            if not second_p.startswith("Môn:") and not second_p.startswith("Thời gian") and len(second_p) < 100:
-                title = f"{first_p} – {second_p}"
-            else:
-                title = first_p
-        else:
-            title = first_p
-            
+    for p in paragraphs[:5]:
+        p_clean = p.strip()
+        if re.search(r"^(tên\s+chủ\s+đề|chủ\s+đề|bài\s+học|bài)\s*:", p_clean, re.IGNORECASE):
+            title = re.sub(r"^(tên\s+chủ\s+đề|chủ\s+đề|bài\s+học|bài)\s*:\s*", "", p_clean, flags=re.IGNORECASE).strip()
+            break
+    if not title and paragraphs:
+        title = paragraphs[0]
+        title = re.sub(r"^(tên\s+chủ\s+đề|chủ\s+đề|bài\s+học|bài)\s*:\s*", "", title, flags=re.IGNORECASE).strip()
+
     # 2. Extract Subject (Môn học)
     subject = ""
-    for p in paragraphs:
+    for p in paragraphs[:10]:
         match = re.search(r"môn\s*:\s*([^;,\n]+)", p, re.IGNORECASE)
         if match:
             subject = match.group(1).strip()
             break
 
-    # 3. Extract Grade/Class (Cấp lớp)
+    # 3. Extract Grade/Class (Cấp lớp) and normalize (e.g. "10" -> "Lớp 10")
     grade = ""
-    for p in paragraphs:
+    for p in paragraphs[:10]:
         match = re.search(r"lớp\s*:\s*([^;,\n]+)", p, re.IGNORECASE)
         if match:
-            grade = match.group(1).strip()
+            raw_g = match.group(1).strip()
+            num_match = re.search(r"\d+", raw_g)
+            if num_match:
+                grade = f"Lớp {num_match.group(0)}"
+            else:
+                grade = raw_g if raw_g.lower().startswith("lớp") else f"Lớp {raw_g}"
             break
+    if not grade:
+        grade = "Lớp 10"
 
-    # 4. Extract Duration (Thời gian)
+    # 4. Extract Duration (Thời gian thực hiện)
     duration = ""
-    for p in paragraphs:
+    for p in paragraphs[:10]:
         match = re.search(r"thời gian thực hiện[^:]*:\s*([^;\n]+)", p, re.IGNORECASE)
         if match:
             duration = match.group(1).strip()
             break
 
-    # 5. Determine Target Students (Đối tượng)
+    # 5. Extract Summary / Description (Mô tả tóm tắt)
+    description = ""
+    desc_paragraphs = []
+    capturing_desc = False
+
+    for p in paragraphs:
+        p_clean = p.strip()
+        if re.search(r"^mô\s+tả\s+tóm\s+tắt\s*:", p_clean, re.IGNORECASE):
+            capturing_desc = True
+            text_after = re.sub(r"^mô\s+tả\s+tóm\s+tắt\s*:\s*", "", p_clean, flags=re.IGNORECASE).strip()
+            if text_after:
+                desc_paragraphs.append(text_after)
+            continue
+        
+        if capturing_desc:
+            # Stop capturing if we hit another metadata header or main section heading
+            if re.search(r"^(đối\s+tượng|loại\s+hình|giao\s+viên|môn|thời\s+gian|[IVXLCDM]+\.|\d+\.)", p_clean, re.IGNORECASE):
+                break
+            desc_paragraphs.append(p_clean)
+
+    if desc_paragraphs:
+        description = " ".join(desc_paragraphs).strip()
+
+    # Fallback description if not explicitly extracted
+    if not description:
+        if is_lesson_plan:
+            desc_parts = []
+            if subject: desc_parts.append(f"Bài giảng môn {subject}")
+            if grade: desc_parts.append(f"dành cho {grade}")
+            if duration: desc_parts.append(f"Thời gian thực hiện: {duration}")
+            description = ", ".join(desc_parts) + "."
+        else:
+            desc_parts = [p for p in paragraphs[1:4] if len(p) > 20 and not p.startswith("Môn:")]
+            description = " ".join(desc_parts)[:250] + "..." if desc_parts else "Tài liệu giáo án."
+
+    # 6. Extract Target Students (Đối tượng giảng dạy)
     target_students = []
-    urban_keywords = ["thành thị", "đô thị", "phố", "siêu thị", "trà sữa", "đồ ăn nhanh", "fast food", "sức khỏe học đường", "ít vận động"]
-    rural_keywords = ["nông thôn", "làng", "bản", "ruộng", "vườn", "nông nghiệp"]
-    
-    has_urban = any(kw in combined_text for kw in urban_keywords)
-    has_rural = any(kw in combined_text for kw in rural_keywords)
-    
-    if has_urban:
-        target_students.append("Học sinh thành thị")
-    if has_rural:
-        target_students.append("Học sinh nông thôn")
+    for p in paragraphs[:15]:
+        if re.search(r"đối\s+tượng\s+(giảng\s+dạy|học\s+sinh)\s*:", p, re.IGNORECASE):
+            p_lower = p.lower()
+            if "thành thị" in p_lower:
+                target_students.append("Học sinh thành thị")
+            if "nông thôn" in p_lower:
+                target_students.append("Học sinh nông thôn")
+            break
 
-    # 6. Determine Lesson Type (Loại hình tiết dạy)
+    if not target_students:
+        urban_keywords = ["thành thị", "đô thị", "phố", "siêu thị", "trà sữa", "đồ ăn nhanh", "fast food", "sức khỏe học đường", "ít vận động"]
+        rural_keywords = ["nông thôn", "làng", "bản", "ruộng", "vườn", "nông nghiệp"]
+        if any(kw in combined_text for kw in urban_keywords):
+            target_students.append("Học sinh thành thị")
+        if any(kw in combined_text for kw in rural_keywords):
+            target_students.append("Học sinh nông thôn")
+            
+    if not target_students:
+        target_students = ["Học sinh thành thị", "Học sinh nông thôn"]
+
+    # 7. Extract Lesson Type (Loại hình tiết dạy)
     lesson_type = ""
-    if "lý thuyết" in combined_text:
-        lesson_type = "Lý thuyết"
-    elif "ôn tập" in combined_text:
-        lesson_type = "Ôn tập"
-    elif "kiểm tra" in combined_text:
-        lesson_type = "Kiểm tra"
-    elif "thực hành" in combined_text or "trải nghiệm" in combined_text:
-        lesson_type = "Thực hành"
+    for p in paragraphs[:15]:
+        match = re.search(r"loại\s+hình\s+(tiết\s+dạy|bài\s+học|giảng\s+dạy)\s*:\s*(.+)", p, re.IGNORECASE)
+        if match:
+            lesson_type = match.group(2).strip()
+            break
 
-    # 7. Extract Activities (Tiến trình dạy học)
-    # 7. Extract Activities (Tiến trình dạy học)
+    if not lesson_type:
+        if "lý thuyết" in combined_text:
+            lesson_type = "Lý thuyết"
+        elif "ôn tập" in combined_text:
+            lesson_type = "Ôn tập"
+        elif "kiểm tra" in combined_text:
+            lesson_type = "Kiểm tra"
+        elif "thực hành" in combined_text or "trải nghiệm" in combined_text:
+            lesson_type = "Thực hành"
+        else:
+            lesson_type = "Hoạt động giáo dục theo chủ đề"
+
+    # 8. Extract Activities (Tiến trình dạy học)
     activities = []
-    
-    # Prioritize table overview extraction (Khung tiến trình dạy học)
     for table in doc.tables:
         if len(table.rows) > 1:
             headers = [cell.text.strip().lower() for cell in table.rows[0].cells]
-            is_timeline_table = any("hoạt động" in h or "hđ" in h for h in headers)
+            is_timeline_table = any("hoạt động" in h or "hđ" in h or "thời gian" in h for h in headers)
             if is_timeline_table:
-                for row in table.rows[1:6]:
+                for row in table.rows[1:10]:
                     cells = [c.text.strip() for c in row.cells]
                     if len(cells) >= 2:
                         raw_name = cells[0]
                         act_desc = cells[1] if len(cells) > 1 else ""
                         
-                        # Extract time (e.g. "10 phút")
                         time_match = re.search(r"(\d+\s*phút)", raw_name + " " + act_desc, re.IGNORECASE)
                         act_time = time_match.group(1) if time_match else "15 phút"
                         
-                        # Clean time from activity name (e.g. "HĐ 1 (10 phút)" -> "HĐ 1")
                         act_name = re.sub(r"\(\s*\d+\s*phút\s*\)", "", raw_name, flags=re.IGNORECASE).strip()
                         act_name = re.sub(r"\d+\s*phút", "", act_name, flags=re.IGNORECASE).strip()
-                        # Clean trailing dashes, colons or spaces
                         act_name = re.sub(r"[\s\-:]+$", "", act_name).strip()
                         if not act_name:
                             act_name = raw_name
                             
-                        # Extract main content cleanly
                         if act_desc:
-                            # Keep full content if it is a concise overview (under 250 chars), otherwise take first 2 sentences
                             act_desc_clean = act_desc.strip()
                             if len(act_desc_clean) > 250:
                                 sentences = re.split(r'(?<=[.!?])\s+', act_desc_clean)
@@ -141,8 +191,7 @@ def parse_docx_lesson_plan(file_path):
                             "tom_tat": act_desc_clean
                         })
                 break
-                
-    # Fallback to scanning paragraphs if no overview table was found
+
     if not activities:
         for i, p in enumerate(doc.paragraphs):
             text = p.text.strip()
@@ -163,14 +212,6 @@ def parse_docx_lesson_plan(file_path):
                         if not act_desc and len(next_text) > 20 and "Mục tiêu" not in next_text and "Tổ chức" not in next_text:
                             act_desc = next_text
                 
-                if not act_desc:
-                    for j in range(1, 10):
-                        if i + j < len(doc.paragraphs):
-                            t = doc.paragraphs[i + j].text.strip()
-                            if t and len(t) > 30 and "Hoạt động" not in t:
-                                act_desc = t
-                                break
-                
                 if act_desc:
                     sentences = re.split(r'(?<=[.!?])\s+', act_desc)
                     act_desc = " ".join(sentences[:2]).strip()
@@ -185,44 +226,60 @@ def parse_docx_lesson_plan(file_path):
                 if len(activities) >= 5:
                     break
 
-    # 8. Extract Knowledge Tags (Từ khóa)
+    # 9. Extract Knowledge Tags
     knowledge_tags = []
     common_tags = [
         "Dinh dưỡng học đường", "Thực đơn khỏe mạnh", "Nhóm chất dinh dưỡng",
         "Hoạt động trải nghiệm", "Sức khỏe học đường", "Chế độ ăn uống",
-        "Vận động", "Thói quen ăn uống", "Thiết kế thực đơn", "Trò chơi trải nghiệm"
+        "Vận động", "Thói quen ăn uống", "Thiết kế thực đơn", "Trò chơi trải nghiệm",
+        "Chăm sóc sức khỏe", "Thời gian biểu", "Đồng hồ sinh học", "Giấc ngủ", "Quản lý cảm xúc"
     ]
     for tag in common_tags:
         if tag.lower() in combined_text:
             knowledge_tags.append(tag)
-    knowledge_tags = knowledge_tags[:5]
+    knowledge_tags = knowledge_tags[:6]
 
-    # 9. Create Description / Summary
-    if is_lesson_plan:
-        description_parts = []
-        if subject:
-            description_parts.append(f"Bài giảng môn {subject}")
-        if grade:
-            description_parts.append(f"dành cho {grade}")
-        if duration:
-            description_parts.append(f"Thời gian thực hiện: {duration}")
-            
-        description = ", ".join(description_parts)
-        if activities:
-            act_details = [f"{a['ten_hoat_dong']}: {a['tom_tat']}" for a in activities]
-            description += ". Gồm các hoạt động chính: " + "; ".join(act_details) + "."
-        elif not description:
-            description = "Bài giảng dạy học giáo án được tải lên hệ thống."
-    else:
-        # Fallback for general documents: Extract the first 2-3 paragraphs (cleaned up) as description
-        desc_parts = []
-        for p in paragraphs[1:4]:
-            if len(p) > 20 and not p.startswith("Môn:") and not p.startswith("Thời gian"):
-                desc_parts.append(p)
-        if desc_parts:
-            description = " ".join(desc_parts)[:250] + "..."
-        else:
-            description = "Tài liệu văn bản tổng hợp được tải lên hệ thống."
+    # 10. Infer Experiential Curriculum Attributes
+    track = "Hoạt động hướng vào bản thân"
+    if any(k in combined_text for k in ["gia đình", "nhà trường", "cộng đồng", "xã hội"]):
+        track = "Hoạt động hướng đến xã hội"
+    elif any(k in combined_text for k in ["thiên nhiên", "môi trường", "cảnh quan"]):
+        track = "Hoạt động hướng đến tự nhiên"
+    elif any(k in combined_text for k in ["nghề nghiệp", "định hướng nghề", "lao động"]):
+        track = "Hoạt động hướng nghiệp"
+
+    topic = title or "Khám phá bản thân"
+
+    biology_connections = []
+    if any(k in combined_text for k in ["ăn uống", "dinh dưỡng", "bữa ăn", "thực đơn", "bmi"]):
+        biology_connections.append("Dinh dưỡng học, chuyển hóa năng lượng, vai trò vitamin/khoáng chất")
+    if any(k in combined_text for k in ["vận động", "thể lực", "thể thao", "cơ thể", "chiều cao", "cân nặng"]):
+        biology_connections.append("Hệ cơ – xương – khớp, tim mạch, hô hấp, năng lượng ATP")
+    if any(k in combined_text for k in ["thời gian biểu", "giấc ngủ", "đồng hồ sinh học", "nhịp sinh học"]):
+        biology_connections.append("Cân bằng nước, sinh học giấc ngủ, nhịp sinh học")
+    if any(k in combined_text for k in ["cảm xúc", "tâm lý", "lo lắng", "não bộ", "hormone", "căng thẳng"]):
+        biology_connections.append("Hệ thần kinh, hormone (serotonin, adrenaline), cơ sở sinh học của cảm xúc")
+
+    if not biology_connections:
+        biology_connections.append("Cấu tạo cơ thể, tuần hoàn máu, hô hấp nhân tạo, nguyên lý đông máu")
+
+    location = "Lớp học tiêu chuẩn"
+    if "thí nghiệm" in combined_text:
+        location = "Phòng thí nghiệm Sinh học"
+    elif "sân trường" in combined_text or "ngoài trời" in combined_text:
+        location = "Ngoài trời / Sân trường"
+    elif "đa năng" in combined_text or "nhà ăn" in combined_text:
+        location = "Phòng đa năng / Nhà ăn"
+
+    attributes = {
+        "Mạch kiến thức": track,
+        "Chủ đề": topic,
+        "Kiến thức sinh học liên quan": biology_connections,
+        "Địa điểm": location,
+        "lop": [grade],
+        "Loại hình": lesson_type,
+        "Thời gian thực hiện": duration
+    }
 
     return {
         "title": title,
@@ -233,7 +290,8 @@ def parse_docx_lesson_plan(file_path):
         "target_students": target_students,
         "lesson_type": lesson_type,
         "activities": activities,
-        "knowledge_tags": knowledge_tags
+        "knowledge_tags": knowledge_tags,
+        "attributes": attributes
     }
 
 def convert_docx_to_markdown(file_path):

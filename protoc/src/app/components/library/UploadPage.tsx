@@ -257,6 +257,7 @@ export default function UploadPage({
   const [selectedBiologyConnections, setSelectedBiologyConnections] = useState<string[]>([]);
   const [biologySearch, setBiologySearch] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [duration, setDuration] = useState<string>('');
 
   const handleCreatePersonalDirInline = async () => {
     if (!newPersonalDirName.trim() || !currentUser) return;
@@ -307,11 +308,19 @@ export default function UploadPage({
         if (data.target_students && Array.isArray(data.target_students)) {
           const mappedTargets: string[] = [];
           data.target_students.forEach((t: string) => {
-            if (t.toLowerCase().includes('thành thị')) mappedTargets.push('Học sinh thành thị');
-            else if (t.toLowerCase().includes('nông thôn')) mappedTargets.push('Học sinh nông thôn');
-            else mappedTargets.push(t);
+            if (t.toLowerCase().includes('thành thị') && !mappedTargets.includes('Học sinh thành thị')) {
+              mappedTargets.push('Học sinh thành thị');
+            }
+            if (t.toLowerCase().includes('nông thôn') && !mappedTargets.includes('Học sinh nông thôn')) {
+              mappedTargets.push('Học sinh nông thôn');
+            }
           });
-          setSelectedTargets(mappedTargets);
+          if (mappedTargets.length > 0) {
+            setSelectedTargets(mappedTargets);
+          }
+        }
+        if (data.grade) {
+          setSelectedLops([data.grade]);
         }
         if (data.lesson_type) {
           setSelectedType(data.lesson_type);
@@ -322,7 +331,11 @@ export default function UploadPage({
         if (data.activities && Array.isArray(data.activities)) {
           setParsedActivities(data.activities);
         }
+        if (data.duration) setDuration(data.duration);
         if (data.attributes) {
+          if (data.attributes['Thời gian thực hiện'] || data.attributes['Thời gian'] || data.attributes['Số tiết']) {
+            setDuration(data.attributes['Thời gian thực hiện'] || data.attributes['Thời gian'] || data.attributes['Số tiết']);
+          }
           if (data.attributes['Mạch kiến thức']) setSelectedTrack(data.attributes['Mạch kiến thức']);
           if (data.attributes['Chủ đề']) setSelectedTopic(data.attributes['Chủ đề']);
           if (data.attributes['Kiến thức sinh học liên quan']) {
@@ -337,9 +350,10 @@ export default function UploadPage({
             setSelectedLops(Array.isArray(lopVal) ? lopVal : [lopVal]);
           }
         }
-        message.success('Đã tự động trích xuất thông tin từ file Word!');
+        message.success('Đã tự động trích xuất và điền thông tin từ file Word!');
       } catch (err) {
         console.error('Auto-extraction error:', err);
+        message.warning('Không thể tự động đọc file Word, vui lòng điền các thông tin thủ công.');
       } finally {
         setParsing(false);
       }
@@ -503,6 +517,7 @@ export default function UploadPage({
         'Loại hình': selectedType,
         'Môn học': 'Hoạt động trải nghiệm Sinh học',
         'Địa điểm': selectedLocation,
+        'Thời gian thực hiện': duration,
         knowledge_tags: selectedBiologyConnections,
         tien_trinh_day_hoc: parsedActivities,
         ai_model_config: {
@@ -838,6 +853,18 @@ export default function UploadPage({
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   className="rounded-lg resize-none"
+                />
+              </div>
+
+              {/* Duration / Số tiết */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian thực hiện (Số tiết)</label>
+                <Input
+                  placeholder="Ví dụ: 02 tiết (90 phút) hoặc 2 tiết..."
+                  size="large"
+                  value={duration}
+                  onChange={e => setDuration(e.target.value)}
+                  className="rounded-lg"
                 />
               </div>
 

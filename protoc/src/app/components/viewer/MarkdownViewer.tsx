@@ -76,23 +76,34 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ markdown, highli
       }
     };
 
+    const renderCellContent = (cellText: string) => {
+      if (!cellText || typeof cellText !== "string") return "";
+      const lines = cellText.split(/<br\s*\/?>/i);
+      return lines.map((subLine, idx) => (
+        <React.Fragment key={idx}>
+          {idx > 0 && <br />}
+          {renderTextWithHighlight(subLine)}
+        </React.Fragment>
+      ));
+    };
+
     const flushTable = (key: string) => {
       if (tableHeaders.length > 0 || tableRows.length > 0) {
         renderedElements.push(
           <div key={key} className="overflow-x-auto my-5 border border-gray-200 rounded-xl shadow-sm bg-white">
-            <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm text-left">
+            <table className="w-full min-w-[600px] divide-y divide-gray-200 text-xs sm:text-sm text-left">
               <thead className="bg-slate-50 font-semibold text-slate-700 border-b border-gray-200">
                 <tr>
                   {tableHeaders.map((h, idx) => (
-                    <th key={idx} className="px-4 py-3 font-semibold whitespace-nowrap">{renderTextWithHighlight(h)}</th>
+                    <th key={idx} className="px-4 py-3.5 font-bold text-slate-800 bg-slate-100/70 border-r border-slate-200/60 last:border-r-0 whitespace-nowrap">{renderCellContent(h)}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-150 text-gray-650 bg-white">
+              <tbody className="divide-y divide-gray-150 text-gray-700 bg-white">
                 {tableRows.map((row, rowIdx) => (
-                  <tr key={rowIdx} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={rowIdx} className="hover:bg-slate-50/70 transition-colors">
                     {row.map((cell, cellIdx) => (
-                      <td key={cellIdx} className="px-4 py-3 max-w-xs break-words" title={cell}>{renderTextWithHighlight(cell)}</td>
+                      <td key={cellIdx} className="px-4 py-3.5 align-top leading-relaxed border-r border-slate-150/50 last:border-r-0" title={cell.replace(/<br\s*\/?>/gi, ' ')}>{renderCellContent(cell)}</td>
                     ))}
                   </tr>
                 ))}
@@ -176,8 +187,8 @@ export const MarkdownViewer: React.FC<MarkdownViewerProps> = ({ markdown, highli
   }
 
   return (
-    <div ref={containerRef} className="bg-slate-50/50 rounded-2xl border border-gray-150 p-6 leading-relaxed max-w-none text-slate-800 shadow-inner">
-      <div className="bg-white rounded-xl border border-gray-200/80 p-6 shadow-sm">
+    <div ref={containerRef} className="bg-slate-50/50 rounded-xl border border-gray-150 p-4 leading-relaxed max-w-none text-slate-800 shadow-inner">
+      <div className="bg-white rounded-lg border border-gray-200/80 p-4 sm:p-5 shadow-sm">
         {renderedElements}
       </div>
     </div>
