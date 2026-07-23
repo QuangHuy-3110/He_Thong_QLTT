@@ -379,7 +379,68 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
 
   const b3_activities: { label: string; icon: string; cat: string; details: string; tip: string }[] = [];
   const acts = data.hoạt_động && data.hoạt_động.length > 0 ? data.hoạt_động : [];
-  const ttrinh = data.tiến_const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => void }) => {
+  const ttrinh = data.tiến_trình && data.tiến_trình.length > 0 ? data.tiến_trình : [];
+
+  if (acts.length > 0) {
+    acts.forEach((act, idx) => {
+      if (!isMeaningful(act.ten)) return;
+      const matchingTtrinh = ttrinh.find(t => t.ten.toLowerCase().includes(act.ten.toLowerCase()) || act.ten.toLowerCase().includes(t.ten.toLowerCase()));
+      const timeStr = matchingTtrinh ? matchingTtrinh.time : '';
+      const titleText = timeStr ? `${act.ten} (${timeStr})` : act.ten;
+      
+      b3_activities.push({
+        label: titleText,
+        icon: '⚡',
+        cat: 'Tiến trình & Hoạt động dạy học',
+        details: `### 📌 ${act.ten}${timeStr ? ` — ⏱️ ${timeStr}` : ''}\n\n### 🎯 Mục tiêu hoạt động\n${act.muc_tieu || 'Phát triển năng lực học sinh qua hoạt động trải nghiệm.'}\n\n### 🚀 Tiến trình thực hiện chi tiết\n${act.thuc_hien || (matchingTtrinh ? matchingTtrinh.tom_tat : 'Tiến hành theo kịch bản giáo án.')}`,
+        tip: getPedagogyTip(act.ten, (act.muc_tieu || '') + ' ' + (act.thuc_hien || ''))
+      });
+    });
+  } else if (ttrinh.length > 0) {
+    ttrinh.forEach((t, idx) => {
+      if (!isMeaningful(t.ten)) return;
+      b3_activities.push({
+        label: `${t.ten} (${t.time})`,
+        icon: '⚡',
+        cat: 'Tiến trình & Hoạt động dạy học',
+        details: `### 📌 ${t.ten} — ⏱️ ${t.time}\n\n### 🚀 Tiến trình thực hiện\n${t.tom_tat}`,
+        tip: getPedagogyTip(t.ten, t.tom_tat)
+      });
+    });
+  }
+
+  b3_activities.forEach((act, idx) => {
+    const lid = `b3_leaf${idx}`;
+    const item: NodeDetailItem = {
+      title: act.label,
+      category: act.cat,
+      details: act.details,
+      tip: act.tip,
+      color: colorB3,
+    };
+    const leafY = 0 - ((b3_activities.length - 1) * leafSpacing) / 2 + idx * leafSpacing;
+    nodes.push({
+      id: lid, type: 'leaf',
+      position: { x: 620, y: leafY },
+      data: {
+        label: act.label.length > 75 ? act.label.slice(0, 73) + '…' : act.label,
+        icon: act.icon,
+        accent: colorB3,
+        side: 'right',
+        onClick: () => onLeafClick(item),
+        item: item,
+      },
+      draggable: true,
+    });
+    addEdge_('b3', lid, colorB3 + '88');
+  });
+
+  return { nodes, edges };
+}
+
+// ─── Modal ─────────────────────────────────────────────────────────────────────
+
+const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => void }) => {
   return createPortal(
     <div
       className="modal-card-custom"
@@ -455,68 +516,6 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
         </div>
 
         {/* Footer */}
-        <div style={{ 
-          padding: '16px 28px', 
-          borderTop: '1px solid #f1f5f9', 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          background: '#ffffff',
-        }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: '#0f172a',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: 12,
-              padding: '10px 28px',
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
-            }}
-          >
-            Đóng cửa sổ
-          </button>
-        </div>
-      </div>
-      }
-      .modal-card-custom {
-        animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-      }
-      .modal-close-btn:hover {
-        background-color: #e2e8f0 !important;
-        color: #0f172a !important;
-        transform: rotate(90deg);
-      }
-      .modal-footer-close-btn:hover {
-        background-color: #1e293b !important;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25) !important;
-      }
-      .modal-footer-close-btn:active {
-        transform: translateY(0);
-      }
-      .modal-body-custom::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      .modal-body-custom::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 9999px;
-      }
-      .modal-body-custom::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 9999px;
-      }
-      .modal-body-custom::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    `}</style>
-  </div>
-);
-=======
-        {/* Footer */}
         <div style={{ padding: '16px 28px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#fff', flexShrink: 0 }}>
           <button
             onClick={onClose}
@@ -535,7 +534,6 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
     document.body
   );
 };
->>>>>>> 656eedf (feat(ui/parser/filter): redesign word parser auto-fill, inline detail editing, period filter fix, activity timeline & responsive metadata card)
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
