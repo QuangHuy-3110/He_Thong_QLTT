@@ -49,11 +49,29 @@ def parse_docx_lesson_plan(file_path):
 
     # 2. Extract Subject (Môn học)
     subject = ""
-    for p in paragraphs[:10]:
-        match = re.search(r"môn\s*:\s*([^;,\n]+)", p, re.IGNORECASE)
-        if match:
-            subject = match.group(1).strip()
-            break
+    for p in paragraphs[:15]:
+        # Match "Môn: Hoạt động trải nghiệm hướng nghiệp; lớp: 10" or "Môn học: Sinh học"
+        if re.search(r"(?:môn\s*học|môn)\s*:", p, re.IGNORECASE):
+            raw_sub = re.sub(r"^.*?(?:môn\s*học|môn)\s*:\s*", "", p, flags=re.IGNORECASE).strip()
+            # Split by semicolon if present (e.g. "Hoạt động trải nghiệm hướng nghiệp; lớp: 10")
+            parts = raw_sub.split(';')
+            clean_first = parts[0].strip()
+            # Remove any trailing "lớp: ..." if separated by space
+            clean_first = re.sub(r"\s+lớp\s*:.*$", "", clean_first, flags=re.IGNORECASE).strip()
+            if clean_first and len(clean_first) > 1:
+                subject = clean_first
+                break
+    if not subject:
+        if "sinh học" in combined_text and ("trải nghiệm" in combined_text or "hướng nghiệp" in combined_text):
+            subject = "Hoạt động trải nghiệm Sinh học"
+        elif "sinh học" in combined_text:
+            subject = "Sinh học"
+        elif "khoa học tự nhiên" in combined_text:
+            subject = "Khoa học tự nhiên"
+        elif "trải nghiệm" in combined_text:
+            subject = "Hoạt động trải nghiệm, hướng nghiệp"
+        else:
+            subject = "Hoạt động trải nghiệm Sinh học"
 
     # 3. Extract Grade/Class (Cấp lớp) and normalize (e.g. "10" -> "Lớp 10")
     grade = ""
@@ -171,19 +189,29 @@ def parse_docx_lesson_plan(file_path):
                         time_match = re.search(r"(\d+\s*phút)", raw_name + " " + act_desc, re.IGNORECASE)
                         act_time = time_match.group(1) if time_match else "15 phút"
                         
-                        act_name = re.sub(r"\(\s*\d+\s*phút\s*\)", "", raw_name, flags=re.IGNORECASE).strip()
-                        act_name = re.sub(r"\d+\s*phút", "", act_name, flags=re.IGNORECASE).strip()
-                        act_name = re.sub(r"[\s\-:]+$", "", act_name).strip()
-                        if not act_name:
-                            act_name = raw_name
-                            
-                        if act_desc:
-                            act_desc_clean = act_desc.strip()
-                            if len(act_desc_clean) > 250:
-                                sentences = re.split(r'(?<=[.!?])\s+', act_desc_clean)
-                                act_desc_clean = " ".join(sentences[:2]).strip()
+                        # Strip time info
+                        clean_col1 = re.sub(r"\(\s*\d+\s*phút\s*\)", "", raw_name, flags=re.IGNORECASE).strip()
+                        clean_col1 = re.sub(r"\d+\s*phút", "", clean_col1, flags=re.IGNORECASE).strip()
+                        clean_col1 = re.sub(r"[\s\-:]+$", "", clean_col1).strip()
+
+                        # Check if col1 is just activity header (e.g. "HĐ 1", "Hoạt động 1", "1")
+                        is_just_hd_header = bool(re.match(r"^(hoạt\s*động|hđ)?\s*\d+$", clean_col1, re.IGNORECASE))
+                        
+                        if is_just_hd_header and act_desc:
+                            # col1 is just "HĐ 1", real title is the entire text of col2!
+                            desc_clean = " ".join([l.strip() for l in act_desc.split("\n") if l.strip()])
+                            act_name = desc_clean
+                            act_desc_clean = ""
                         else:
-                            act_desc_clean = "Hoạt động dạy học chi tiết."
+                            # Remove any leading "Hoạt động 1:", "HĐ 1" prefix from act_name
+                            act_name = re.sub(r"^(hoạt\s*động|hđ)\s*\d+[\s:\-]*", "", clean_col1, flags=re.IGNORECASE).strip()
+                            if not act_name:
+                                act_name = clean_col1
+                            act_desc_clean = act_desc.strip() if act_desc else "Hoạt động dạy học chi tiết."
+
+                        if len(act_desc_clean) > 250:
+                            sentences = re.split(r'(?<=[.!?])\s+', act_desc_clean)
+                            act_desc_clean = " ".join(sentences[:2]).strip()
                             
                         activities.append({
                             "ten_hoat_dong": act_name,
@@ -197,7 +225,10 @@ def parse_docx_lesson_plan(file_path):
             text = p.text.strip()
             match = re.match(r"^(Hoạt động\s+\d+|HĐ\s*\d+)\s*:\s*(.*)", text, re.IGNORECASE)
             if match:
-                act_name = match.group(0).strip()
+                raw_title = match.group(2).strip()
+                act_name = re.sub(r"^(hoạt\s*động|hđ)\s*\d+[\s:\-]*", "", raw_title, flags=re.IGNORECASE).strip()
+                if not act_name:
+                    act_name = raw_title
                 act_time = "10 phút"
                 act_desc = ""
                 
@@ -239,29 +270,53 @@ def parse_docx_lesson_plan(file_path):
             knowledge_tags.append(tag)
     knowledge_tags = knowledge_tags[:6]
 
-    # 10. Infer Experiential Curriculum Attributes
-    track = "Hoạt động hướng vào bản thân"
-    if any(k in combined_text for k in ["gia đình", "nhà trường", "cộng đồng", "xã hội"]):
-        track = "Hoạt động hướng đến xã hội"
-    elif any(k in combined_text for k in ["thiên nhiên", "môi trường", "cảnh quan"]):
-        track = "Hoạt động hướng đến tự nhiên"
-    elif any(k in combined_text for k in ["nghề nghiệp", "định hướng nghề", "lao động"]):
-        track = "Hoạt động hướng nghiệp"
+    # 10. Infer Experiential Curriculum Attributes (Mạch kiến thức)
+    track = ""
+    for p in paragraphs[:20]:
+        match = re.search(r"mạch\s*kiến\s*thức\s*:\s*([^;\n]+)", p, re.IGNORECASE)
+        if match:
+            track = match.group(1).strip()
+            break
+    if not track:
+        if any(k in combined_text for k in ["bản thân", "sức khỏe", "thể chất", "cơ thể", "giấc ngủ", "thói quen"]):
+            track = "Hoạt động hướng vào bản thân"
+        elif any(k in combined_text for k in ["gia đình", "nhà trường", "cộng đồng", "xã hội", "bè bạn", "giao tiếp"]):
+            track = "Hoạt động hướng đến xã hội"
+        elif any(k in combined_text for k in ["thiên nhiên", "môi trường", "cảnh quan", "động vật", "thực vật"]):
+            track = "Hoạt động hướng đến tự nhiên"
+        elif any(k in combined_text for k in ["nghề nghiệp", "định hướng nghề", "lao động", "nghề"]):
+            track = "Hoạt động hướng nghiệp"
+        else:
+            track = "Hoạt động hướng vào bản thân"
 
     topic = title or "Khám phá bản thân"
 
     biology_connections = []
-    if any(k in combined_text for k in ["ăn uống", "dinh dưỡng", "bữa ăn", "thực đơn", "bmi"]):
-        biology_connections.append("Dinh dưỡng học, chuyển hóa năng lượng, vai trò vitamin/khoáng chất")
-    if any(k in combined_text for k in ["vận động", "thể lực", "thể thao", "cơ thể", "chiều cao", "cân nặng"]):
-        biology_connections.append("Hệ cơ – xương – khớp, tim mạch, hô hấp, năng lượng ATP")
-    if any(k in combined_text for k in ["thời gian biểu", "giấc ngủ", "đồng hồ sinh học", "nhịp sinh học"]):
-        biology_connections.append("Cân bằng nước, sinh học giấc ngủ, nhịp sinh học")
-    if any(k in combined_text for k in ["cảm xúc", "tâm lý", "lo lắng", "não bộ", "hormone", "căng thẳng"]):
-        biology_connections.append("Hệ thần kinh, hormone (serotonin, adrenaline), cơ sở sinh học của cảm xúc")
+    bio_integration_details = []
 
-    if not biology_connections:
-        biology_connections.append("Cấu tạo cơ thể, tuần hoàn máu, hô hấp nhân tạo, nguyên lý đông máu")
+    # Direct extraction from docx tables (KIẾN THỨC SINH HỌC ĐƯỢC TÍCH HỢP)
+    for table in doc.tables:
+        if len(table.rows) > 1:
+            headers = [c.text.strip().lower() for c in table.rows[0].cells]
+            if any(h == "kiến thức sh" or "kiến thức sh" in h or ("kiến thức sinh học" in h and "tích hợp" in h) for h in headers):
+                bio_col_idx = 0
+                for i, h in enumerate(headers):
+                    if h == "kiến thức sh" or "kiến thức sh" in h or ("kiến thức sinh học" in h and "tích hợp" in h):
+                        bio_col_idx = i
+                        break
+                for row in table.rows[1:]:
+                    cells = [c.text.strip().replace('\n', ' ') for c in row.cells]
+                    if len(cells) > bio_col_idx and cells[bio_col_idx]:
+                        val = re.sub(r"^\d+\.\s*", "", cells[bio_col_idx]).strip()
+                        if val and val not in biology_connections and len(val) > 2:
+                            biology_connections.append(val)
+                    
+                    if len(cells) >= 2 and cells[0]:
+                        bio_integration_details.append({
+                            "kien_thuc_sh": cells[0],
+                            "noi_dung_tich_hop": cells[1] if len(cells) > 1 else "",
+                            "y_nghia": cells[2] if len(cells) > 2 else ""
+                        })
 
     location = "Lớp học tiêu chuẩn"
     if "thí nghiệm" in combined_text:
@@ -275,6 +330,7 @@ def parse_docx_lesson_plan(file_path):
         "Mạch kiến thức": track,
         "Chủ đề": topic,
         "Kiến thức sinh học liên quan": biology_connections,
+        "bio_integration_details": bio_integration_details,
         "Địa điểm": location,
         "lop": [grade],
         "Loại hình": lesson_type,

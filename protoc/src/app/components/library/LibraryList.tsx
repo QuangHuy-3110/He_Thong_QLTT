@@ -11,6 +11,7 @@ import {
   SparklesOutlined
 } from '@ant-design/icons';
 import { User } from '../../context';
+import { normalizeDuration } from '../../utils/helpers';
 
 interface Directory {
   id: number;
@@ -216,7 +217,7 @@ export default function LibraryList({
 
                   {durationVal && (
                     <Tag color="volcano" className="font-bold">
-                      ⏱️ {durationVal}
+                      ⏱️ {normalizeDuration(durationVal)}
                     </Tag>
                   )}
                   

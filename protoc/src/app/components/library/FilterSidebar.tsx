@@ -11,6 +11,7 @@ import {
   HomeOutlined
 } from '@ant-design/icons';
 import { User } from '../../utils/types';
+import { STANDARD_DURATIONS, normalizeDuration } from '../../utils/helpers';
 
 interface Directory {
   id: number;
@@ -321,13 +322,15 @@ export default function FilterSidebar({
 
   const availableDurations = useMemo(() => {
     const set = new Set<string>();
+    STANDARD_DURATIONS.forEach(s => set.add(s));
     (allLessons || []).forEach(l => {
       const dur = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'];
-      if (dur && typeof dur === 'string' && dur.trim()) {
-        set.add(dur.trim());
+      const norm = normalizeDuration(dur);
+      if (norm) {
+        set.add(norm);
       }
     });
-    return Array.from(set).sort();
+    return Array.from(set);
   }, [allLessons]);
 
   useEffect(() => {

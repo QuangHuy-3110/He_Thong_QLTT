@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { User } from '../../context';
 import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from './UploadPage';
+import { STANDARD_DURATIONS, normalizeDuration } from '../../utils/helpers';
 
 interface NavbarProps {
   currentUser: User | null;
@@ -92,13 +93,15 @@ export default function Navbar({
 
   const availableDurations = React.useMemo(() => {
     const set = new Set<string>();
+    STANDARD_DURATIONS.forEach(s => set.add(s));
     (allLessons || []).forEach((l: any) => {
       const dur = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'];
-      if (dur && typeof dur === 'string' && dur.trim()) {
-        set.add(dur.trim());
+      const norm = normalizeDuration(dur);
+      if (norm) {
+        set.add(norm);
       }
     });
-    return Array.from(set).sort();
+    return Array.from(set);
   }, [allLessons]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Card, Rate, Progress, Select, Input, Tag, Space, Alert, Empty, Spin, Tabs, Tooltip } from 'antd';
+import { Button, Card, Rate, Progress, Select, Input, Tag, Space, Alert, Empty, Spin, Tabs, Tooltip, Modal } from 'antd';
+import axios from 'axios';
 import { 
   ArrowLeftOutlined, 
   DownloadOutlined, 
@@ -13,13 +14,18 @@ import {
   StarOutlined,
   UserOutlined,
   FolderOpenOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  ScissorOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
+import { message } from 'antd';
 import { User } from '../../context';
 import InteractiveLessonMindmap from '../viewer/InteractiveLessonMindmap';
 import DocxPreview from '../viewer/DocxPreview';
 import MarkdownViewer from '../viewer/MarkdownViewer';
-import { getLessonMindmapData, getLessonActivitiesTimeline } from '../../utils/helpers';
+import { getLessonMindmapData, getLessonActivitiesTimeline, STANDARD_DURATIONS, normalizeDuration, DEFAULT_STANDARD_ACTIVITIES, DEFAULT_BIO_INTEGRATION_DETAILS, getFallbackApiBase, extractActivitiesFromMarkdown, getMarkdownHeadings, extractTextBetweenLines } from '../../utils/helpers';
 
 interface Directory {
   id: number;
@@ -187,6 +193,8 @@ interface DetailViewProps {
   setEditLocation?: (s: string) => void;
   editDuration?: string;
   setEditDuration?: (s: string) => void;
+  editSubject?: string;
+  setEditSubject?: (s: string) => void;
   editTrack?: string;
   setEditTrack?: (s: string) => void;
   editTopic?: string;
@@ -196,6 +204,7 @@ interface DetailViewProps {
   editBiologyConnections?: string[];
   setEditBiologyConnections?: (s: string[]) => void;
   availableClasses?: { value: string; label: string }[];
+  availableSubjects?: string[];
 }
 
 export default function DetailView({
@@ -265,6 +274,8 @@ export default function DetailView({
   setEditLocation,
   editDuration = '',
   setEditDuration,
+  editSubject = '',
+  setEditSubject,
   editTrack = '',
   setEditTrack,
   editTopic = '',
@@ -273,12 +284,195 @@ export default function DetailView({
   setEditType,
   editBiologyConnections = [],
   setEditBiologyConnections,
-  availableClasses = []
+  availableClasses = [],
+  availableSubjects = []
 }: DetailViewProps) {
 
 
 
   const [selectedActivityModal, setSelectedActivityModal] = useState<any | null>(null);
+  const [isEditingActivities, setIsEditingActivities] = useState(false);
+  const [editingActivitiesList, setEditingActivitiesList] = useState<any[]>([]);
+  const [savingActivities, setSavingActivities] = useState(false);
+
+  const handleOpenEditActivities = () => {
+    const cleanList = (list: any[]) => list.map(a => {
+      const name = a.ten_hoat_dong || a.title || a.name || '';
+      const cleanName = name.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+      return {
+        ...a,
+        ten_hoat_dong: cleanName || name
+      };
+    });
+
+    const existing = lesson.attributes?.tien_trinh_day_hoc;
+    if (Array.isArray(existing) && existing.length > 0) {
+      setEditingActivitiesList(cleanList(existing));
+    } else if (lesson.content_preview) {
+      const extracted = extractActivitiesFromMarkdown(lesson.content_preview);
+      if (extracted.length > 0) {
+        setEditingActivitiesList(cleanList(extracted));
+      } else {
+        setEditingActivitiesList([
+          { ten_hoat_dong: '', thoi_gian: '15 phút', tom_tat: '' }
+        ]);
+      }
+    } else {
+      setEditingActivitiesList([
+        { ten_hoat_dong: '', thoi_gian: '15 phút', tom_tat: '' }
+      ]);
+    }
+    setIsEditingActivities(true);
+  };
+
+  const handleSaveActivities = async () => {
+    setSavingActivities(true);
+    try {
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const updatedAttrs = {
+        ...(currentLessonAttrs || {}),
+        tien_trinh_day_hoc: editingActivitiesList
+      };
+      
+      const formData = new FormData();
+      formData.append('attributes', JSON.stringify(updatedAttrs));
+      if (currentUser) {
+        formData.append('user_id', String(currentUser.id));
+      }
+
+      const res = await axios.patch(`${cleanApiBase}/api/lesson-plans/${lesson.id}/?user_id=${currentUser?.id || ''}`, formData);
+      if (res.status === 200) {
+        setCurrentLessonAttrs(updatedAttrs);
+        lesson.attributes = updatedAttrs;
+        setIsEditingActivities(false);
+        message.success('Đã lưu tiến trình hoạt động!');
+      }
+    } catch (err) {
+      console.error('Error saving activities:', err);
+      message.error('Lỗi khi lưu tiến trình hoạt động.');
+    } finally {
+      setSavingActivities(false);
+    }
+  };
+
+  const handleExtractAndMapFromMarkdown = async () => {
+    if (!lesson.content_preview) {
+      message.warning('Tài liệu chưa có bản xem trước văn bản (Markdown).');
+      return;
+    }
+    const extracted = extractActivitiesFromMarkdown(lesson.content_preview);
+    if (extracted.length === 0) {
+      message.info('Không tự động tìm thấy các đề mục Hoạt động trong văn bản.');
+      setIsEditingActivities(true);
+      return;
+    }
+
+    setSavingActivities(true);
+    try {
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const updatedAttrs = {
+        ...(currentLessonAttrs || {}),
+        tien_trinh_day_hoc: extracted
+      };
+      
+      const formData = new FormData();
+      formData.append('attributes', JSON.stringify(updatedAttrs));
+      if (currentUser) {
+        formData.append('user_id', String(currentUser.id));
+      }
+
+      const res = await axios.patch(`${cleanApiBase}/api/lesson-plans/${lesson.id}/?user_id=${currentUser?.id || ''}`, formData);
+      if (res.status === 200) {
+        setCurrentLessonAttrs(updatedAttrs);
+        lesson.attributes = updatedAttrs;
+        setEditingActivitiesList(extracted);
+        setIsEditingActivities(false);
+        message.success(`🎯 Đã trích xuất ${extracted.length} hoạt động từ Markdown và cập nhật Sơ đồ tư duy!`);
+      }
+    } catch (err) {
+      console.error('Error auto-mapping activities from markdown:', err);
+      message.error('Lỗi khi lưu tiến trình trích xuất.');
+    } finally {
+      setSavingActivities(false);
+    }
+  };
+
+  const [currentLessonAttrs, setCurrentLessonAttrs] = useState<any>(lesson.attributes || {});
+
+  React.useEffect(() => {
+    setCurrentLessonAttrs(lesson.attributes || {});
+  }, [lesson]);
+
+  const activeLesson = useMemo(() => ({
+    ...lesson,
+    attributes: currentLessonAttrs
+  }), [lesson, currentLessonAttrs]);
+
+  const [showRangePickerModal, setShowRangePickerModal] = useState(false);
+  const [customRangeText, setCustomRangeText] = useState('');
+  const [previewExtractedActivities, setPreviewExtractedActivities] = useState<any[]>([]);
+
+  const handleOpenRangePickerModal = () => {
+    const text = lesson.content_preview || '';
+    setCustomRangeText('');
+    const initialExtracted = extractActivitiesFromMarkdown(text);
+    setPreviewExtractedActivities(initialExtracted);
+    setShowRangePickerModal(true);
+  };
+
+  const handleMouseUpInWordView = () => {
+    const selection = window.getSelection();
+    if (selection) {
+      const text = selection.toString().trim();
+      if (text.length > 10) {
+        setCustomRangeText(text);
+        const extracted = extractActivitiesFromMarkdown(text);
+        setPreviewExtractedActivities(extracted);
+        if (extracted.length > 0) {
+          message.success(`🎯 Đã trích xuất ${extracted.length} hoạt động từ đoạn bôi đen!`);
+        }
+      }
+    }
+  };
+
+  const handleApplyWordSelection = async () => {
+    if (previewExtractedActivities.length === 0) {
+      message.warning('Vui lòng bôi đen chọn đoạn văn bản chứa các Hoạt động dạy học.');
+      return;
+    }
+    setSavingActivities(true);
+    try {
+      const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
+      const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+      const updatedAttrs = {
+        ...(currentLessonAttrs || {}),
+        tien_trinh_day_hoc: previewExtractedActivities
+      };
+      
+      const formData = new FormData();
+      formData.append('attributes', JSON.stringify(updatedAttrs));
+      if (currentUser) {
+        formData.append('user_id', String(currentUser.id));
+      }
+
+      const res = await axios.patch(`${cleanApiBase}/api/lesson-plans/${lesson.id}/?user_id=${currentUser?.id || ''}`, formData);
+      if (res.status === 200) {
+        setCurrentLessonAttrs(updatedAttrs);
+        lesson.attributes = updatedAttrs;
+        setEditingActivitiesList(previewExtractedActivities);
+        setShowRangePickerModal(false);
+        setIsEditingActivities(false);
+        message.success(`⚡ Đã lưu ${previewExtractedActivities.length} hoạt động từ đoạn bôi đen và tự động cập nhật Sơ đồ tư duy!`);
+      }
+    } catch (err) {
+      console.error('Error applying word selection:', err);
+      message.error('Lỗi khi lưu tiến trình trích xuất.');
+    } finally {
+      setSavingActivities(false);
+    }
+  };
 
   const fileUrl = getLessonFileUrl(lesson);
   const isPdfFile = fileUrl ? fileUrl.toLowerCase().endsWith('.pdf') : false;
@@ -308,8 +502,90 @@ export default function DetailView({
     return '### 💡 Gợi ý phương pháp & kĩ thuật dạy học – CTGDPT 2018\n• **Mục tiêu**: Phát triển năng lực đặc thù và phẩm chất học sinh.\n• **Kĩ thuật hiệu quả**: Dạy học tích cực, cá thể hóa theo năng lực học sinh.';
   };
 
-  const parsedMindmapData = useMemo(() => getLessonMindmapData(lesson), [lesson]);
-  const activitiesTimeline = useMemo(() => getLessonActivitiesTimeline(parsedMindmapData), [parsedMindmapData]);
+  const parsedMindmapData = useMemo(() => getLessonMindmapData({ ...lesson, attributes: currentLessonAttrs }), [lesson, currentLessonAttrs]);
+
+  // Build timeline directly from saved attributes.tien_trinh_day_hoc if present
+  // Also enrich with chi_tiet from content_preview (detailed Word content)
+  const activitiesTimeline = useMemo(() => {
+    const acts = currentLessonAttrs?.tien_trinh_day_hoc;
+
+    // Pre-extract chi_tiet blocks from content_preview
+    let chiTietBlocks: string[] = [];
+    if (lesson.content_preview) {
+      // Match header line of "Tiến trình dạy học" to capture its prefix level (e.g. III. Tiến trình..., 2. Tiến trình...)
+      const detailHeaderMatch = lesson.content_preview.match(/(?:\n|\r|^)(?:#+\s*)?([I|V|X|\d]+[\.\)]?)\s*Tiến\s*trình\s*dạy\s*học/i);
+      const detailSectionMatch = lesson.content_preview.match(/(?:Tiến\s*trình\s*dạy\s*học\s*chi\s*tiết|Tiến\s*trình\s*dạy\s*học)([\s\S]*)/i);
+      
+      if (detailSectionMatch) {
+        let detailText = detailSectionMatch[1];
+
+        // Cut off strictly at any major section heading (IV., V., 4., 5., ĐÁNH GIÁ, MỞ RỘNG, PHỤ LỤC, HƯỚNG DẪN TỰ HỌC,...)
+        // using case-insensitive multiline match for lines starting with Roman numerals, numbers + dot, or uppercase headings
+        const cutoffRegex = /(?:\r?\n|\r|^)\s*(?:#+\s*)?(?:[I|V|X]{1,4}|\d+)[\.\)]\s+|(?:#+\s*)?(?:ĐÁNH\s*GIÁ|MỞ\s*RỘNG|PHỤ\s*LỤC|HƯỚNG\s*DẪN|TỔNG\s*KẾT|BÀI\s*TẬP)/i;
+        const cutoffMatch = detailText.match(cutoffRegex);
+        if (cutoffMatch && cutoffMatch.index !== undefined && cutoffMatch.index > 50) {
+          detailText = detailText.slice(0, cutoffMatch.index);
+        }
+
+        chiTietBlocks = detailText
+          .split(/(?=Hoạt\s*động\s*0?\d+[:\s])/i)
+          .filter(b => b.trim().match(/^Hoạt\s*động/i))
+          .map(b => b.trim());
+      }
+    }
+
+    // Clean any trailing sections like IV, V, MỞ RỘNG, ĐÁNH GIÁ from chi_tiet content string
+    const sanitizeChiTiet = (text: string): string => {
+      if (!text) return '';
+      // Cut off at headings like "V. MỞ RỘNG SAU BÀI HỌC", "IV. ĐÁNH GIÁ", "### IV.", "### V.", "## V.", "MỞ RỘNG", "ĐÁNH GIÁ"
+      const cutRegex = /(?:\r?\n|\r)\s*(?:#+\s*)?(?:IV|V|VI|VII|VIII|\d+)\.[\s\S]*$/i;
+      let cleaned = text.replace(cutRegex, '').trim();
+      // Also check for "V. MỞ RỘNG", "IV. ĐÁNH GIÁ" explicitly
+      const keywordCut = cleaned.match(/(?:\r?\n|\r|^)\s*(?:#+\s*)?(?:V|IV|VI)\.\s*(?:MỞ\s*RỘNG|ĐÁNH\s*GIÁ|PHỤ\s*LỤC|HƯỚNG\s*DẪN)/i);
+      if (keywordCut && keywordCut.index !== undefined && keywordCut.index > 30) {
+        cleaned = cleaned.slice(0, keywordCut.index).trim();
+      }
+      return cleaned;
+    };
+
+    // Function to search for an activity block dynamically in content_preview
+    const findChiTietForActivity = (index: number, title: string) => {
+      let blockText = chiTietBlocks[index] || '';
+      if (!blockText && lesson.content_preview) {
+        const actNum = index + 1;
+        const reg = new RegExp(`(?:#{1,4}\\s*|\\*\\*|\\b)(?:Hoạt\\s*động\\s*0?${actNum})[:\\s\\-][\\s\\S]*?(?=(?:#{1,4}\\s*|\\*\\*|\\b)(?:Hoạt\\s*động\\s*0?\\d+|(?:[I|V|X]{1,4}|\\d+)[\\.\\)]\\s+[A-ZÀ-Ỹ]|ĐÁNH\\s*GIÁ|MỞ\\s*RỘNG|PHỤ\\s*LỤC)|$)`, 'i');
+        const m = lesson.content_preview.match(reg);
+        if (m) blockText = m[0].trim();
+      }
+      return sanitizeChiTiet(blockText);
+    };
+
+    if (Array.isArray(acts) && acts.length > 0) {
+      return acts.map((a: any, idx: number) => {
+        const rawTitle = a.ten_hoat_dong || a.title || a.name || '';
+        const cleanName = rawTitle.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+        const chiTietContent = sanitizeChiTiet(a.chi_tiet) || findChiTietForActivity(idx, cleanName);
+        return {
+          title: cleanName || rawTitle || `Hoạt động ${idx + 1}`,
+          duration: a.thoi_gian || a.time || a.duration || `${15 + (idx % 3) * 10} phút`,
+          summary: a.tom_tat || a.muc_tieu || a.summary || '',
+          chi_tiet: chiTietContent,
+          details: chiTietContent || `### 📌 ${cleanName || rawTitle} — ⏱️ ${a.thoi_gian || '15 phút'}\n\n${a.tom_tat ? `### 📝 Nội dung\n${a.tom_tat}` : ''}`,
+          category: 'TIẾN TRÌNH & HOẠT ĐỘNG DẠY HỌC'
+        };
+      });
+    }
+    return getLessonActivitiesTimeline(parsedMindmapData).map((item: any, idx: number) => {
+      const cleanName = (item.title || '').replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+      const chiTietContent = sanitizeChiTiet(item.chi_tiet) || findChiTietForActivity(idx, cleanName);
+      return {
+        ...item,
+        title: cleanName || item.title,
+        chi_tiet: chiTietContent,
+        details: chiTietContent || item.details
+      };
+    });
+  }, [currentLessonAttrs, parsedMindmapData, lesson.content_preview]);
 
   const getDirectoryFullPath = (dirId: number, dirs: Directory[]): string => {
     const path: string[] = [];
@@ -481,24 +757,45 @@ export default function DetailView({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Thời gian thực hiện (Số tiết)</label>
-                    <Input
-                      value={editDuration}
-                      onChange={(e) => setEditDuration && setEditDuration(e.target.value)}
-                      placeholder="Ví dụ: 02 tiết (90 phút) hoặc 2 tiết..."
-                      className="rounded-xl px-4 py-2 text-xs"
+                    <Select
+                      showSearch
+                      allowClear
+                      value={editDuration ? normalizeDuration(editDuration) : undefined}
+                      onChange={(value) => setEditDuration && setEditDuration(value || '')}
+                      placeholder="Chọn số tiết..."
+                      className="w-full text-xs"
+                      options={STANDARD_DURATIONS.map(d => ({ label: `⏱️ ${d}`, value: d }))}
                     />
                   </div>
                 </div>
 
-                {/* Row 2: Target Students & Lesson Type & Location */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Row 2: Môn học & Loại hình tiết dạy */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Đối tượng học sinh</label>
-                    <Input
-                      value={editGrade}
-                      onChange={(e) => setEditGrade && setEditGrade(e.target.value)}
-                      placeholder="Học sinh thành thị, Học sinh nông thôn..."
-                      className="rounded-xl px-4 py-2 text-xs"
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                      Môn học <span className="text-gray-400 font-normal lowercase">(chọn hoặc gõ thêm mới)</span>
+                    </label>
+                    <Select
+                      showSearch
+                      allowClear
+                      popupMatchSelectWidth={false}
+                      value={editSubject || undefined}
+                      onChange={(val) => setEditSubject && setEditSubject(val || '')}
+                      onSearch={(text) => {
+                        if (text && text.trim()) setEditSubject && setEditSubject(text.trim());
+                      }}
+                      className="w-full text-xs"
+                      size="large"
+                      placeholder="Chọn hoặc nhập tên môn..."
+                      style={{ borderRadius: 12 }}
+                      options={Array.from(new Set([
+                        'Hoạt động trải nghiệm Sinh học',
+                        'Sinh học',
+                        'Hoạt động trải nghiệm, hướng nghiệp',
+                        'Khoa học tự nhiên',
+                        ...(availableSubjects || []).filter(s => s && s.length < 40),
+                        ...(editSubject ? [editSubject] : [])
+                      ])).map(s => ({ value: s, label: s }))}
                     />
                   </div>
                   <div>
@@ -510,21 +807,26 @@ export default function DetailView({
                       className="rounded-xl px-4 py-2 text-xs"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Địa điểm giảng dạy</label>
-                    <Select
-                      value={editLocation}
-                      onChange={(val) => setEditLocation && setEditLocation(val)}
-                      className="w-full text-xs"
-                      size="large"
-                      style={{ borderRadius: 12 }}
-                      options={LOCATIONS.map(loc => ({ value: loc, label: loc }))}
-                    />
-                  </div>
                 </div>
 
-                {/* Row 3: Knowledge Track & Topic & Classes */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Row 3: Đối tượng học sinh & Mạch kiến thức & Chủ đề */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Đối tượng học sinh</label>
+                    <Select
+                      mode="tags"
+                      value={editGrade ? editGrade.split(',').map(s => s.trim()).filter(Boolean) : []}
+                      onChange={(val) => setEditGrade && setEditGrade(Array.isArray(val) ? val.join(', ') : val)}
+                      className="w-full text-xs"
+                      size="large"
+                      placeholder="Chọn đối tượng..."
+                      style={{ borderRadius: 12 }}
+                      options={[
+                        { value: 'Học sinh thành thị', label: '🏫 Học sinh thành thị' },
+                        { value: 'Học sinh nông thôn', label: '🌾 Học sinh nông thôn' }
+                      ]}
+                    />
+                  </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Mạch kiến thức</label>
                     <Input
@@ -558,7 +860,38 @@ export default function DetailView({
                   </div>
                 </div>
 
-                {/* Row 4: Description & File */}
+                {/* Row 4: 🧬 Kiến thức sinh học liên quan (Gợi ý thư mục + Tìm kiếm CSDL + Thêm mới) */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">
+                    🧬 Kiến thức sinh học liên quan <span className="text-purple-600 font-semibold lowercase">(chọn từ gợi ý thư mục, tìm kiếm CSDL hoặc gõ từ khóa mới)</span>
+                  </label>
+                  <Select
+                    mode="tags"
+                    allowClear
+                    value={editBiologyConnections}
+                    onChange={(val) => setEditBiologyConnections && setEditBiologyConnections(val)}
+                    className="w-full text-xs"
+                    size="large"
+                    placeholder="🔍 Chọn hoặc gõ tìm kiếm từ khóa kiến thức..."
+                    style={{ borderRadius: 12 }}
+                    options={Array.from(new Set([
+                      ...(editBiologyConnections || []),
+                      ...(directories.flatMap(d => d.attributes?.knowledge_tags || [])),
+                      ...(directories.find(d => d.id.toString() === editDirId)?.attributes?.knowledge_tags || []),
+                      'Chuyển hóa năng lượng',
+                      'Cân bằng nước, sinh học giấc ngủ, nhịp sinh học',
+                      'Công nghệ gen, sinh học phân tử, ứng dụng di truyền',
+                      'Cơ chế nghe – nhìn, ảnh hưởng âm nhạc đến tâm lý',
+                      'Cơ chế thèm ăn, dinh dưỡng cân bằng và chuyển hóa năng lượng',
+                      'Đa dạng sinh học, sinh thái học bảo tồn, ô nhiễm môi trường',
+                      'Hệ miễn dịch, bệnh truyền nhiễm, vắc xin',
+                      'Hệ thần kinh, phản xạ, ứng phó căng thẳng',
+                      'Hệ tuần hoàn, hệ hô hấp, thể dục thể thao'
+                    ])).map(tag => ({ value: tag, label: `🧬 ${tag}` }))}
+                  />
+                </div>
+
+                {/* Row 5: Description & File */}
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Mô tả chi tiết / Tóm tắt</label>
                   <Input.TextArea
@@ -686,7 +1019,7 @@ export default function DetailView({
                           <p className="m-0 text-gray-600">Địa điểm: <span className="font-bold text-gray-900">{lesson.attributes['Địa điểm']}</span></p>
                         )}
                         {(lesson.attributes['Thời gian thực hiện'] || lesson.attributes['Thời gian'] || lesson.attributes['Số tiết']) && (
-                          <p className="m-0 text-gray-600 pt-0.5">⏱️ Thời gian: <span className="font-black text-blue-700">{lesson.attributes['Thời gian thực hiện'] || lesson.attributes['Thời gian'] || lesson.attributes['Số tiết']}</span></p>
+                          <p className="m-0 text-gray-600 pt-0.5">⏱️ Thời gian: <span className="font-black text-blue-700">{normalizeDuration(lesson.attributes['Thời gian thực hiện'] || lesson.attributes['Thời gian'] || lesson.attributes['Số tiết'])}</span></p>
                         )}
                       </div>
                     </div>
@@ -701,8 +1034,11 @@ export default function DetailView({
                         ✨ KIẾN THỨC TÍCH HỢP LIÊN QUAN
                       </span>
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {String(lesson.attributes['Kiến thức sinh học liên quan']).split(',').map((t, idx) => (
-                          <Tag color="emerald" key={idx} className="m-0 text-xs px-3 py-1 rounded-xl font-medium shadow-2xs hover:scale-105 transition-transform">{t.trim()}</Tag>
+                        {(Array.isArray(lesson.attributes['Kiến thức sinh học liên quan'])
+                          ? lesson.attributes['Kiến thức sinh học liên quan']
+                          : String(lesson.attributes['Kiến thức sinh học liên quan']).split(',')
+                        ).map((t: any, idx: number) => (
+                          <Tag color="emerald" key={idx} className="m-0 text-xs px-3 py-1 rounded-xl font-medium shadow-2xs hover:scale-105 transition-transform">{String(t).trim()}</Tag>
                         ))}
                       </div>
                     </div>
@@ -733,59 +1069,182 @@ export default function DetailView({
               title={
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-gray-800 text-xs uppercase tracking-wider flex items-center gap-1.5">⚡ TIẾN TRÌNH HOẠT ĐỘNG GIẢNG DẠY</span>
+                  {currentTeacherOwnsThis && (
+                    <Tooltip title={isEditingActivities ? "Đóng chỉnh sửa" : "Chỉnh sửa tiến trình"}>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined className="text-gray-500 hover:text-blue-600 text-sm" />}
+                        onClick={() => {
+                          if (isEditingActivities) {
+                            setIsEditingActivities(false);
+                          } else {
+                            handleOpenEditActivities();
+                          }
+                        }}
+                        className="p-1 rounded-lg flex items-center justify-center hover:bg-slate-100"
+                      />
+                    </Tooltip>
+                  )}
                 </div>
               }
               className="shadow-sm rounded-3xl border-gray-150"
               size="small"
             >
-              <div className="p-4 relative">
-                {/* Vertical Blue Connection Line */}
-                <div className="absolute left-[23px] top-6 bottom-7 w-[2px] bg-blue-300 rounded-full" />
-
-                <div className="space-y-6 relative">
-                  {activitiesTimeline.map((act: any, idx: number) => {
-                    let stepLabel = `Hoạt động ${idx + 1}`;
-                    let subTitle = act.title || '';
-
-                    // Clean title from "Hoạt động 01:", "Hoạt động 01", "HĐ1:", "HĐ01"
-                    const match = subTitle.match(/^(Hoạt\s*động|HĐ)\s*\d+[:\s\-]*/i);
-                    if (match) {
-                      subTitle = subTitle.slice(match[0].length).trim();
-                    }
-
-                    const durStr = act.duration || `${10 + (idx % 4) * 5} phút`;
-
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => setSelectedActivityModal(act)}
-                        className="relative pl-8 cursor-pointer group transition-all"
+              {isEditingActivities ? (
+                /* EDITING MODE */
+                <div className="p-4 space-y-4 bg-slate-50/70 rounded-2xl">
+                  <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-gray-200">
+                    <span className="text-xs font-extrabold text-blue-800 uppercase">✍️ Chỉnh sửa các Hoạt động:</span>
+                    {lesson.content_preview && (
+                      <Button
+                        type="dashed"
+                        size="small"
+                        icon={<ScissorOutlined />}
+                        onClick={handleOpenRangePickerModal}
+                        className="text-[11px] font-bold text-blue-700 border-blue-300 bg-blue-50 hover:bg-blue-100"
                       >
-                        {/* Circle node icon matching Image 2 */}
-                        <div className="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center shadow-2xs group-hover:scale-110 group-hover:border-blue-600 transition-all z-10">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors" />
+                        ✂️ Chọn vị trí trong văn bản
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                    {editingActivitiesList.map((act, idx) => (
+                      <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs text-blue-700">Hoạt động {idx + 1}</span>
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              size="small"
+                              placeholder="Thời gian"
+                              value={act.thoi_gian}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setEditingActivitiesList(prev => prev.map((a, i) => i === idx ? { ...a, thoi_gian: val } : a));
+                              }}
+                              className="w-28 text-xs font-bold text-blue-700 text-center rounded-lg"
+                            />
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => setEditingActivitiesList(prev => prev.filter((_, i) => i !== idx))}
+                            />
+                          </div>
                         </div>
 
-                        {/* Node Content */}
-                        <div className="space-y-0.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-extrabold text-blue-700 text-xs tracking-wide group-hover:text-blue-800 transition-colors">
-                              {stepLabel}
-                            </span>
-                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60 whitespace-nowrap">
-                              ⏱️ {durStr}
-                            </span>
+                        <Input
+                          placeholder="Tên hoạt động..."
+                          value={act.ten_hoat_dong}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setEditingActivitiesList(prev => prev.map((a, i) => i === idx ? { ...a, ten_hoat_dong: val } : a));
+                          }}
+                          className="font-bold text-xs rounded-lg"
+                        />
+                      </div>
+                    ))}
+
+                    <Button
+                      type="dashed"
+                      block
+                      icon={<PlusOutlined />}
+                      onClick={() => setEditingActivitiesList(prev => [
+                        ...prev,
+                        { ten_hoat_dong: '', thoi_gian: '15 phút', tom_tat: '' }
+                      ])}
+                      className="rounded-xl text-xs font-bold text-slate-700"
+                    >
+                      ➕ Thêm hoạt động mới
+                    </Button>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-200 flex justify-end gap-2">
+                    <Button size="small" onClick={() => setIsEditingActivities(false)} className="rounded-xl text-xs font-bold">
+                      Hủy
+                    </Button>
+                    <Button
+                      type="primary"
+                      size="small"
+                      loading={savingActivities}
+                      onClick={handleSaveActivities}
+                      className="rounded-xl text-xs font-bold bg-blue-650 hover:bg-blue-700"
+                    >
+                      Lưu Tiến Trình
+                    </Button>
+                  </div>
+                </div>
+              ) : activitiesTimeline.length === 0 ? (
+                /* EMPTY TIMELINE STATE FOR UNFORMATTED FILES */
+                <div className="p-5 text-center space-y-3 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                  <p className="text-xs text-gray-500 font-medium m-0 leading-relaxed">
+                    Tài liệu này chưa có tiến trình hoạt động theo cấu trúc chuẩn.
+                  </p>
+                  {currentTeacherOwnsThis && (
+                    <Button
+                      type="default"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={handleOpenEditActivities}
+                      className="rounded-xl font-bold text-xs text-blue-600 border-blue-300 bg-blue-50 hover:bg-blue-100"
+                    >
+                      ✍️ Bấm cây bút ✏️ góc phải để chọn vị trí & tạo tiến trình
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                /* NORMAL TIMELINE DISPLAY */
+                <div className="p-4 relative">
+                  {/* Vertical Blue Connection Line */}
+                  <div className="absolute left-[23px] top-6 bottom-7 w-[2px] bg-blue-300 rounded-full" />
+
+                  <div className="space-y-6 relative">
+                    {activitiesTimeline.map((act: any, idx: number) => {
+                      const rawTitle = act.title || '';
+                      const durStr = act.duration || `${10 + (idx % 4) * 5} phút`;
+
+                      // Clean title: remove any leading "Hoạt động X:", "Hoạt động X", "HĐ X:", "HĐ X"
+                      let cleanTitle = rawTitle.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+                      if (!cleanTitle) cleanTitle = rawTitle;
+                      
+                      const displayTitle = `Hoạt động ${idx + 1}: ${cleanTitle}`;
+
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedActivityModal(act)}
+                          className="relative pl-8 cursor-pointer group transition-all"
+                        >
+                          {/* Circle node */}
+                          <div className="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center shadow-2xs group-hover:scale-110 group-hover:border-blue-600 transition-all z-10">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 group-hover:bg-blue-600 transition-colors" />
                           </div>
 
-                          <p className="text-xs font-semibold text-gray-800 group-hover:text-blue-900 transition-colors m-0 leading-snug">
-                            {subTitle || act.title}
-                          </p>
+                          {/* Node Content */}
+                          <div className="space-y-0.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-extrabold text-blue-700 text-xs tracking-wide group-hover:text-blue-800 transition-colors leading-snug">
+                                {displayTitle}
+                              </span>
+                              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60 whitespace-nowrap flex-shrink-0">
+                                ⏱️ {durStr}
+                              </span>
+                            </div>
+
+                            {act.summary && act.summary.trim() !== cleanTitle.trim() && (
+                              <p className="text-[11px] text-gray-500 m-0 leading-snug line-clamp-2">
+                                {act.summary}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </Card>
           </div>
         )}
@@ -806,7 +1265,7 @@ export default function DetailView({
                     <iframe src={fileUrl} className="w-full h-full border-none" title="PDF Preview" />
                   </div>
                 ) : isMd ? (
-                  <div className="pt-2 sm:pt-4 px-1 sm:px-2">
+                  <div className="pt-2 sm:pt-4 px-1 sm:px-2 space-y-3">
                     <MarkdownViewer markdown={lesson.content_preview} highlightQuery={lessonHighlightQuery} />
                   </div>
                 ) : isDocx ? (
@@ -818,7 +1277,7 @@ export default function DetailView({
                           type={previewMode === 'markdown' ? 'primary' : 'default'} 
                           onClick={() => setPreviewMode('markdown')}
                           size="small"
-                          className="rounded-lg text-xs"
+                          className="rounded-lg text-xs font-bold"
                         >
                           Bản trích xuất
                         </Button>
@@ -826,7 +1285,7 @@ export default function DetailView({
                           type={previewMode === 'docx' ? 'primary' : 'default'} 
                           onClick={() => setPreviewMode('docx')}
                           size="small"
-                          className="rounded-lg text-xs"
+                          className="rounded-lg text-xs font-bold"
                         >
                           Bản gốc Word
                         </Button>
@@ -987,103 +1446,196 @@ export default function DetailView({
 
       </div>
 
-    {/* Interactive Modal for Activity Detail (Identical to Mindmap Modal Layout) */}
-    {selectedActivityModal && createPortal(
-      <div
-        style={{
-          position: 'fixed', inset: 0, zIndex: 999999,
-          background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px',
-        }}
-        onClick={() => setSelectedActivityModal(null)}
-      >
-        <div
-          style={{
-            background: '#fff', borderRadius: 24, width: '94vw', maxWidth: 1100,
-            maxHeight: '90vh',
-            boxShadow: '0 25px 80px rgba(15,23,42,0.25)',
-            overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            animation: 'modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-            borderTop: '6px solid #f59e0b',
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div style={{ background: '#ffffff', padding: '20px 28px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <div>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '4px 14px', borderRadius: 99,
-                  background: '#fef3c7', border: '1px solid #fde68a',
-                  fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase',
-                  color: '#b45309', marginBottom: 8,
-                }}>📂 {selectedActivityModal.category || 'TIẾN TRÌNH & HOẠT ĐỘNG GIẢNG DẠY'}</span>
-                <div style={{ fontWeight: 900, fontSize: 20, lineHeight: 1.4, color: '#0f172a' }}>
-                  {selectedActivityModal.title} {selectedActivityModal.duration ? `(${selectedActivityModal.duration})` : ''}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedActivityModal(null)}
-                style={{
-                  background: '#f1f5f9', border: 'none', borderRadius: 99,
-                  width: 36, height: 36, cursor: 'pointer', color: '#64748b', fontSize: 18,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
-              >✕</button>
-            </div>
-          </div>
-
-          {/* Body - Expanded Width & Scroll */}
-          <div style={{
-            padding: '24px 28px',
-            overflowY: 'auto',
-            background: '#fafbfc',
-            flex: 1,
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 900, color: '#475569', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
-              📝 MÔ TẢ CHI TIẾT NỘI DUNG & TIẾN TRÌNH
-            </div>
-            <div style={{
-              background: '#ffffff',
-              border: '1.5px solid #e2e8f0',
-              borderRadius: 20,
-              padding: '20px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
-              fontSize: 14.5,
-              lineHeight: 1.8,
-              color: '#1e293b',
-            }}>
-              <MarkdownViewer markdown={selectedActivityModal.details || selectedActivityModal.summary} />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={{ padding: '16px 28px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#fff', flexShrink: 0 }}>
-            <button
-              onClick={() => setSelectedActivityModal(null)}
-              style={{
-                background: '#0f172a', color: '#fff', border: 'none', borderRadius: 12,
-                padding: '10px 28px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-            >Đóng cửa sổ</button>
-          </div>
+    {/* Modal Range Picker for Progress Activities */}
+    <Modal
+      title={
+        <div className="flex items-center gap-2">
+          <FileTextOutlined className="text-blue-600 text-base" />
+          <span className="font-extrabold text-slate-800 text-sm">Bôi đen chọn trực tiếp đoạn Tiến trình trên File Word / Giáo án gốc</span>
         </div>
-      </div>,
-      document.body
-    )}
+      }
+      open={showRangePickerModal}
+      onCancel={() => setShowRangePickerModal(false)}
+      footer={null}
+      width={900}
+      style={{ top: 20 }}
+      className="rounded-3xl overflow-hidden"
+    >
+      <div className="space-y-4 pt-1">
+        <Alert
+          type="info"
+          showIcon
+          message={<span className="font-bold text-xs">💡 Hướng dẫn chọn trực tiếp trên tệp Word:</span>}
+          description={<span className="text-xs">Dùng chuột <b>bôi đen (quét chọn)</b> đoạn văn bản chứa các Hoạt động dạy học bên trong khung trắng dưới đây. Hệ thống sẽ tự động trích xuất các hoạt động.</span>}
+          className="rounded-2xl text-xs"
+        />
+
+        {/* Word Document Interactive View Container */}
+        <div
+          onMouseUp={handleMouseUpInWordView}
+          className="max-h-[50vh] overflow-y-auto p-5 bg-white border-2 border-slate-200 rounded-2xl shadow-inner select-text text-xs leading-relaxed font-sans cursor-text space-y-3"
+        >
+          {isDocx && previewMode === 'docx' ? (
+            <DocxPreview fileUrl={fileUrl} />
+          ) : (
+            <MarkdownViewer markdown={lesson.content_preview || ''} />
+          )}
+        </div>
+
+        {/* Selected Text & Live Extracted Activities Preview */}
+        {customRangeText ? (
+          <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                ⚡ Đoạn văn bản bôi đen ({previewExtractedActivities.length} Hoạt động nhận dạng được):
+              </span>
+              <Button
+                type="text"
+                size="small"
+                onClick={() => {
+                  setCustomRangeText('');
+                  setPreviewExtractedActivities([]);
+                }}
+                className="text-[10px] text-gray-500 font-bold"
+              >
+                Xóa chọn
+              </Button>
+            </div>
+
+            <div className="text-[11px] font-mono bg-white p-2.5 rounded-xl border border-emerald-200 max-h-24 overflow-y-auto text-slate-700">
+              {customRangeText}
+            </div>
+
+            {previewExtractedActivities.length > 0 && (
+              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 pt-1 border-t border-emerald-200/60">
+                {previewExtractedActivities.map((act, idx) => (
+                  <div key={idx} className="bg-white p-2 rounded-lg border border-emerald-200 text-xs flex items-center justify-between gap-2 shadow-2xs">
+                    <span className="font-bold text-slate-800 truncate">{act.ten_hoat_dong}</span>
+                    <Tag color="emerald" className="m-0 text-[10px] font-bold">{act.thoi_gian}</Tag>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-3 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-gray-500 italic">
+            Hãy dùng chuột quét (bôi đen) đoạn văn bản bài giảng trong khung ở trên để hệ thống trích xuất.
+          </div>
+        )}
+
+        <div className="pt-3 border-t border-gray-200 flex justify-end gap-2">
+          <Button onClick={() => setShowRangePickerModal(false)} className="rounded-xl text-xs font-bold">
+            Hủy
+          </Button>
+          <Button
+            type="primary"
+            loading={savingActivities}
+            disabled={previewExtractedActivities.length === 0}
+            onClick={handleApplyWordSelection}
+            className="rounded-xl text-xs font-extrabold bg-blue-600 hover:bg-blue-700 px-5"
+          >
+            🚀 Lưu Tiến trình & Cập nhật Sơ đồ
+          </Button>
+        </div>
+      </div>
+    </Modal>
+
+    {/* ── Activity Detail Modal ── */}
+    <Modal
+      open={!!selectedActivityModal}
+      onCancel={() => setSelectedActivityModal(null)}
+      footer={null}
+      closable={false}
+      width={850}
+      centered
+      styles={{ body: { padding: 0 } }}
+      className="rounded-2xl overflow-hidden"
+    >
+      {selectedActivityModal && (() => {
+        const actIdx = activitiesTimeline.findIndex((a: any) => a === selectedActivityModal);
+        const rawTitle = selectedActivityModal.title || '';
+        let displayTitle = rawTitle;
+        if (!rawTitle.match(/^Hoạt\s*động\s*\d+/i)) {
+          displayTitle = `Hoạt động ${actIdx + 1}: ${rawTitle}`;
+        }
+        displayTitle = displayTitle.replace(/Hoạt\s*động\s*0?(\d+)/i, (_, n) => `Hoạt động ${parseInt(n)}`);
+
+        const chiTiet = selectedActivityModal.chi_tiet || '';
+
+        return (
+          <div className="flex flex-col max-h-[85vh] overflow-hidden bg-white">
+            {/* Clean Header */}
+            <div className="bg-white px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4 flex-shrink-0">
+              <div className="min-w-0">
+                <span className="text-blue-600 text-[11px] font-bold uppercase tracking-wider block mb-0.5">
+                  ⚡ Tiến trình dạy học chi tiết
+                </span>
+                <h3 className="text-slate-900 font-extrabold text-base md:text-lg m-0 leading-snug">
+                  {displayTitle}
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {selectedActivityModal.duration && (
+                  <span className="bg-blue-50 text-blue-700 font-bold text-xs px-3 py-1 rounded-full border border-blue-200 whitespace-nowrap">
+                    ⏱️ {selectedActivityModal.duration}
+                  </span>
+                )}
+                <button
+                  onClick={() => setSelectedActivityModal(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 flex items-center justify-center text-sm font-bold transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Clean Content Body - Rendered directly without nested cards */}
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+              {chiTiet ? (
+                <div className="prose prose-slate max-w-none text-slate-800 text-sm leading-relaxed">
+                  <MarkdownViewer markdown={chiTiet} />
+                </div>
+              ) : selectedActivityModal.details ? (
+                <div className="prose prose-slate max-w-none text-slate-800 text-sm leading-relaxed">
+                  <MarkdownViewer markdown={selectedActivityModal.details} />
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-400 space-y-2">
+                  <p className="text-sm font-medium m-0">Chưa có nội dung chi tiết cho hoạt động này.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Navigation */}
+            <div className="px-6 py-3.5 bg-gray-50 border-t border-gray-200 flex justify-between items-center flex-shrink-0">
+              <button
+                disabled={actIdx <= 0}
+                onClick={() => setSelectedActivityModal(activitiesTimeline[actIdx - 1])}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                ← Hoạt động trước
+              </button>
+              <span className="text-xs text-gray-500 font-semibold">
+                {actIdx + 1} / {activitiesTimeline.length}
+              </span>
+              <button
+                disabled={actIdx >= activitiesTimeline.length - 1}
+                onClick={() => setSelectedActivityModal(activitiesTimeline[actIdx + 1])}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                Hoạt động sau →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+    </Modal>
 
     </div>
     </div>
   );
 }
-
 const DividerVertical = ({ className }: { className?: string }) => (
   <div className={`w-[1px] bg-gray-250 h-5 self-center ${className || ''}`} />
 );

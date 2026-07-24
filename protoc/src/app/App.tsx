@@ -230,6 +230,7 @@ export default function App() {
     editFile, setEditFile,
     editLocation, setEditLocation,
     editDuration, setEditDuration,
+    editSubject, setEditSubject,
     editTrack, setEditTrack,
     editTopic, setEditTopic,
     editType, setEditType,
@@ -770,6 +771,8 @@ export default function App() {
           setEditLocation={setEditLocation}
           editDuration={editDuration}
           setEditDuration={setEditDuration}
+          editSubject={editSubject}
+          setEditSubject={setEditSubject}
           editTrack={editTrack}
           setEditTrack={setEditTrack}
           editTopic={editTopic}
@@ -779,6 +782,7 @@ export default function App() {
           editBiologyConnections={editBiologyConnections}
           setEditBiologyConnections={setEditBiologyConnections}
           availableClasses={availableClasses}
+          availableSubjects={availableSubjects}
         />
       )}
 

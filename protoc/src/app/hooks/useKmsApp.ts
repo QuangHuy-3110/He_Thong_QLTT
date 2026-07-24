@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { Modal } from 'antd';
 import { User, Directory, LessonPlan } from '../utils/types';
-import { getFallbackApiBase } from '../utils/helpers';
+import { getFallbackApiBase, normalizeDuration } from '../utils/helpers';
 import { getLessonsInDir } from '../utils/directoryHelpers';
 
 export function useKmsApp() {
@@ -167,6 +167,7 @@ export function useKmsApp() {
   const [editFile, setEditFile] = useState<File | null>(null);
   const [editLocation, setEditLocation] = useState<string>('');
   const [editDuration, setEditDuration] = useState<string>('');
+  const [editSubject, setEditSubject] = useState<string>('Hoạt động trải nghiệm Sinh học');
   const [editTrack, setEditTrack] = useState<string>('');
   const [editTopic, setEditTopic] = useState<string>('');
   const [editType, setEditType] = useState<string>('');
@@ -1013,6 +1014,8 @@ export function useKmsApp() {
     setEditLocation(loc);
     const dur = lesson.attributes?.['Thời gian thực hiện'] || lesson.attributes?.['Thời gian'] || lesson.attributes?.['Số tiết'] || '';
     setEditDuration(dur);
+    const subj = lesson.attributes?.['Môn học'] || lesson.attributes?.['Môn'] || 'Hoạt động trải nghiệm Sinh học';
+    setEditSubject(subj);
     setEditTrack(lesson.attributes?.['Mạch kiến thức'] || '');
     setEditTopic(lesson.attributes?.['Chủ đề'] || '');
     setEditType(lesson.attributes?.['Loại hình'] || '');
@@ -1037,6 +1040,7 @@ export function useKmsApp() {
       delete attrsObj['Thời gian'];
       delete attrsObj['Số tiết'];
       attrsObj['lop'] = editLops;
+      attrsObj['Môn học'] = editSubject;
       attrsObj['Địa điểm'] = editLocation;
       attrsObj['Thời gian thực hiện'] = editDuration;
       attrsObj['Mạch kiến thức'] = editTrack;
@@ -1282,39 +1286,32 @@ export function useKmsApp() {
 
   // Dynamic subject list from current pool
   const availableSubjects = useMemo(() => {
-    const subjects = new Set<string>();
-    if (!Array.isArray(directories)) return [];
-
-    const targetDirs = selectedDirs.length > 0
-      ? selectedDirs.map(dirId => directories.find(d => d.id === dirId)).filter(Boolean) as Directory[]
-      : directories;
-
-    targetDirs.forEach(dirObj => {
-      if (dirObj && dirObj.attributes) {
-        const kt = dirObj.attributes['knowledge_tags'] || dirObj.attributes['Kiến thức'] || dirObj.attributes['subject'] || dirObj.attributes['subjects'] || dirObj.attributes['Môn học'];
-        if (kt) {
-          if (Array.isArray(kt)) {
-            kt.forEach(k => subjects.add(k));
-          } else if (typeof kt === 'string') {
-            subjects.add(kt);
+    const subjects = new Set<string>([
+      'Hoạt động trải nghiệm Sinh học',
+      'Sinh học',
+      'Hoạt động trải nghiệm, hướng nghiệp',
+      'Khoa học tự nhiên'
+    ]);
+    if (Array.isArray(directories)) {
+      directories.forEach(dirObj => {
+        if (dirObj && dirObj.attributes) {
+          const mh = dirObj.attributes['Môn học'] || dirObj.attributes['mon_hoc'];
+          if (mh && typeof mh === 'string' && mh.length < 40) {
+            subjects.add(mh.trim());
           }
         }
-      }
-    });
+      });
+    }
 
-    dirUnfilteredLessons.forEach(l => {
-      const kt = l.attributes?.['knowledge_tags'] || l.attributes?.['Kiến thức sinh học liên quan'] || l.attributes?.['Môn học'];
-      if (kt) {
-        if (Array.isArray(kt)) {
-          kt.forEach(k => subjects.add(k));
-        } else if (typeof kt === 'string') {
-          subjects.add(kt);
-        }
+    (dirUnfilteredLessons || []).forEach(l => {
+      const mh = l.attributes?.['Môn học'] || l.attributes?.['mon_hoc'];
+      if (mh && typeof mh === 'string' && mh.length < 40) {
+        subjects.add(mh.trim());
       }
     });
 
     return Array.from(subjects).sort();
-  }, [dirUnfilteredLessons, selectedDirs, directories]);
+  }, [dirUnfilteredLessons, directories]);
 
   const availableClasses = useMemo(() => {
     const lops = new Set<string>();
@@ -1413,10 +1410,13 @@ export function useKmsApp() {
     // Filter by Tiết dạy / Thời gian thực hiện (selectedTietDay)
     if (selectedTietDay.length > 0) {
       list = list.filter(l => {
-        const lpTiet = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'] || l.attributes?.['Tiết dạy'] || l.attributes?.['tiet_day'];
-        if (!lpTiet) return false;
-        const lpTietStr = String(lpTiet).toLowerCase();
+        const rawLpTiet = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'] || l.attributes?.['Tiết dạy'] || l.attributes?.['tiet_day'];
+        if (!rawLpTiet) return false;
+        const normLpTiet = normalizeDuration(String(rawLpTiet));
+        const lpTietStr = String(rawLpTiet).toLowerCase();
         return selectedTietDay.some(td => {
+          const normTd = normalizeDuration(td);
+          if (normLpTiet && normTd && normLpTiet === normTd) return true;
           const tdClean = td.toLowerCase().trim();
           if (/^\d+$/.test(tdClean)) {
             const matchDigit = lpTietStr.match(/\d+/);
@@ -1691,6 +1691,7 @@ export function useKmsApp() {
     editFile, setEditFile,
     editLocation, setEditLocation,
     editDuration, setEditDuration,
+    editSubject, setEditSubject,
     editTrack, setEditTrack,
     editTopic, setEditTopic,
     editType, setEditType,

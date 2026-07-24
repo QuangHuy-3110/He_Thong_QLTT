@@ -296,4 +296,6 @@ V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
       * Optimized Mobile/Portrait responsive order: Metadata -> Activity Timeline -> Document Preview -> Pedagogical Reviews at the end.
       * Redesigned sidebar toggle button into a sleek circular icon button `[|<]` / `[|>]` placed at the far right end of the top navbar.
       * Redesigned metadata header card: prominent color-coded badges, combined System Directory and Subject/Grade into 1 block, and expanded space for Integrated Knowledge tags (`lg:grid-cols-[1fr_1.1fr_1.5fr]`).
-
+      * Fixed Docx Parser & Frontend Subject extraction: Robustly extract full Subject name (e.g. "Hoạt động trải nghiệm hướng nghiệp") from docx title block matching "Môn: ...; lớp: ..." without truncation.
+      * Upgraded Root Ancestor Track Mapping (`getTrackAndTopicFromDir`): Automatically trace selected directory up to the top-most Root Directory (1 of the 4 main tracks: Bản thân, Xã hội, Tự nhiên, Hướng nghiệp) and map seamlessly to Mạch kiến thức field in UploadPage and DetailView.
+      * Enhanced Activity Detail Modal & Truncation Cutoff: Improved dynamic section cutoff regex for teaching activities, eliminating trailing non-activity sections (e.g. V. MỞ RỘNG SAU BÀI HỌC, IV. ĐÁNH GIÁ, PHỤ LỤC...) and upgraded Modal UI with flat single-Select inputs for Subject and Target Students.
