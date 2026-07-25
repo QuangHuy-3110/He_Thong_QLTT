@@ -314,8 +314,23 @@ Khi cơ sở dữ liệu được đặt từ xa trên đám mây, các truy v�
 ### 💨 Truyền dẫn Stream tức thì - Tắt bộ đệm Proxy (Disable Proxy Buffering):
 *   **Vấn đề**: Các máy chủ proxy ngược (như Nginx, Envoy của Render) mặc định sẽ thu thập và giữ lại toàn bộ dữ liệu phản hồi của API trước khi gửi tới trình duyệt, làm mất đi tính năng phản hồi thời gian thực của Server-Sent Events (SSE).
 *   **Giải pháp**: Thiết lập trực tiếp các header điều khiển truyền tải vào luồng `StreamingHttpResponse` của Django:
-    *   `Cache-Control: no-cache`
-    *   `X-Accel-Buffering: no` (chỉ thị trực tiếp cho proxy ngắt bộ đệm và truyền dữ liệu ngay lập tức dưới dạng stream).
+### ⚡ Bộ Phân Loại Ý Định Siêu Tốc (<50ms - Fast Intent Classifier):
+*   **Vấn đề**: Các câu hỏi giao tiếp cơ bản như chào hỏi ("chào bạn", "hello"), hỏi thông tin hệ thống ("hệ thống này là gì", "chatbot làm được gì") không nhất thiết phải kích hoạt pipeline RAG hay gọi LLM nặng nề tốn nhiều giây xử lý.
+*   **Giải pháp**:
+    *   Tích hợp bộ đệm `Fast Intent Classifier` ngay đầu endpoint `/api/chat-sessions/<id>/send/` trong `views.py`.
+    *   Sử dụng danh sách từ khóa nhận diện tốc độ cao, trả về luồng `instant_event_stream()` ngay lập tức dưới 50ms mà không tiêu tốn tài nguyên RAG/LLM.
+
+### 🧠 Động Cơ Re-ranking Đồ Thị Tri Thức (RRF Hybrid Search):
+*   **Giải pháp**:
+    *   Cập nhật thuật toán tìm kiếm vector trong `graph_rag_service.py` bằng cú pháp chuẩn `pgvector.django.CosineDistance`.
+    *   Kết hợp điểm khoảng cách Vector với điểm khớp từ khóa (Keyword Search) thông qua thuật toán Reciprocal Rank Fusion (RRF với $k=60$) giúp xếp hạng các đoạn tri thức chuẩn xác nhất.
+
+### ⚙️ Quản Lý AI RAG & Reprocess Combobox Dành Cho Admin:
+*   **Giải pháp**:
+    *   Thêm endpoint `failed_lessons` và `all_lessons` trong `bg_processor.py` giúp Admin theo dõi các tác vụ ngầm bị lỗi và lý do cụ thể.
+    *   Xây dựng `ReprocessCombobox` trong `SettingsTab.tsx` cho phép Admin tìm kiếm theo tên và chọn bài giảng bất kỳ để xóa cache RAG cũ và kích hoạt tái xử lý ngầm từ đầu.
+    *   Nâng cấp `WikiNotesTab.tsx` với 3 sub-tabs (`Bài giảng này`, `Chọn bài giảng`, `Toàn hệ thống`) cùng bộ lọc `LessonSearchCombobox` giúp tra cứu thực thể theo từng bài giảng một cách trực quan, mượt mà.
 
 ---
+
 
