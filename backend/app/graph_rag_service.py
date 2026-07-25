@@ -267,62 +267,73 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
     is_genuine_query = len(query.strip()) > 3 and not any(greet in query.lower() for greet in ["hello", "hi", "xin chào", "chào bạn"])
     
     if is_genuine_query:
-        # A. Thử tìm kiếm Vector tương đồng nếu pgvector hoạt động
-        try:
-            query_vector = get_embedding(query, api_key=api_key, provider="api" if api_key else "local")
-            # Truy vấn Vector tương đồng top 3
-            chunks = DocumentChunk.objects.filter(lesson_plan__in=candidates).annotate(
-                distance=1 - DocumentChunk.embedding.cosine_similarity(query_vector) # Cosine Distance
-            ).order_by('distance')[:3]
-            
-            for chunk in chunks:
-                if chunk.lesson_plan not in matched_lessons:
-                    matched_lessons.append(chunk.lesson_plan)
-                retrieved_chunks.append({
-                    "title": chunk.lesson_plan.title,
-                    "content": chunk.content,
-                    "type": "vector"
-                })
-        except Exception:
-            # Nếu pgvector chưa cấu hình hoặc lỗi, fallback qua PostgreSQL Full-Text Search hoặc text matching
-            pass
+        # A. Thu thập kết quả từ Vector Search và Full-Text Search để làm Reciprocal Rank Fusion (RRF)
+        chunk_scores = {}  # {chunk_id: {'chunk': chunk, 'rrf_score': float}}
+        k_rrf = 60  # RRF constant parameter
 
-        # B. Fallback Keyword Match nếu Vector tìm kiếm ra ít kết quả
-        if len(matched_lessons) < 2:
-            try:
-                from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
-                # Sử dụng PostgreSQL Full-Text Search (FTS) với trọng số: title quan trọng hơn content_preview
-                vector = SearchVector('title', weight='A') + SearchVector('content_preview', weight='B')
-                search_query = SearchQuery(query)
+        # 1. Vector Cosine Search Rank
+        try:
+            from pgvector.django import CosineDistance
+            query_vector = get_embedding(query, api_key=api_key, provider="api" if api_key else "local")
+            # Lấy top 10 chunks có khoảng cách Cosine nhỏ nhất
+            vector_chunks = DocumentChunk.objects.filter(lesson_plan__in=candidates).annotate(
+                distance=CosineDistance('embedding', query_vector)
+            ).order_by('distance')[:10]
+
+            for rank, chunk in enumerate(vector_chunks, start=1):
+                c_id = chunk.id
+                if c_id not in chunk_scores:
+                    chunk_scores[c_id] = {'chunk': chunk, 'score': 0.0}
+                chunk_scores[c_id]['score'] += 1.0 / (k_rrf + rank)
+        except Exception as e:
+            print(f"[RAG Retrieval] Vector Search warning: {e}")
+
+        # 2. Keyword Full-Text Search Rank
+        try:
+            words = [w.lower() for w in WORD_PATTERN.findall(query) if len(w) > 2]
+            if words:
+                keyword_q = Q()
+                for word in words[:5]:
+                    keyword_q |= Q(content__icontains=word) | Q(heading__icontains=word)
                 
-                k_matches = candidates.annotate(
-                    rank=SearchRank(vector, search_query)
-                ).filter(rank__gte=0.05).exclude(id=focus_lesson_id if focus_lesson_id else -1).order_by('-rank')[:3]
-                
+                kw_chunks = DocumentChunk.objects.filter(lesson_plan__in=candidates).filter(keyword_q)[:10]
+                for rank, chunk in enumerate(kw_chunks, start=1):
+                    c_id = chunk.id
+                    if c_id not in chunk_scores:
+                        chunk_scores[c_id] = {'chunk': chunk, 'score': 0.0}
+                    chunk_scores[c_id]['score'] += 1.0 / (k_rrf + rank)
+        except Exception as e:
+            print(f"[RAG Retrieval] FTS Keyword Search warning: {e}")
+
+        # Sort chunks theo RRF Score cao nhất và chọn lọc Top 4
+        sorted_rrf_items = sorted(chunk_scores.values(), key=lambda item: item['score'], reverse=True)[:4]
+
+        for item in sorted_rrf_items:
+            chunk = item['chunk']
+            if chunk.lesson_plan not in matched_lessons:
+                matched_lessons.append(chunk.lesson_plan)
+            retrieved_chunks.append({
+                "title": chunk.lesson_plan.title,
+                "content": f"### Mục: {chunk.heading or 'Nội dung'}\n{chunk.content}",
+                "type": "rrf_hybrid"
+            })
+
+        # Fallback nếu RRF không tìm ra chunk phù hợp (ví dụ bài học mới hoặc dữ liệu chưa tạo vector)
+        if not matched_lessons:
+            words = [w.lower() for w in WORD_PATTERN.findall(query) if len(w) > 2]
+            if words:
+                keyword_q = Q()
+                for word in words[:4]:
+                    keyword_q |= Q(title__icontains=word) | Q(content_preview__icontains=word)
+                k_matches = candidates.filter(keyword_q).exclude(id=focus_lesson_id if focus_lesson_id else -1)[:3]
                 for match in k_matches:
                     if match not in matched_lessons:
                         matched_lessons.append(match)
                         retrieved_chunks.append({
                             "title": match.title,
                             "content": match.content_preview[:2000] if match.content_preview else "",
-                            "type": "keyword"
+                            "type": "keyword_fallback"
                         })
-            except Exception as e:
-                # Fallback nếu không dùng PostgreSQL (ví dụ SQLite khi test) hoặc lỗi FTS
-                words = [w.lower() for w in WORD_PATTERN.findall(query) if len(w) > 2]
-                if words:
-                    keyword_q = Q()
-                    for word in words[:4]:
-                        keyword_q |= Q(title__icontains=word) | Q(content_preview__icontains=word)
-                    k_matches = candidates.filter(keyword_q).exclude(id=focus_lesson_id if focus_lesson_id else -1)[:3]
-                    for match in k_matches:
-                        if match not in matched_lessons:
-                            matched_lessons.append(match)
-                            retrieved_chunks.append({
-                                "title": match.title,
-                                "content": match.content_preview[:2000] if match.content_preview else "",
-                                "type": "keyword"
-                            })
                         
     # Thêm các bài giảng tìm thấy vào danh sách nút được kích hoạt
     for lp in matched_lessons[:3]:

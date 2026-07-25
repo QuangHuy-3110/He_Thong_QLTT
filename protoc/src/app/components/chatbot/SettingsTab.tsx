@@ -6,6 +6,7 @@ interface SettingsTabProps {
   bgTasksStatus: any;
   focusLessonId: number | null;
   focusLesson: any;
+  lessonPlans: any[];
   aiMode: 'local' | 'api';
   setAiMode: (mode: 'local' | 'api') => void;
   localModel: '3b' | '7b';
@@ -27,11 +28,139 @@ interface SettingsTabProps {
   handleStopTask: (lessonId: number) => void;
 }
 
+interface ReprocessComboboxProps {
+  options: any[];
+  onRun: (lessonId: number) => void;
+}
+
+const ReprocessCombobox: React.FC<ReprocessComboboxProps> = ({ options, onRun }) => {
+  const [query, setQuery] = React.useState('');
+  const [selectedId, setSelectedId] = React.useState<number | null>(null);
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const filtered = React.useMemo(() => {
+    if (!query.trim()) return options;
+    const q = query.toLowerCase().trim();
+    return options.filter((item: any) => item.title && item.title.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const selectedItem = React.useMemo(() => {
+    return options.find((item: any) => item.id === selectedId) || null;
+  }, [options, selectedId]);
+
+  return (
+    <div style={{ marginTop: '6px', position: 'relative', display: 'flex', gap: '4px' }}>
+      <div style={{ position: 'relative', flexGrow: 1 }}>
+        <input
+          type="text"
+          value={isOpen ? query : (selectedItem ? `${selectedItem.title}` : query)}
+          placeholder="🔍 Gõ tên bài giảng để chọn & tìm..."
+          onFocus={() => { setIsOpen(true); setQuery(''); }}
+          onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
+          onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+          style={{
+            width: '100%',
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            padding: '5px 8px',
+            fontSize: '9px',
+            color: '#1e293b',
+            fontWeight: 600,
+            outline: 'none',
+            boxSizing: 'border-box'
+          }}
+        />
+
+        {isOpen && (
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: '100%',
+            marginTop: '2px',
+            maxHeight: '160px',
+            overflowY: 'auto',
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 99,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '6px 8px', fontSize: '8.5px', color: '#94a3b8', fontStyle: 'italic' }}>
+                Không tìm thấy bài giảng phù hợp
+              </div>
+            ) : (
+              filtered.map((item: any) => (
+                <div
+                  key={item.id}
+                  onMouseDown={() => {
+                    setSelectedId(item.id);
+                    setQuery(item.title);
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    padding: '5px 8px',
+                    fontSize: '8.5px',
+                    color: '#334155',
+                    fontWeight: selectedId === item.id ? 700 : 500,
+                    background: selectedId === item.id ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #f1f5f9',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>
+                    📄 {item.title}
+                  </span>
+                  <span style={{ fontSize: '7.5px', color: item.ai_processing_status === 'COMPLETED' ? '#16a34a' : '#d97706', fontWeight: 700 }}>
+                    {item.ai_processing_status || 'READY'}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (!selectedId) {
+            alert('Vui lòng gõ và chọn 1 bài giảng trong danh sách!');
+            return;
+          }
+          onRun(selectedId);
+        }}
+        style={{
+          padding: '4px 10px',
+          background: selectedId ? '#3b82f6' : '#cbd5e1',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '6px',
+          fontSize: '8.5px',
+          fontWeight: 800,
+          cursor: selectedId ? 'pointer' : 'not-allowed',
+          flexShrink: 0
+        }}
+      >
+        🧹 Clear & Run
+      </button>
+    </div>
+  );
+};
+
 export default function SettingsTab({
   currentUser,
   bgTasksStatus,
   focusLessonId,
   focusLesson,
+  lessonPlans,
   aiMode,
   setAiMode,
   localModel,
@@ -368,20 +497,117 @@ export default function SettingsTab({
                     ▶️ Tiếp tục chạy từ điểm dừng
                   </button>
                 </div>
+
+                {/* Combobox Tìm kiếm & Chọn bài giảng cụ thể để Clear RAG & Chạy lại */}
+                {currentUser?.role === 'ADMIN' && (() => {
+                  const allOptions = (bgTasksStatus?.all_lessons && bgTasksStatus.all_lessons.length > 0
+                    ? bgTasksStatus.all_lessons
+                    : (lessonPlans || []).map(lp => ({ id: lp.id, title: lp.title, ai_processing_status: lp.ai_processing_status || 'READY' }))
+                  );
+
+                  return <ReprocessCombobox
+                    options={allOptions}
+                    onRun={(lessonId) => {
+                      const selected = allOptions.find((l: any) => l.id === lessonId);
+                      if (window.confirm(`Clear RAG cũ và chạy lại xử lý cho bài giảng "${selected?.title || lessonId}"?`)) {
+                        axios.post('/api/bg-tasks/reprocess/', {
+                          lesson_id: lessonId,
+                          ai_mode: aiMode,
+                          local_model: localModel,
+                          api_key: apiKey,
+                          api_model: apiModel
+                        }).then(() => alert('Đã đưa bài giảng vào hàng chờ chạy lại thành công!'))
+                          .catch(() => alert('Lỗi kích hoạt chạy lại.'));
+                      }
+                    }}
+                  />;
+                })()}
               </div>
             </div>
 
-            {/* Pending queue */}
-            {bgTasksStatus.pending_queue && bgTasksStatus.pending_queue.length > 0 && (
-              <div style={{ marginTop: '10px' }}>
-                <span style={{ fontSize: '9px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                  Hàng chờ xử lý ({bgTasksStatus.pending_queue.length})
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '60px', overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '4px' }}>
-                  {bgTasksStatus.pending_queue.slice(0, 5).map((q: any, qIdx: number) => (
-                    <div key={qIdx} style={{ fontSize: '9px', color: '#64748b', display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80%' }}>⏱ {q.title}</span>
-                      <span style={{ fontSize: '8px', color: '#cbd5e1' }}>{new Date(q.queued_at).toLocaleTimeString()}</span>
+            {/* Failed Tasks Section for Admin */}
+            {bgTasksStatus.failed_lessons && bgTasksStatus.failed_lessons.length > 0 && (
+              <div style={{
+                marginTop: '10px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                padding: '10px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    🚨 Tài liệu bị lỗi ({bgTasksStatus.failed_lessons.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleReprocess(true)}
+                    style={{
+                      padding: '2px 6px',
+                      background: '#dc2626',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '8px',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔄 Thử lại tất cả
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '140px', overflowY: 'auto' }}>
+                  {bgTasksStatus.failed_lessons.map((failedItem: any) => (
+                    <div
+                      key={failedItem.id}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #fee2e2',
+                        borderRadius: '8px',
+                        padding: '6px 8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: '9.5px', color: '#991b1b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>
+                          📄 {failedItem.title}
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            title="Xóa dữ liệu RAG cũ và chạy lại bài học này"
+                            onClick={() => {
+                              if (window.confirm(`Xóa RAG cũ và chạy lại xử lý cho bài "${failedItem.title}"?`)) {
+                                axios.post('/api/bg-tasks/reprocess/', {
+                                  lesson_id: failedItem.id,
+                                  ai_mode: aiMode,
+                                  local_model: localModel,
+                                  api_key: apiKey,
+                                  api_model: apiModel
+                                }).then(() => alert('Đã đưa bài học vào hàng chờ chạy lại!'))
+                                  .catch(() => alert('Lỗi kích hoạt chạy lại.'));
+                              }
+                            }}
+                            style={{
+                              padding: '2px 5px',
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#2563eb',
+                              borderRadius: '4px',
+                              fontSize: '8px',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🧹 Clear & Run
+                          </button>
+                        </div>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '8.5px', color: '#b91c1c', background: '#fff5f5', padding: '3px 6px', borderRadius: '4px', border: '1px solid #fed7aa', wordBreak: 'break-word', fontFamily: 'monospace' }}>
+                        ⚠️ {failedItem.error}
+                      </p>
                     </div>
                   ))}
                 </div>

@@ -6,8 +6,11 @@ interface WikiNotesTabProps {
   selectedObsidianNote: any;
   setSelectedObsidianNote: (note: any) => void;
   currentNotes: any[];
-  wikiFilterMode: 'lesson' | 'all';
-  setWikiFilterMode: (mode: 'lesson' | 'all') => void;
+  wikiFilterMode: 'lesson' | 'select' | 'all';
+  setWikiFilterMode: (mode: 'lesson' | 'select' | 'all') => void;
+  selectedWikiLessonId: number | null;
+  setSelectedWikiLessonId: (id: number | null) => void;
+  fetchSelectedWikiLessonNotes: (lessonId: number) => void;
   wikiSearchQuery: string;
   setWikiSearchQuery: (query: string) => void;
   fetchNoteContent: (note: any) => void;
@@ -27,8 +30,111 @@ interface WikiNotesTabProps {
   renderWikiContent: (contentStr: string) => React.ReactNode;
   cleanContentStr: (content: string) => string;
   focusLessonId: number | null;
+  setFocusLessonId: (id: number | null) => void;
+  lessonPlans: any[];
+  fetchObsidianLessonNotes: (lessonId: number) => void;
   loadingNotesList: boolean;
 }
+
+interface LessonSearchComboboxProps {
+  lessonPlans: any[];
+  selectedId: number | null;
+  onSelectLesson: (id: number) => void;
+}
+
+const LessonSearchCombobox: React.FC<LessonSearchComboboxProps> = ({ lessonPlans, selectedId, onSelectLesson }) => {
+  const [query, setQuery] = React.useState('');
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  const selectedItem = React.useMemo(() => {
+    return (lessonPlans || []).find((lp: any) => lp.id === selectedId) || null;
+  }, [lessonPlans, selectedId]);
+
+  const filtered = React.useMemo(() => {
+    if (!query.trim()) return lessonPlans || [];
+    const q = query.toLowerCase().trim();
+    return (lessonPlans || []).filter((lp: any) => lp.title && lp.title.toLowerCase().includes(q));
+  }, [lessonPlans, query]);
+
+  return (
+    <div style={{ marginBottom: '8px', position: 'relative' }}>
+      <input
+        type="text"
+        value={isOpen ? query : (selectedItem ? `📖 ${selectedItem.title}` : query)}
+        placeholder="🔍 Gõ tên bài giảng để tìm & chọn..."
+        onFocus={() => { setIsOpen(true); setQuery(''); }}
+        onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        style={{
+          width: '100%',
+          background: '#ffffff',
+          border: '1px solid #3b82f6',
+          borderRadius: '6px',
+          padding: '5px 8px',
+          fontSize: '9.5px',
+          color: '#1d4ed8',
+          fontWeight: 700,
+          outline: 'none',
+          boxSizing: 'border-box'
+        }}
+      />
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '100%',
+          marginTop: '2px',
+          maxHeight: '180px',
+          overflowY: 'auto',
+          background: '#ffffff',
+          border: '1px solid #94a3b8',
+          borderRadius: '8px',
+          boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '10px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+              Không tìm thấy bài giảng nào
+            </div>
+          ) : (
+            filtered.map((lp: any) => (
+              <div
+                key={lp.id}
+                onMouseDown={() => {
+                  onSelectLesson(lp.id);
+                  setQuery(lp.title);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '11px',
+                  lineHeight: '1.4',
+                  color: selectedId === lp.id ? '#1d4ed8' : '#334155',
+                  fontWeight: selectedId === lp.id ? 700 : 500,
+                  background: selectedId === lp.id ? '#eff6ff' : '#ffffff',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #f1f5f9',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = selectedId === lp.id ? '#eff6ff' : '#ffffff'; }}
+              >
+                📖 {lp.title}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function WikiNotesTab({
   isMobile,
@@ -37,6 +143,9 @@ export default function WikiNotesTab({
   currentNotes,
   wikiFilterMode,
   setWikiFilterMode,
+  selectedWikiLessonId,
+  setSelectedWikiLessonId,
+  fetchSelectedWikiLessonNotes,
   wikiSearchQuery,
   setWikiSearchQuery,
   fetchNoteContent,
@@ -56,6 +165,9 @@ export default function WikiNotesTab({
   renderWikiContent,
   cleanContentStr,
   focusLessonId,
+  setFocusLessonId,
+  lessonPlans,
+  fetchObsidianLessonNotes,
   loadingNotesList,
 }: WikiNotesTabProps) {
   return (
@@ -75,66 +187,104 @@ export default function WikiNotesTab({
               <FolderOpen className="w-4 h-4 text-blue-500" /> Tài liệu RAG ({currentNotes.length})
             </h3>
             
-            {/* Permanent 2 sub-tabs */}
+            {/* 3 Sub-tabs: Bài giảng này - Chọn bài giảng - Toàn hệ thống */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: focusLessonId ? '1fr 1fr 1fr' : '1fr 1fr',
               background: '#f1f5f9',
               padding: '2px',
               borderRadius: '6px',
               marginBottom: '8px'
             }}>
+              {focusLessonId && (
+                <button
+                  type="button"
+                  onClick={() => setWikiFilterMode('lesson')}
+                  style={{
+                    padding: '5px 2px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    fontSize: '9px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: wikiFilterMode === 'lesson' ? '#fff' : 'transparent',
+                    color: wikiFilterMode === 'lesson' ? '#3b82f6' : '#64748b',
+                    boxShadow: wikiFilterMode === 'lesson' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                    transition: 'all 0.15s',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                  title="Xem ghi chú của bài giảng đang chọn"
+                >
+                  Bài giảng này
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  if (focusLessonId) {
-                    setWikiFilterMode('lesson');
-                  } else {
-                    alert("Vui lòng chọn một bài giảng để xem các ghi chú liên quan!");
-                  }
-                }}
+                onClick={() => setWikiFilterMode('select')}
                 style={{
-                  padding: '5px',
+                  padding: '5px 2px',
                   borderRadius: '4px',
                   border: 'none',
-                  fontSize: '10px',
+                  fontSize: '9px',
                   fontWeight: 700,
-                  cursor: focusLessonId ? 'pointer' : 'not-allowed',
-                  background: (wikiFilterMode === 'lesson' && focusLessonId) ? '#fff' : 'transparent',
-                  color: (wikiFilterMode === 'lesson' && focusLessonId) ? '#3b82f6' : '#64748b',
-                  opacity: focusLessonId ? 1 : 0.6,
-                  boxShadow: (wikiFilterMode === 'lesson' && focusLessonId) ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  cursor: 'pointer',
+                  background: wikiFilterMode === 'select' ? '#fff' : 'transparent',
+                  color: wikiFilterMode === 'select' ? '#3b82f6' : '#64748b',
+                  boxShadow: wikiFilterMode === 'select' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
                   transition: 'all 0.15s',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
+                title="Chọn bài giảng bất kỳ trong danh sách"
               >
-                Bài giảng này
+                Chọn bài giảng
               </button>
               <button
                 type="button"
                 onClick={() => setWikiFilterMode('all')}
                 style={{
-                  padding: '5px',
+                  padding: '5px 2px',
                   borderRadius: '4px',
                   border: 'none',
-                  fontSize: '10px',
+                  fontSize: '9px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  background: wikiFilterMode === 'all' || !focusLessonId ? '#fff' : 'transparent',
-                  color: wikiFilterMode === 'all' || !focusLessonId ? '#3b82f6' : '#64748b',
-                  boxShadow: wikiFilterMode === 'all' || !focusLessonId ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  background: wikiFilterMode === 'all' ? '#fff' : 'transparent',
+                  color: wikiFilterMode === 'all' ? '#3b82f6' : '#64748b',
+                  boxShadow: wikiFilterMode === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
                   transition: 'all 0.15s',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
+                title="Xem tất cả ghi chú trong CSDL"
               >
                 Toàn hệ thống
               </button>
             </div>
 
+            {/* Sub-tab 2: Bộ chọn và tìm kiếm bài giảng cụ thể */}
+            {wikiFilterMode === 'select' && (
+              <LessonSearchCombobox
+                lessonPlans={lessonPlans}
+                selectedId={selectedWikiLessonId}
+                onSelectLesson={(id) => {
+                  setSelectedWikiLessonId(id);
+                  fetchSelectedWikiLessonNotes(id);
+                }}
+              />
+            )}
+
             {/* Real-time Search input */}
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
-                placeholder="Tìm ghi chú (real-time)..."
+                placeholder={(!selectedWikiLessonId && wikiFilterMode === 'select') ? "Vui lòng chọn bài giảng trước..." : "Tìm thực thể/ghi chú (real-time)..."}
                 value={wikiSearchQuery}
+                disabled={!selectedWikiLessonId && wikiFilterMode === 'select'}
                 onChange={(e) => setWikiSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
@@ -142,8 +292,9 @@ export default function WikiNotesTab({
                   borderRadius: '8px',
                   border: '1px solid #cbd5e1',
                   fontSize: '11px',
-                  background: '#ffffff',
-                  color: '#334155',
+                  background: (!selectedWikiLessonId && wikiFilterMode === 'select') ? '#f1f5f9' : '#ffffff',
+                  color: (!selectedWikiLessonId && wikiFilterMode === 'select') ? '#94a3b8' : '#334155',
+                  cursor: (!selectedWikiLessonId && wikiFilterMode === 'select') ? 'not-allowed' : 'text',
                   outline: 'none',
                   boxSizing: 'border-box',
                 }}
@@ -181,9 +332,16 @@ export default function WikiNotesTab({
               <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8', lineHeight: 1.5 }}>
                 💡 Hãy chọn một bài giảng ở danh sách ngoài để xem ghi chú tương ứng.
               </div>
+            ) : !selectedWikiLessonId && wikiFilterMode === 'select' ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '11px', color: '#64748b', lineHeight: 1.5, background: '#ffffff', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                📖 <strong>Chưa chọn bài giảng</strong>
+                <p style={{ margin: '4px 0 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                  Vui lòng gõ và chọn một bài giảng ở ô tìm kiếm trên để hiển thị danh sách thực thể & khái niệm RAG.
+                </p>
+              </div>
             ) : currentNotes.length === 0 ? (
               <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
-                Không có ghi chú nào phù hợp.
+                Không có thực thể/ghi chú nào phù hợp.
               </div>
             ) : (
               currentNotes.map((note, nIdx) => {
