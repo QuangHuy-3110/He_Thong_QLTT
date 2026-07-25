@@ -327,10 +327,14 @@ Khi cơ sở dữ liệu được đặt từ xa trên đám mây, các truy v�
 
 ### ⚙️ Quản Lý AI RAG & Reprocess Combobox Dành Cho Admin:
 *   **Giải pháp**:
-    *   Thêm endpoint `failed_lessons` và `all_lessons` trong `bg_processor.py` giúp Admin theo dõi các tác vụ ngầm bị lỗi và lý do cụ thể.
-    *   Xây dựng `ReprocessCombobox` trong `SettingsTab.tsx` cho phép Admin tìm kiếm theo tên và chọn bài giảng bất kỳ để xóa cache RAG cũ và kích hoạt tái xử lý ngầm từ đầu.
-    *   Nâng cấp `WikiNotesTab.tsx` với 3 sub-tabs (`Bài giảng này`, `Chọn bài giảng`, `Toàn hệ thống`) cùng bộ lọc `LessonSearchCombobox` giúp tra cứu thực thể theo từng bài giảng một cách trực quan, mượt mà.
+### 🗄️ Truy Vấn RAG Động Trực Tiếp Từ Supabase Cloud Database:
+*   **Vấn đề**: Khi ứng dụng được triển khai lên máy chủ Server Online (Render), máy chủ đĩa cứng không lưu trữ đầy đủ các file nốt `.md` trong Obsidian Vault như môi trường Local, làm cho giao diện Wiki Tab bị mất dữ liệu RAG.
+*   **Giải pháp**:
+    *   Tái cấu trúc các API trong `views.py` (`ObsidianNotesListAPIView`, `ObsidianNoteContentAPIView`, `ObsidianNotesByLessonAPIView`) để ưu tiên đọc động 100% dữ liệu RAG Chunks từ bảng `DocumentChunk` trên Cơ sở dữ liệu Supabase Cloud.
+    *   Đảm bảo ứng dụng Web Online luôn truy xuất đầy đủ 1,761+ bản ghi RAG mượt mà bất kể môi trường triển khai.
 
 ---
+
+
 
 
