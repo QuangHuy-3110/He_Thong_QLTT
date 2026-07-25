@@ -10,6 +10,91 @@ export const getFallbackApiBase = (defaultLocal: string = '') => {
   return defaultLocal;
 };
 
+export const STANDARD_DURATIONS = [
+  '1 tiết (45 phút)',
+  '2 tiết (90 phút)',
+  '3 tiết (135 phút)',
+  '4 tiết (180 phút)',
+  '5 tiết (1 buổi)'
+];
+
+export const DEFAULT_STANDARD_ACTIVITIES = [
+  {
+    ten_hoat_dong: 'Hoạt động 1: Mở đầu / Khởi động & Kích hoạt kiến thức',
+    thoi_gian: '10 phút',
+    tom_tat: 'Tạo cảm xúc tích cực, huy động trải nghiệm nền của học sinh, nhận diện vấn đề thực tiễn cần giải quyết.'
+  },
+  {
+    ten_hoat_dong: 'Hoạt động 2: Hình thành kiến thức mới & Khám phá trải nghiệm',
+    thoi_gian: '20 phút',
+    tom_tat: 'Tổ chức làm việc nhóm, phân tích tình huống thực tế, nghiên cứu tài liệu và hệ thống hóa kiến thức tích hợp.'
+  },
+  {
+    ten_hoat_dong: 'Hoạt động 3: Luyện tập & Thực hành rèn luyện kĩ năng',
+    thoi_gian: '10 phút',
+    tom_tat: 'Vận dụng kiến thức giải quyết bài tập tình huống, làm việc theo phiếu học tập, rèn luyện kĩ năng cá nhân.'
+  },
+  {
+    ten_hoat_dong: 'Hoạt động 4: Vận dụng & Lập kế hoạch hành động thực tiễn',
+    thoi_gian: '5 phút',
+    tom_tat: 'Chuyển hóa bài học thành hành động cụ thể trong gia đình và cộng đồng, lập kế hoạch hành động rèn luyện bản thân.'
+  }
+];
+
+export const DEFAULT_BIO_INTEGRATION_DETAILS = [
+  {
+    kien_thuc_sh: 'Hệ cơ – xương – khớp, tim mạch và hô hấp',
+    noi_dung_tich_hop: 'Nguyên lý vận động an toàn, phát triển cơ thể cân đối và tăng cường sức bền',
+    y_nghia: 'Hình thành thói quen rèn luyện thể lực, nâng cao sức khỏe thể chất'
+  },
+  {
+    kien_thuc_sh: 'Hệ thần kinh, hormone và cơ sở sinh học cảm xúc',
+    noi_dung_tich_hop: 'Cơ chế phát sinh căng thẳng, giấc ngủ và các chất dẫn truyền thần kinh (serotonin, dopamine)',
+    y_nghia: 'Biết cách quản lý cảm xúc, duy trì tâm lý tích cực và cân bằng cuộc sống'
+  }
+];
+
+export function normalizeDuration(val?: string | number | null): string {
+  if (val === undefined || val === null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+
+  const lower = str.toLowerCase();
+
+  if (lower.includes('buổi') || lower.includes('5 tiết') || lower.includes('225') || lower === '5') {
+    return '5 tiết (1 buổi)';
+  }
+
+  if (lower.includes('180') || lower.includes('4 tiết') || lower === '4') {
+    return '4 tiết (180 phút)';
+  }
+
+  if (lower.includes('135') || lower.includes('3 tiết') || lower === '3') {
+    return '3 tiết (135 phút)';
+  }
+
+  if (lower.includes('90') || lower.includes('2 tiết') || lower.includes('2 - 3') || lower.includes('2-3') || lower === '2' || lower === '02') {
+    return '2 tiết (90 phút)';
+  }
+
+  if (lower.includes('45') || lower.includes('1 tiết') || lower === '1' || lower === '01') {
+    return '1 tiết (45 phút)';
+  }
+
+  const matchDigit = lower.match(/(\d+)/);
+  if (matchDigit) {
+    const num = parseInt(matchDigit[1], 10);
+    if (num === 1) return '1 tiết (45 phút)';
+    if (num === 2) return '2 tiết (90 phút)';
+    if (num === 3) return '3 tiết (135 phút)';
+    if (num === 4) return '4 tiết (180 phút)';
+    if (num >= 5) return '5 tiết (1 buổi)';
+    return `${num} tiết`;
+  }
+
+  return str;
+}
+
 // Force Vite cache refresh
 export const getFileUrl = (url: string | undefined | null) => {
   if (!url) return '';
@@ -349,4 +434,470 @@ export function parseMarkdownLessonPlan(markdown?: string, titleFallback?: strin
     tiến_trình: finalTienTrinh,
     hoạt_động: finalHoatDong
   };
+}
+
+export interface MindmapData {
+  title: string;
+  mục_tiêu: { kiến_thức: string[]; năng_lực: string[]; phẩm_chất: string[] };
+  học_liệu: { giáo_viên: string[]; học_sinh: string[] };
+  tiến_trình: { ten: string; time: string; tom_tat: string }[];
+  hoạt_động: { ten: string; muc_tieu: string; thuc_hien: string }[];
+}
+
+export interface FormattedActivity {
+  title: string;
+  duration?: string;
+  summary?: string;
+  details: string;
+  category: string;
+}
+
+export function getLessonMindmapData(lesson: LessonPlan): MindmapData {
+  if (!lesson) {
+    return {
+      title: 'Giáo án chưa có tiêu đề',
+      mục_tiêu: { kiến_thức: [], năng_lực: [], phẩm_chất: [] },
+      học_liệu: { giáo_viên: [], học_sinh: [] },
+      tiến_trình: [],
+      hoạt_động: []
+    };
+  }
+
+  // 1. Priority A: Explicitly saved activities in attributes take top priority!
+  const acts = lesson.attributes?.tien_trinh_day_hoc;
+  if (Array.isArray(acts) && acts.length > 0) {
+    const parsedMd = parseMarkdownLessonPlan(lesson.content_preview, lesson.title);
+    const tienTrinh = acts.map((a: any, idx: number) => ({
+      ten: a.ten_hoat_dong || a.title || a.name || `Hoạt động ${idx + 1}`,
+      time: a.thoi_gian || a.time || a.duration || `${15 + (idx % 3) * 10} phút`,
+      tom_tat: a.tom_tat || a.muc_tieu || a.summary || 'Thực hiện theo kịch bản tổ chức bài học.'
+    }));
+    const hoatDong = acts.map((a: any, idx: number) => ({
+      ten: `Hoạt động ${String(idx + 1).padStart(2, '0')}: ${a.ten_hoat_dong || a.title || a.name || 'Hoạt động trải nghiệm'}`,
+      muc_tieu: a.muc_tieu || a.tom_tat || `Phát triển năng lực trải nghiệm pha ${idx + 1}`,
+      thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| ${a.hoat_dong_gv || 'Hướng dẫn học sinh thực hiện.'} | ${a.hoat_dong_hs || 'Thực hiện theo yêu cầu của GV.'} | ${a.noi_dung_luu_bang || a.tom_tat || 'Ghi nhớ nội dung trọng tâm.'} |`,
+    }));
+
+    return {
+      title: lesson.title || 'Kế hoạch bài dạy chi tiết',
+      mục_tiêu: parsedMd?.mục_tiêu || {
+        kiến_thức: ['Nắm vững kiến thức trọng tâm của bài học.'],
+        năng_lực: ['Rèn luyện năng lực tự học và làm việc nhóm.'],
+        phẩm_chất: ['Tôn trọng ý kiến bạn bè và trung thực.']
+      },
+      học_liệu: parsedMd?.học_liệu || {
+        giáo_viên: ['Giáo án chi tiết, slide giảng bài'],
+        học_sinh: ['Vở ghi chép, tài liệu học tập']
+      },
+      tiến_trình: tienTrinh,
+      hoạt_động: hoatDong
+    };
+  }
+
+  // 2. Try dynamic markdown parser next
+  const parsed = parseMarkdownLessonPlan(lesson.content_preview, lesson.title);
+  if (parsed) return parsed;
+
+  const norm = (lesson.title || '').toLowerCase();
+
+  // 2. Pre-authored fallback data for special lessons
+  if (norm.includes('dinh dưỡng') || norm.includes('dinh duong') || norm.includes('thực đơn')) {
+    return {
+      title: 'Dinh dưỡng học đường',
+      mục_tiêu: {
+        kiến_thức: [
+          'KT1: Phân tích vai trò của 4 nhóm chất dinh dưỡng thiết yếu (Glucid, Protid, Lipid, Vitamin & Khoáng chất).',
+          'KT2: Giải thích nguyên tắc xây dựng thực đơn cân bằng calo và tháp dinh dưỡng.',
+          'KT3: Nhận biết tác hại của đồ ăn nhanh và thức uống có ga.',
+        ],
+        năng_lực: [
+          'NLĐT1: Thiết kế thực đơn 1 ngày cân đối năng lượng dựa trên BMR.',
+          'NLĐT2: Đọc hiểu và phân tích thông số dinh dưỡng trên nhãn thực phẩm.',
+          'NLC1: Hợp tác nhóm xây dựng cẩm nang ăn uống sạch.',
+          'NLC2: Thuyết trình và phản biện giải pháp bữa ăn học đường.',
+        ],
+        phẩm_chất: [
+          'PC1: Ý thức tự giác bảo vệ sức khỏe, thói quen ăn uống lành mạnh.',
+          'PC2: Tinh thần trách nhiệm trong việc giảm thiểu lãng phí thực phẩm.',
+        ],
+      },
+      học_liệu: {
+        giáo_viên: [
+          'Mô hình Tháp dinh dưỡng học đường 3D trực quan.',
+          'Bộ thẻ trò chơi thực phẩm (60 loại nguyên liệu).',
+          "Video ngắn 'Hành trình tiêu hóa và hấp thu chất dinh dưỡng'.",
+        ],
+        học_sinh: [
+          'Bộ bút màu, giấy A1, kéo, hồ dán.',
+          'Mẫu thực phẩm thật (bao bì sữa, đồ ăn vặt để phân tích nhãn).',
+        ],
+      },
+      tiến_trình: [
+        { ten: 'Hoạt động 1: Trò chơi đoán thực phẩm', time: '10 phút', tom_tat: 'GV giấu các quả củ thật, HS dùng tay chạm đoán tên và phân loại nhóm chất.' },
+        { ten: 'Hoạt động 2: Trải nghiệm nhãn dinh dưỡng', time: '20 phút', tom_tat: 'HS nghiên cứu nhãn dinh dưỡng, phân tích 4 nhóm chất thông qua thảo luận.' },
+        { ten: 'Hoạt động 3: Thiết kế thực đơn', time: '25 phút', tom_tat: 'Thực hành thiết kế poster thực đơn bữa trưa cân đối calo.' },
+        { ten: 'Hoạt động 4: Tọa đàm ẩm thực an toàn', time: '15 phút', tom_tat: 'Trưng bày Poster, thuyết trình và chấm chéo điểm bằng Rubric.' },
+        { ten: "Hoạt động 5: Chiến dịch 'Bữa sáng khỏe mạnh'", time: '10 phút', tom_tat: 'Ghi nhật ký dinh dưỡng gia đình, cam kết bữa sáng cân bằng.' },
+      ],
+      hoạt_động: [
+        {
+          ten: 'Hoạt động 1: Trò chơi đoán thực phẩm',
+          muc_tieu: 'Kích hoạt kiến thức nền và tạo không khí học tập hào hứng.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| GV giấu các quả củ thật vào chiếc giỏ bí mật. Gọi đại diện các nhóm lên bịt mắt chạm đoán tên. | HS dùng tay cảm nhận, phát biểu ý kiến đoán tên thực phẩm và phân chia vào 2 giỏ. | 4 Nhóm chất dinh dưỡng thiết yếu. |\n| GV dẫn dắt vào bài học về tầm quan trọng của dinh dưỡng. | HS lắng nghe và chuẩn bị bài. | Nhận diện vai trò các nhóm chất. |`
+        },
+        {
+          ten: 'Hoạt động 2: Trải nghiệm nhãn dinh dưỡng',
+          muc_tieu: 'Nhận diện các thành phần dinh dưỡng và chỉ số có hại.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| GV phát vỏ hộp sữa, lon nước ngọt để HS soi thông số Calories, Đường, Fat. | HS làm việc nhóm phân tích nhãn dinh dưỡng. | Đọc nhãn thực phẩm: Calories, Đường, Chất béo. |\n| GV tổng kết quy tắc lựa chọn thực phẩm an toàn. | HS ghi chép nội dung trọng tâm. | Chọn thực phẩm ít đường, ít chất béo bão hòa. |`
+        },
+        {
+          ten: 'Hoạt động 3: Thiết kế thực đơn',
+          muc_tieu: 'Lập thực đơn 1 ngày đạt chuẩn calo cho lứa tuổi học sinh.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| GV hướng dẫn tính toán calo tiêu chuẩn theo công thức BMR. | HS thiết kế poster thực đơn bữa ăn 600-700 kcal trên giấy A1. | Nguyên tắc cân bằng calo: Năng lượng nạp vào = Năng lượng tiêu hao. |\n| Hướng dẫn phối hợp các nhóm thực phẩm. | HS phân công vẽ minh họa và dán thẻ thực phẩm. | Phối hợp đa dạng 4 nhóm thực phẩm. |`
+        },
+        {
+          ten: 'Hoạt động 4: Tọa đàm ẩm thực an toàn',
+          muc_tieu: 'Phát triển kỹ năng thuyết trình và phản biện.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| GV tổ chức cho các nhóm đóng vai Chuyên gia dinh dưỡng nhận xét thực đơn. | Đại diện nhóm thuyết trình sản phẩm, phản biện câu hỏi của bạn. | Đánh giá thực đơn theo Rubric tiêu chuẩn. |\n| GV chốt kiến thức và chấm điểm sản phẩm. | HS tiếp thu ý kiến và hoàn thiện sản phẩm. | Hoàn thiện thực đơn dinh dưỡng. |`
+        },
+        {
+          ten: "Hoạt động 5: Chiến dịch 'Bữa sáng khỏe mạnh'",
+          muc_tieu: 'Hình thành thói quen ăn uống lành mạnh tại nhà.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| GV giao nhiệm vụ thực hành 7 ngày tự chuẩn bị bữa sáng lành mạnh. | HS cam kết thực hiện và chụp ảnh nhật ký dinh dưỡng. | Kế hoạch 7 ngày ăn sáng lành mạnh. |`
+        },
+      ],
+    };
+  }
+
+  if (norm.includes('cảm xúc') || norm.includes('nhật ký')) {
+    return {
+      title: 'Nhật ký cảm xúc',
+      mục_tiêu: {
+        kiến_thức: [
+          'KT1: Định nghĩa 6 cảm xúc cơ bản của con người.',
+          'KT2: Hiểu cơ chế sinh học phản ứng cảm xúc trên cơ thể.',
+          'KT3: Nhận thức tầm quan trọng của quản lý cảm xúc.',
+        ],
+        năng_lực: [
+          'NLĐT1: Nhận diện và gọi tên cảm xúc cá nhân.',
+          'NLĐT2: Áp dụng phương pháp điều hòa cảm xúc (thở 4-7-8).',
+          'NLC1: Lắng nghe tích cực và thấu cảm với bạn bè.',
+          'NLC2: Giải quyết xung đột từ sự nóng giận.',
+        ],
+        phẩm_chất: [
+          'PC1: Nhân ái, tôn trọng thế giới nội tâm của bản thân.',
+          'PC2: Trung thực khi đối diện với cảm xúc tiêu cực.',
+        ],
+      },
+      học_liệu: {
+        giáo_viên: [
+          "Bộ thẻ cảm xúc 'Emotional Cards'.",
+          'Chuông chánh niệm để thực hành điều hòa nhịp thở.',
+        ],
+        học_sinh: [
+          'Một cuốn sổ trơn (Sổ nhật ký cảm xúc cá nhân).',
+          'Bút màu vẽ, sticker biểu cảm đa dạng.',
+        ],
+      },
+      tiến_trình: [
+        { ten: 'Hoạt động 01: CẢM XÚC CỦA EM HÔM NAY', time: '10 phút', tom_tat: 'Nhận diện và gọi tên được cảm xúc của bản thân.' },
+        { ten: 'Hoạt động 02: LỐI SỐNG CỦA EM ĐÃ ĐỦ NĂNG ĐỘNG CHƯA?', time: '20 phút', tom_tat: 'Đánh giá thói quen vận động hàng ngày và phân tích lợi ích.' },
+        { ten: 'Hoạt động 03: KHÁM PHÁ CƠ SỞ KHOA HỌC CỦA VIỆC LUYỆN TẬP', time: '20 phút', tom_tat: 'Tích hợp Sinh học phân tích cơ chế vận động cơ thể.' },
+        { ten: 'Hoạt động 04: THIẾT KẾ KẾ HOẠCH VẬN ĐỘNG 7 NGÀY', time: '25 phút', tom_tat: 'Xây dựng kế hoạch rèn luyện thể chất cá nhân.' },
+      ],
+      hoạt_động: [
+        {
+          ten: 'Hoạt động 01: CẢM XÚC CỦA EM HÔM NAY',
+          muc_tieu: '- Nhận diện và gọi tên được cảm xúc của bản thân.\n- Hiểu rằng mỗi người có thể trải qua những cảm xúc khác nhau trong cùng một hoàn cảnh.\n- Hình thành thái độ tôn trọng cảm xúc của bản thân và người khác.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên chiếu lần lượt các hình ảnh hoặc biểu tượng khuôn mặt thể hiện những cảm xúc khác nhau: 😊 Vui vẻ 😢 Buồn 😠 Tức giận 😰 Lo lắng 😍 Hào hứng 😨 Sợ hãi 😌 Bình yên 😕 Bối rối. <br/><br/>**Giáo viên hỏi**: Nếu chỉ được chọn một biểu tượng để mô tả cảm xúc của mình lúc này, em sẽ chọn biểu tượng nào? Vì sao? | Học sinh có thể giơ thẻ màu, sticker hoặc giơ tay theo lựa chọn. | Mỗi người đều có cảm xúc. Cảm xúc giúp chúng ta hiểu chính mình. Nhận diện cảm xúc là bước đầu để quản lý cảm xúc. |\n| Giáo viên phát Phiếu học tập số 1. | HS tiến hành hoàn thành PHT. | Mỗi người đều có cảm xúc. Cảm xúc giúp chúng ta hiểu chính mình. Nhận diện cảm xúc là bước đầu để quản lý cảm xúc. |\n| Yêu cầu học sinh trao đổi với bạn bên cạnh: Em đã chọn cảm xúc nào? Điều gì tạo nên cảm xúc đó? Nếu gặp bạn có cảm xúc giống em, em sẽ nói gì? <br/><br/>*Giáo viên lưu ý*: Học sinh không bắt buộc chia sẻ những vấn đề riêng tư. Có thể chỉ chia sẻ mức độ hoặc tình huống giả định. | HS làm việc nhóm đôi trao đổi, thảo luận. | Mỗi người đều có cảm xúc. Cảm xúc giúp chúng ta hiểu chính mình. Nhận diện cảm xúc là bước đầu để quản lý cảm xúc. |\n| Giáo viên tổng kết: Cảm xúc là phản ứng tự nhiên của con người. Không có cảm xúc nào hoàn toàn "xấu" hay "tốt"; điều quan trọng là cách chúng ta nhận diện và ứng xử với cảm xúc. Mỗi người có thể cảm nhận khác nhau trước cùng một sự việc. | HS lắng nghe và rút ra bài học cá nhân. | Cảm xúc là phản ứng tự nhiên của con người. Nhận diện và ứng xử với cảm xúc tích cực. |`
+        },
+        {
+          ten: 'Hoạt động 02: LỐI SỐNG CỦA EM ĐÃ ĐỦ NĂNG ĐỘNG CHƯA?',
+          muc_tieu: '- Phân tích mức độ vận động hàng ngày của bản thân.\n- Đánh giá được ưu điểm và hạn chế trong thói quen sinh hoạt.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên giao bảng tự kiểm tra mức độ vận động thể chất hàng ngày cho học sinh. | Học sinh tích chọn các hoạt động đã thực hiện trong 3 ngày gần nhất. | Lối sống năng động giúp tăng cường sức khỏe thể chất và tinh thần. |\n| Hướng dẫn học sinh tính điểm và thảo luận nhóm về các thói quen tĩnh tại (ngồi lâu, dùng điện thoại). | Học sinh thảo luận nhóm, so sánh chỉ số vận động cá nhân. | Hạn chế thời gian tĩnh tại, duy trì vận động ít nhất 30-60 phút mỗi ngày. |`
+        },
+        {
+          ten: 'Hoạt động 03: KHÁM PHÁ CƠ SỞ KHOA HỌC CỦA VIỆC LUYỆN TẬP',
+          muc_tieu: '- Hiểu cơ chế sinh học của hệ cơ, xương, khớp và hô hấp khi vận động.\n- Vận dụng kiến thức để giải thích lý do cần rèn luyện thường xuyên.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên trình chiếu sơ đồ hệ cơ - xương - khớp và sự chuyển hóa năng lượng khi tập thể thao. | Học sinh quan sát, phân tích mối liên hệ giữa vận động và sức khỏe hệ tuần hoàn, hô hấp. | Luyện tập giúp cơ bắp dẻo dai, xương chắc khỏe và tối ưu hóa chuyển hóa năng lượng. |\n| GV đặt câu hỏi tình huống: Tại sao sau khi tập thể dục ta lại cảm thấy tinh thần sảng khoái? | HS phát biểu dựa trên kiến thức tiết hóc Endorphin và trao đổi chất. | Vận dụng Sinh học vào rèn luyện thể chất an toàn và khoa học. |`
+        },
+        {
+          ten: 'Hoạt động 04: THIẾT KẾ KẾ HOẠCH VẬN ĐỘNG 7 NGÀY',
+          muc_tieu: '- Xây dựng bản kế hoạch rèn luyện thể thao phù hợp với bản thân.\n- Cam kết duy trì thói quen năng động.',
+          thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên hướng dẫn các bước lập kế hoạch: Chọn môn thể thao, thời gian, mục tiêu đo lường được. | Học sinh phác thảo kế hoạch 7 ngày vào phiếu bài tập. | Kế hoạch 7 ngày: Cụ thể - Khả thi - Đo lường được. |\n| Tổ chức cho học sinh chia sẻ kế hoạch với bạn cùng tiến để giám sát lẫn nhau. | Học sinh trao đổi, góp ý và ký cam kết đồng hành. | Duy trì cam kết rèn luyện thể chất bền vững. |`
+        }
+      ],
+    };
+  }
+
+  // 3. Generic fallback from lesson.attributes or content
+  const fallbackActs = lesson.attributes?.tien_trinh_day_hoc ?? [];
+  const bioIntegrated = lesson.attributes?.['Kiến thức sinh học liên quan'];
+  const durationAttr = lesson.attributes?.['Thời gian thực hiện'] || lesson.attributes?.['Thời gian'] || lesson.attributes?.['Số tiết'];
+  const trackAttr = lesson.attributes?.['Mạch kiến thức'];
+  const topicAttr = lesson.attributes?.['Chủ đề'];
+
+  const dynamicKiensThuc = bioIntegrated
+    ? String(bioIntegrated).split(',').map((t, idx) => `KT${idx + 1}: Tích hợp Sinh học - ${t.trim()}`)
+    : ['KT1: Tìm hiểu sâu khái niệm chuyên đề', 'KT2: Mở rộng kiến thức thực hành & liên hệ bản thân'];
+
+  if (trackAttr || topicAttr) {
+    dynamicKiensThuc.unshift(`Nội dung trọng tâm: ${topicAttr || lesson.title} (${trackAttr || 'Hoạt động trải nghiệm'})`);
+  }
+
+  const tienTrinh = fallbackActs.map((a: any, idx: number) => ({
+    ten: a.ten_hoat_dong || a.title || a.name || `Hoạt động ${idx + 1}`,
+    time: a.thoi_gian || a.time || a.duration || `${15 + (idx % 3) * 10} phút`,
+    tom_tat: a.tom_tat || a.muc_tieu || a.summary || 'Thực hiện theo kịch bản tổ chức bài học.'
+  }));
+
+  const hoatDong = fallbackActs.length > 0
+    ? fallbackActs.map((a: any, idx: number) => ({
+        ten: `Hoạt động ${String(idx + 1).padStart(2, '0')}: ${a.ten_hoat_dong || a.title || a.name || 'Hoạt động trải nghiệm'}`,
+        muc_tieu: a.muc_tieu || `Phát triển năng lực trải nghiệm pha ${idx + 1}`,
+        thuc_hien: `| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| ${a.hoat_dong_gv || 'Hướng dẫn học sinh thực hiện.'} | ${a.hoat_dong_hs || 'Thực hiện theo yêu cầu của GV.'} | ${a.noi_dung_luu_bang || a.tom_tat || 'Ghi nhớ nội dung trọng tâm.'} |`,
+      }))
+    : [
+        {
+          ten: 'Hoạt động 01: Khởi động & Tạo bối cảnh',
+          muc_tieu: 'Kích hoạt năng lượng lớp học và đặt câu hỏi bối cảnh thực tiễn.',
+          thuc_hien: '| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên chiếu video khởi động, nêu câu hỏi tình huống thực tế. | Học sinh theo dõi, phát biểu cảm nghĩ và suy luận cá nhân. | Nhận diện vấn đề thực tiễn của bài học. |'
+        },
+        {
+          ten: 'Hoạt động 02: Khám phá & Hình thành kiến thức',
+          muc_tieu: 'Phân tích kiến thức tích hợp qua phiếu học tập và làm việc nhóm.',
+          thuc_hien: '| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên giao phiếu học tập, phân công nhiệm vụ thảo luận nhóm. | Học sinh đọc tài liệu, trao đổi nhóm và ghi kết quả vào giấy A1. | Tổng hợp kiến thức cốt lõi. |'
+        },
+        {
+          ten: 'Hoạt động 03: Luyện tập & Vận dụng thực hành',
+          muc_tieu: 'Rèn luyện kỹ năng thực tế và đóng vai xử lý tình huống.',
+          thuc_hien: '| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên đưa ra tình huống thực tế, tổ chức trò chơi đóng vai. | Học sinh phối hợp giải quyết tình huống, trình bày sản phẩm. | Kỹ năng vận dụng vào đời sống. |'
+        },
+        {
+          ten: 'Hoạt động 04: Báo cáo & Tổng kết đánh giá',
+          muc_tieu: 'Đánh giá năng lực thuyết trình và tổng kết bài học.',
+          thuc_hien: '| 👨‍🏫 Hoạt động giáo viên | 🎒 Hoạt động học sinh | 📝 Nội dung lưu bảng |\n| :--- | :--- | :--- |\n| Giáo viên nhận xét, định hướng và chốt kiến thức trọng tâm. | Học sinh lắng nghe, chấm điểm đồng đẳng và rút ra bài học. | Khái quát kết luận bài học. |'
+        }
+      ];
+
+  return {
+    title: lesson.title,
+    mục_tiêu: {
+      kiến_thức: dynamicKiensThuc,
+      năng_lực: [
+        'NL1: Năng lực thích ứng cuộc sống & nhận diện cảm xúc',
+        'NL2: Năng lực thiết kế và tổ chức hoạt động trải nghiệm',
+        'NL3: Vận dụng kiến thức Sinh học giải thích hiện tượng thực tế'
+      ],
+      phẩm_chất: [
+        'PC1: Trung thực, trách nhiệm với bản thân và gia đình',
+        'PC2: Yêu thiên nhiên, chủ động chăm sóc sức khỏe tinh thần'
+      ],
+    },
+    học_liệu: {
+      giáo_viên: [
+        `Giáo án Word chi tiết${durationAttr ? ` (${durationAttr})` : ''}`,
+        'Slide bài giảng trình chiếu & Thẻ thảo luận nhóm',
+        'Phiếu đánh giá Rubric sư phạm'
+      ],
+      học_sinh: [
+        'Sổ tay ghi chép nhật ký học tập',
+        'Dụng cụ học tập, bài tập trải nghiệm thực tế'
+      ],
+    },
+    tiến_trình: tiếnTrinh.length > 0 ? tiếnTrinh : [
+      { ten: 'Hoạt động 01: Khởi động & Tạo bối cảnh', time: '10 phút', tom_tat: 'Kích hoạt năng lượng lớp học, đặt câu hỏi bối cảnh thực tiễn.' },
+      { ten: 'Hoạt động 02: Khám phá & Hình thành kiến thức', time: '25 phút', tom_tat: 'Nghiên cứu nội dung chuyên đề, làm việc nhóm tích hợp Sinh học.' },
+      { ten: 'Hoạt động 03: Luyện tập & Vận dụng thực hành', time: '30 phút', tom_tat: 'Thực hành giải quyết bài toán tình huống và đóng vai trải nghiệm.' },
+      { ten: 'Hoạt động 04: Báo cáo & Tổng kết đánh giá', time: '15 phút', tom_tat: 'Thuyết trình kết quả nhóm và chấm điểm chéo bằng Rubric.' }
+    ],
+    hoạt_động: hoạtDong
+  };
+}
+
+export function getLessonActivitiesTimeline(data: MindmapData): FormattedActivity[] {
+  const result: FormattedActivity[] = [];
+  const acts = data.hoạt_động && data.hoạt_động.length > 0 ? data.hoạt_động : [];
+  const ttrinh = data.tiến_trình && data.tiến_trình.length > 0 ? data.tiến_trình : [];
+
+  const isMeaningful = (text: any): boolean => {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.includes('---')) return false;
+    const clean = trimmed.replace(/^[-*•—|\s]+$/, '');
+    return clean.length > 0 && clean !== '—' && clean !== '-' && clean !== '.' && clean !== '…';
+  };
+
+  if (acts.length > 0) {
+    acts.forEach((act, idx) => {
+      if (!isMeaningful(act.ten)) return;
+      const matchingTtrinh = ttrinh.find(t => t.ten.toLowerCase().includes(act.ten.toLowerCase()) || act.ten.toLowerCase().includes(t.ten.toLowerCase()));
+      const timeStr = (matchingTtrinh && matchingTtrinh.time) ? matchingTtrinh.time : `${10 + (idx % 4) * 5} phút`;
+      const cleanTitle = act.ten;
+      let summaryText = (matchingTtrinh && matchingTtrinh.tom_tat) ? matchingTtrinh.tom_tat : (act.muc_tieu || '');
+      if (summaryText && (summaryText.includes('Tiến hành theo kịch bản') || summaryText.includes('Thực hiện theo kịch bản'))) summaryText = '';
+      const detailsMarkdown = `### 📌 ${act.ten}${timeStr ? ` — ⏱️ ${timeStr}` : ''}\n\n### 🎯 Mục tiêu hoạt động\n${act.muc_tieu || 'Phát triển năng lực học sinh qua hoạt động trải nghiệm.'}\n\n### 🚀 Tiến trình thực hiện chi tiết\n${act.thuc_hien || (matchingTtrinh ? matchingTtrinh.tom_tat : 'Tiến hành theo kịch bản giáo án.')}`;
+      result.push({ title: cleanTitle, duration: timeStr, summary: summaryText, details: detailsMarkdown, category: 'TIẾN TRÌNH & HOẠT ĐỘNG DẠY HỌC' });
+    });
+  } else if (ttrinh.length > 0) {
+    ttrinh.forEach((t, idx) => {
+      if (!isMeaningful(t.ten)) return;
+      const timeStr = t.time || `${10 + (idx % 4) * 5} phút`;
+      const detailsMarkdown = `### 📌 ${t.ten} — ⏱️ ${timeStr}\n\n### 🚀 Tiến trình thực hiện\n${t.tom_tat}`;
+      let summaryText = t.tom_tat.split('\n')[0] || t.tom_tat;
+      if (summaryText && (summaryText.includes('Tiến hành theo kịch bản') || summaryText.includes('Thực hiện theo kịch bản'))) summaryText = '';
+      result.push({ title: t.ten, duration: timeStr, summary: summaryText, details: detailsMarkdown, category: 'TIẾN TRÌNH & HOẠT ĐỘNG DẠY HỌC' });
+    });
+  }
+
+  return result;
+}
+
+export function extractActivitiesFromMarkdown(markdownText: string): { ten_hoat_dong: string; thoi_gian: string; tom_tat: string; chi_tiet?: string }[] {
+  if (!markdownText) return [];
+
+  const results: { ten_hoat_dong: string; thoi_gian: string; tom_tat: string; chi_tiet?: string }[] = [];
+  const lines = markdownText.split('\n');
+
+  // Method A: Markdown Tables under TIẾN TRÌNH DẠY HỌC
+  let inTimelineSection = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('#') && (line.toLowerCase().includes('tiến trình') || line.toLowerCase().includes('khung tiến trình'))) {
+      inTimelineSection = true;
+      continue;
+    }
+    if (inTimelineSection && line.startsWith('#') && !line.toLowerCase().includes('tiến trình')) {
+      inTimelineSection = false;
+    }
+    if (inTimelineSection && line.startsWith('|') && !line.includes('---') && !line.toLowerCase().includes('hoạt động') && !line.toLowerCase().includes('thời gian')) {
+      const cells = line.split('|').map(c => c.trim()).filter(Boolean);
+      if (cells.length >= 2) {
+        let name = cells[0].replace(/[\[\]]/g, '');
+        let desc = cells[1] ? cells[1].replace(/[\[\]]/g, '') : '';
+        let time = '15 phút';
+        const timeMatch = name.match(/(.*?)\((.*?)\)/);
+        if (timeMatch) { name = timeMatch[1].trim(); time = timeMatch[2].trim(); }
+        else if (cells.length >= 3 && cells[cells.length - 1].toLowerCase().includes('phút')) { time = cells[cells.length - 1]; }
+        
+        // Clean name from leading HĐ / Hoạt động prefixes
+        let cleanName = name.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+        
+        // If col1 was just "HĐ 1" or "Hoạt động 1", extract entire text of col2 as cleanName
+        if (!cleanName && desc) {
+          cleanName = desc.trim();
+          desc = '';
+        }
+        
+        results.push({ ten_hoat_dong: cleanName || name, thoi_gian: time, tom_tat: desc });
+      }
+    }
+  }
+
+  // Method B: Markdown headings
+  if (results.length === 0) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const isActHeader = line.match(/^(?:#{1,4}\s*|\d+[\.]\s*)(Hoạt\s*động|HĐ)\s*\d+[:\s\-]*(.*)/i) ||
+                          line.match(/^(?:#{1,4}\s*)(Khởi\s*động|Khám\s*phá|Luyện\s*tập|Vận\s*dụng|Hình\s*thành\s*kiến\s*thức)[:\s\-]*(.*)/i);
+      if (isActHeader) {
+        const fullTitle = line.replace(/^#+\s*/, '').replace(/\*/g, '').trim();
+        let timeStr = '15 phút';
+        const timeMatch = fullTitle.match(/\((\d+\s*phút.*?)\)/i) || fullTitle.match(/(\d+\s*phút)/i);
+        if (timeMatch) timeStr = timeMatch[1];
+        const summaryLines: string[] = [];
+        for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
+          const nxt = lines[j].trim();
+          if (nxt.startsWith('#') || nxt.startsWith('---')) break;
+          if (nxt && !nxt.startsWith('|')) summaryLines.push(nxt.replace(/[*_`]/g, ''));
+        }
+        const cleanTitle = fullTitle.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+        results.push({ ten_hoat_dong: cleanTitle || fullTitle, thoi_gian: timeStr, tom_tat: summaryLines.join(' ').slice(0, 200) || 'Tiến hành hoạt động học tập theo nội dung bài dạy.' });
+      }
+    }
+  }
+
+  // Method C: Inline regex for HTML Word table selection (no linebreaks)
+  if (results.length === 0) {
+    const raw = markdownText.replace(/[\r\n]+/g, ' ');
+    const actRegex = /(?:Hoạt\s*động|HĐ)\s*(\d+)[\:\s\-]*(.*?)(?=(?:Hoạt\s*động|HĐ)\s*\d+|$)/gi;
+    let match;
+    while ((match = actRegex.exec(raw)) !== null) {
+      const num = match[1];
+      let body = match[2].trim();
+      if (!body) continue;
+      let time = '15 phút';
+      const timeMatch = body.match(/(\d+\s*phút)/i);
+      if (timeMatch) { time = timeMatch[1]; body = body.replace(/(\d+\s*phút)/i, '').trim(); }
+      let title = body;
+      let tom_tat = body;
+      const splitColon = body.split(/[:\-\–]/);
+      if (splitColon.length > 1 && splitColon[0].length < 60) {
+        title = splitColon[0].trim();
+        tom_tat = splitColon.slice(1).join(':').trim();
+      } else if (body.length > 80) {
+        title = body.slice(0, 60) + '...';
+        tom_tat = body;
+      }
+      const cleanTitle = title.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
+      results.push({ ten_hoat_dong: cleanTitle || title, thoi_gian: time, tom_tat: tom_tat || title });
+    }
+  }
+
+  // Method D: Phase names
+  if (results.length === 0) {
+    const raw = markdownText.replace(/[\r\n]+/g, ' ');
+    const phaseRegex = /(Khởi\s*động|Khám\s*phá|Luyện\s*tập|Vận\s*dụng|Hình\s*thành\s*kiến\s*thức|Báo\s*cáo|Trải\s*nghiệm)[\:\s\-]*(.*?)(?=(?:Khởi\s*động|Khám\s*phá|Luyện\s*tập|Vận\s*dụng|Hình\s*thành\s*kiến\s*thức|Báo\s*cáo|Trải\s*nghiệm)|$)/gi;
+    let match;
+    let idx = 1;
+    while ((match = phaseRegex.exec(raw)) !== null) {
+      const phaseName = match[1].trim();
+      let body = match[2].trim();
+      if (!body) continue;
+      let time = '15 phút';
+      const timeMatch = body.match(/(\d+\s*phút)/i);
+      if (timeMatch) { time = timeMatch[1]; body = body.replace(/(\d+\s*phút)/i, '').trim(); }
+      results.push({ ten_hoat_dong: `Hoạt động ${idx++} (${phaseName}): ${body.slice(0, 50)}`, thoi_gian: time, tom_tat: body || phaseName });
+    }
+  }
+
+  // Enrich: Extract chi_tiet from "Tiến trình dạy học chi tiết" section
+  const detailSectionMatch = markdownText.match(/(?:Tiến\s*trình\s*dạy\s*học\s*chi\s*tiết|Tiến\s*trình\s*dạy\s*học)([\s\S]*)/i);
+  if (detailSectionMatch) {
+    let detailText = detailSectionMatch[1];
+    // Dynamically cut off at the next major section heading level (e.g. IV., V., 4., 5. etc.)
+    const cutoffMatch = detailText.match(/(?:\n|\r|^)(?:#+\s*)*(?:[I|V|X]{1,4}|\d+)[\.\)]\s+[A-ZÀ-Ỹ]/m);
+    if (cutoffMatch && cutoffMatch.index !== undefined) {
+      detailText = detailText.slice(0, cutoffMatch.index);
+    }
+    const detailBlocks = detailText.split(/(?=Hoạt\s*động\s*0?\d+[:\s])/i).filter(b => b.trim().match(/^Hoạt\s*động/i));
+    results.forEach((res, idx) => {
+      const block = detailBlocks[idx];
+      if (block) res.chi_tiet = block.trim();
+    });
+  }
+
+  return results;
+}
+
+export function getMarkdownHeadings(markdownText: string): { lineIndex: number; title: string }[] {
+  if (!markdownText) return [];
+  const lines = markdownText.split('\n');
+  const headings: { lineIndex: number; title: string }[] = [];
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#') || trimmed.match(/^(I|II|III|IV|V|VI|VII|VIII|\d+)[\.]\s+[A-ZÀ-Ỹa-zà-ỹ]/i)) {
+      const cleanTitle = trimmed.replace(/^#+\s*/, '').trim();
+      if (cleanTitle.length > 2) headings.push({ lineIndex: idx, title: cleanTitle });
+    }
+  });
+  return headings;
+}
+
+export function extractTextBetweenLines(markdownText: string, startLine: number, endLine: number): string {
+  if (!markdownText) return '';
+  const lines = markdownText.split('\n');
+  const start = Math.max(0, startLine);
+  const end = endLine >= 0 && endLine > start ? endLine + 1 : lines.length;
+  return lines.slice(start, end).join('\n');
 }

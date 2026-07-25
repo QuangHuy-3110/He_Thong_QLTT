@@ -40,10 +40,15 @@ Thumbs.db
 # ==========================================
 # Documents & Word temporary files
 # ==========================================
+*.doc
+*.DOC
 *.docx
 *.DOCX
-~$*.docx
-~$*.DOCX
+~$*.doc*
+~$*.DOC*
+doc/*.doc
+doc/*.docx
+sodo.json
 
 # ==========================================
 # GGUF models & Obsidian Vault files
@@ -54,3 +59,4 @@ obsidian_vault/
 *.zip
 
 WikiNotebook/
+*.log

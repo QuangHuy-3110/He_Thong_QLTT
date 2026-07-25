@@ -11,6 +11,7 @@ import {
   SparklesOutlined
 } from '@ant-design/icons';
 import { User } from '../../context';
+import { normalizeDuration } from '../../utils/helpers';
 
 interface Directory {
   id: number;
@@ -192,117 +193,127 @@ export default function LibraryList({
         <Empty description="Không có tài liệu nào trong mục này." className="py-12" />
       ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 ${isFilterSidebarOpen ? 'lg:grid-cols-2' : 'lg:grid-cols-3'} gap-6`}>
-          {paginatedLessonPlans.map((lesson) => (
-            <Card
-              key={lesson.id}
-              onClick={() => setSelectedLessonForDetail(lesson)}
-              hoverable
-              className="rounded-2xl border-gray-200 shadow-sm transition-all group flex flex-col cursor-pointer"
-            >
-              <div className="flex justify-between items-start gap-4 mb-3">
-                <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors m-0">
-                  {highlightText(lesson.title, debouncedSearchQuery)}
-                </h3>
-                <span className="text-xs font-bold text-blue-500 whitespace-nowrap bg-blue-50 px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  Xem chi tiết ↗
-                </span>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 mb-3">
-                <Tag color="purple">📖 {lesson.target_student || 'Giáo án'}</Tag>
-                
-                {lesson.status === 'PUBLISHED' ? (
-                  <Tag color="success" icon={<GlobalOutlined />}>Công khai</Tag>
-                ) : lesson.status === 'PENDING' ? (
-                  <Tag color="warning" className="animate-pulse">Chờ duyệt</Tag>
-                ) : lesson.status === 'REJECTED' ? (
-                  <Tag color="error">Bị từ chối</Tag>
-                ) : (
-                  <Tag color="default" icon={<LockOutlined />}>Cá nhân</Tag>
-                )}
-
-                {lesson.total_ratings && lesson.total_ratings > 0 ? (
-                  <Tag color="gold" icon={<StarOutlined />}>
-                    {Number(lesson.average_rating || 0).toFixed(1)} ({lesson.total_ratings} đánh giá)
-                  </Tag>
-                ) : (
-                  <Tag color="default">⭐ Chưa có đánh giá</Tag>
-                )}
-
-                {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
-                  (() => {
-                    const leafDirIds = lesson.directory_ids.filter(dirId => {
-                      const hasChildInList = lesson.directory_ids.some(otherId => {
-                        if (otherId === dirId) return false;
-                        const otherDir = directories.find(d => d.id === otherId);
-                        return otherDir && otherDir.parent === dirId;
-                      });
-                      return !hasChildInList;
-                    });
-                    return leafDirIds.map((dirId, i) => (
-                      <Tag color="cyan" key={i} className="max-w-[200px] truncate" title={getDirectoryFullPath(dirId, directories)}>
-                        📂 {getDirectoryFullPath(dirId, directories)}
-                      </Tag>
-                    ));
-                  })()
-                ) : null}
-              </div>
-
-              <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed">
-                {lesson.description ? highlightText(lesson.description, debouncedSearchQuery) : 'Chưa có mô tả.'}
-              </p>
-
-              {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
-
-              <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 text-[11px] text-gray-400">
-                <div className="flex items-center gap-2">
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (lesson.creator) {
-                        setSelectedCreatorForProfile(lesson.creator);
-                      }
-                    }}
-                    className="font-bold text-blue-650 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded transition-all"
-                  >
-                    <UserOutlined /> {lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}
+          {paginatedLessonPlans.map((lesson) => {
+            const durationVal = lesson.attributes?.['Thời gian thực hiện'] || lesson.attributes?.['Thời gian'] || lesson.attributes?.['Số tiết'];
+            
+            return (
+              <Card
+                key={lesson.id}
+                onClick={() => setSelectedLessonForDetail(lesson)}
+                hoverable
+                className="rounded-2xl border-gray-200 shadow-sm transition-all group flex flex-col cursor-pointer"
+              >
+                <div className="flex justify-between items-start gap-4 mb-3">
+                  <h3 className="text-base font-bold text-gray-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors m-0">
+                    {highlightText(lesson.title, debouncedSearchQuery)}
+                  </h3>
+                  <span className="text-xs font-bold text-blue-500 whitespace-nowrap bg-blue-50 px-2.5 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    Xem chi tiết ↗
                   </span>
-                  <span>•</span>
-                  <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  {useAiRag && (
-                    <Button
-                      type="link"
-                      size="small"
+                
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Tag color="purple">📖 {lesson.target_student || 'Giáo án'}</Tag>
+
+                  {durationVal && (
+                    <Tag color="volcano" className="font-bold">
+                      ⏱️ {normalizeDuration(durationVal)}
+                    </Tag>
+                  )}
+                  
+                  {lesson.status === 'PUBLISHED' ? (
+                    <Tag color="success" icon={<GlobalOutlined />}>Công khai</Tag>
+                  ) : lesson.status === 'PENDING' ? (
+                    <Tag color="warning" className="animate-pulse">Chờ duyệt</Tag>
+                  ) : lesson.status === 'REJECTED' ? (
+                    <Tag color="error">Bị từ chối</Tag>
+                  ) : (
+                    <Tag color="default" icon={<LockOutlined />}>Cá nhân</Tag>
+                  )}
+
+                  {lesson.total_ratings && lesson.total_ratings > 0 ? (
+                    <Tag color="gold" icon={<StarOutlined />}>
+                      {Number(lesson.average_rating || 0).toFixed(1)} ({lesson.total_ratings} đánh giá)
+                    </Tag>
+                  ) : (
+                    <Tag color="default">⭐ Chưa có đánh giá</Tag>
+                  )}
+
+                  {lesson.directory_ids && lesson.directory_ids.length > 0 ? (
+                    (() => {
+                      const leafDirIds = lesson.directory_ids.filter(dirId => {
+                        const hasChildInList = lesson.directory_ids.some(otherId => {
+                          if (otherId === dirId) return false;
+                          const otherDir = directories.find(d => d.id === otherId);
+                          return otherDir && otherDir.parent === dirId;
+                        });
+                        return !hasChildInList;
+                      });
+                      return leafDirIds.map((dirId, i) => (
+                        <Tag color="cyan" key={i} className="max-w-[200px] truncate" title={getDirectoryFullPath(dirId, directories)}>
+                          📂 {getDirectoryFullPath(dirId, directories)}
+                        </Tag>
+                      ));
+                    })()
+                  ) : null}
+                </div>
+
+                <p className="text-xs text-gray-500 mb-4 line-clamp-3 leading-relaxed">
+                  {lesson.description ? highlightText(lesson.description, debouncedSearchQuery) : 'Chưa có mô tả.'}
+                </p>
+
+                {debouncedSearchQuery.trim() && renderSnippet(lesson.content_preview, debouncedSearchQuery)}
+
+                <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 text-[11px] text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFocusLessonIdForChat(lesson.id);
-                        setChatbotOpenTrigger(prev => prev + 1);
+                        if (lesson.creator) {
+                          setSelectedCreatorForProfile(lesson.creator);
+                        }
                       }}
-                      className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 rounded-xl text-[10px] h-6"
+                      className="font-bold text-blue-650 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded transition-all"
                     >
-                      ✨ Hỏi AI
-                    </Button>
-                  )}
-                  {lesson.file_path || lesson.file_url ? (
-                    <a
-                      href={getLessonFileUrl(lesson)}
-                      download={getFileName(lesson.file_url || lesson.file_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
-                    >
-                      <FileWordOutlined /> Tải Word
-                    </a>
-                  ) : (
-                    <span className="text-gray-300">Không có file</span>
-                  )}
+                      <UserOutlined /> {lesson.creator?.full_name || lesson.creator?.username || 'Ẩn danh'}
+                    </span>
+                    <span>•</span>
+                    <span>{new Date(lesson.created_at).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {useAiRag && (
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFocusLessonIdForChat(lesson.id);
+                          setChatbotOpenTrigger(prev => prev + 1);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 font-extrabold flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2 rounded-xl text-[10px] h-6"
+                      >
+                        ✨ Hỏi AI
+                      </Button>
+                    )}
+                    {lesson.file_path || lesson.file_url ? (
+                      <a
+                        href={getLessonFileUrl(lesson)}
+                        download={getFileName(lesson.file_url || lesson.file_path)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                      >
+                        <FileWordOutlined /> Tải Word
+                      </a>
+                    ) : (
+                      <span className="text-gray-300">Không có file</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

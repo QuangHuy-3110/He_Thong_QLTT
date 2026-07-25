@@ -14,10 +14,13 @@ import {
   GlobalOutlined,
   LockOutlined,
   CheckOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import { Card, Select, Input, Button, Tag, Space, Upload, message, Progress, Divider, Alert } from 'antd';
 import type { UploadProps } from 'antd';
+import { STANDARD_DURATIONS, normalizeDuration, DEFAULT_STANDARD_ACTIVITIES } from '../../utils/helpers';
+import { findMatchingDirId, getTrackAndTopicFromDir, getDirectoryAncestorsAndSelf } from '../../utils/directoryHelpers';
 
 const getFallbackApiBase = (defaultLocal: string = '') => {
   if (typeof window !== 'undefined' && 
@@ -227,7 +230,13 @@ export default function UploadPage({
 
   const selectDir = (dir: Directory) => {
     if (uploadMode === 'public' && currentUser?.role === 'TEACHER' && !allowedDirIds.has(dir.id)) return;
-    setSelectedDirId(prev => prev === dir.id ? null : dir.id);
+    const nextDirId = selectedDirId === dir.id ? null : dir.id;
+    setSelectedDirId(nextDirId);
+    if (nextDirId) {
+      const { track, topic } = getTrackAndTopicFromDir(nextDirId, directories);
+      if (track) setSelectedTrack(track);
+      if (topic) setSelectedTopic(topic);
+    }
   };
 
   // Tag inputs & Personal directory creation states
@@ -252,11 +261,13 @@ export default function UploadPage({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [duplicateId, setDuplicateId] = useState<number | null>(null);
 
+  const [selectedSubject, setSelectedSubject] = useState<string>('Hoạt động trải nghiệm Sinh học');
   const [selectedTrack, setSelectedTrack] = useState<string>('');
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [selectedBiologyConnections, setSelectedBiologyConnections] = useState<string[]>([]);
   const [biologySearch, setBiologySearch] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [duration, setDuration] = useState<string>('');
 
   const handleCreatePersonalDirInline = async () => {
     if (!newPersonalDirName.trim() || !currentUser) return;
@@ -303,15 +314,24 @@ export default function UploadPage({
         const data = await res.json();
         
         if (data.title) setTitle(data.title);
+        if (data.subject) setSelectedSubject(data.subject);
         if (data.description) setDescription(data.description);
         if (data.target_students && Array.isArray(data.target_students)) {
           const mappedTargets: string[] = [];
           data.target_students.forEach((t: string) => {
-            if (t.toLowerCase().includes('thành thị')) mappedTargets.push('Học sinh thành thị');
-            else if (t.toLowerCase().includes('nông thôn')) mappedTargets.push('Học sinh nông thôn');
-            else mappedTargets.push(t);
+            if (t.toLowerCase().includes('thành thị') && !mappedTargets.includes('Học sinh thành thị')) {
+              mappedTargets.push('Học sinh thành thị');
+            }
+            if (t.toLowerCase().includes('nông thôn') && !mappedTargets.includes('Học sinh nông thôn')) {
+              mappedTargets.push('Học sinh nông thôn');
+            }
           });
-          setSelectedTargets(mappedTargets);
+          if (mappedTargets.length > 0) {
+            setSelectedTargets(mappedTargets);
+          }
+        }
+        if (data.grade) {
+          setSelectedLops([data.grade]);
         }
         if (data.lesson_type) {
           setSelectedType(data.lesson_type);
@@ -322,9 +342,16 @@ export default function UploadPage({
         if (data.activities && Array.isArray(data.activities)) {
           setParsedActivities(data.activities);
         }
+        if (data.duration) setDuration(normalizeDuration(data.duration));
         if (data.attributes) {
-          if (data.attributes['Mạch kiến thức']) setSelectedTrack(data.attributes['Mạch kiến thức']);
-          if (data.attributes['Chủ đề']) setSelectedTopic(data.attributes['Chủ đề']);
+          const autoDur = data.attributes['Thời gian thực hiện'] || data.attributes['Thời gian'] || data.attributes['Số tiết'];
+          if (autoDur) {
+            setDuration(normalizeDuration(autoDur));
+          }
+          const parsedTrack = data.attributes['Mạch kiến thức'];
+          const parsedTopic = data.attributes['Chủ đề'];
+          if (parsedTrack) setSelectedTrack(parsedTrack);
+          if (parsedTopic) setSelectedTopic(parsedTopic);
           if (data.attributes['Kiến thức sinh học liên quan']) {
             const bioVal = data.attributes['Kiến thức sinh học liên quan'];
             setSelectedBiologyConnections(
@@ -337,9 +364,10 @@ export default function UploadPage({
             setSelectedLops(Array.isArray(lopVal) ? lopVal : [lopVal]);
           }
         }
-        message.success('Đã tự động trích xuất thông tin từ file Word!');
+        message.success('Đã tự động trích xuất và điền thông tin từ file Word!');
       } catch (err) {
         console.error('Auto-extraction error:', err);
+        message.warning('Không thể tự động đọc file Word, vui lòng điền các thông tin thủ công.');
       } finally {
         setParsing(false);
       }
@@ -370,38 +398,19 @@ export default function UploadPage({
     tags.forEach(tag => allKnowledgeTags.push({ tag, path: buildPath(dir) }));
   });
 
-  const getTagsForDir = (dirId: number | null): { tag: string; path: string }[] => {
-    if (!dirId) return allKnowledgeTags;
-    const result: { tag: string; path: string }[] = [];
-    const visit = (id: number) => {
-      const dir = directories.find(d => d.id === id);
-      if (!dir) return;
-      const tags: string[] = dir.attributes?.knowledge_tags || [];
-      const buildPath = (d: Directory): string => {
-        const parent = directories.find(p => p.id === d.parent);
-        return parent ? buildPath(parent) + ' / ' + d.name : d.name;
-      };
-      tags.forEach(tag => result.push({ tag, path: buildPath(dir) }));
-      if (dir.parent) visit(dir.parent);
+  const getExactTagsForDir = (dirId: number | null): { tag: string; path: string }[] => {
+    if (!dirId) return [];
+    const dir = directories.find(d => d.id === dirId);
+    if (!dir) return [];
+    const tags: string[] = dir.attributes?.knowledge_tags || [];
+    const buildPath = (d: Directory): string => {
+      const parent = directories.find(p => p.id === d.parent);
+      return parent ? buildPath(parent) + ' / ' + d.name : d.name;
     };
-    const visitChildren = (id: number) => {
-      directories.filter(d => d.parent === id).forEach(d => {
-        const tags: string[] = d.attributes?.knowledge_tags || [];
-        const buildPath = (dd: Directory): string => {
-          const parent = directories.find(p => p.id === dd.parent);
-          return parent ? buildPath(parent) + ' / ' + dd.name : dd.name;
-        };
-        tags.forEach(tag => result.push({ tag, path: buildPath(d) }));
-        visitChildren(d.id);
-      });
-    };
-    visit(dirId);
-    visitChildren(dirId);
-    const seen = new Set<string>();
-    return result.filter(r => { if (seen.has(r.tag)) return false; seen.add(r.tag); return true; });
+    return tags.map(tag => ({ tag, path: buildPath(dir) }));
   };
 
-  const availableTags = getTagsForDir(selectedDirId).filter(
+  const availableTags = getExactTagsForDir(selectedDirId).filter(
     ({ tag }) => !knowledgeSearch || tag.toLowerCase().includes(knowledgeSearch.toLowerCase())
   );
 
@@ -495,14 +504,22 @@ export default function UploadPage({
       }
       formData.append('status', defaultStatus);
       
+      const { track: derivedTrack, topic: derivedTopic } = selectedDirId
+        ? getTrackAndTopicFromDir(selectedDirId, selectableDirs)
+        : { track: '', topic: '' };
+
+      const finalTrack = selectedTrack || derivedTrack;
+      const finalTopic = selectedTopic || derivedTopic;
+
       formData.append('attributes', JSON.stringify({
         'lop': selectedLops,
-        'Mạch kiến thức': selectedTrack,
-        'Chủ đề': selectedTopic,
+        'Mạch kiến thức': finalTrack,
+        'Chủ đề': finalTopic,
         'Kiến thức sinh học liên quan': selectedBiologyConnections.join(', '),
         'Loại hình': selectedType,
-        'Môn học': 'Hoạt động trải nghiệm Sinh học',
+        'Môn học': selectedSubject || 'Hoạt động trải nghiệm Sinh học',
         'Địa điểm': selectedLocation,
+        'Thời gian thực hiện': duration,
         knowledge_tags: selectedBiologyConnections,
         tien_trinh_day_hoc: parsedActivities,
         ai_model_config: {
@@ -795,16 +812,29 @@ export default function UploadPage({
             <div className="space-y-5">
               {/* Select Directory */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                  Thư mục đích <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex justify-between items-center">
+                  <span>Thư mục đích <span className="text-red-500">*</span></span>
+                  {selectedDirId && (
+                    <span className="text-xs font-normal text-blue-600">
+                      ⚡ Tự động khớp Mạch kiến thức & Chủ đề
+                    </span>
+                  )}
                 </label>
                 <Select
                   showSearch
-                  placeholder="-- Chọn thư mục lưu trữ --"
+                  placeholder="-- Chọn thư mục lưu trữ bài giảng --"
                   className="w-full"
                   size="large"
                   value={selectedDirId || undefined}
-                  onChange={val => setSelectedDirId(val ? Number(val) : null)}
+                  onChange={val => {
+                    const dirId = val ? Number(val) : null;
+                    setSelectedDirId(dirId);
+                    if (dirId) {
+                      const { track, topic } = getTrackAndTopicFromDir(dirId, directories);
+                      if (track) setSelectedTrack(track);
+                      if (topic) setSelectedTopic(topic);
+                    }
+                  }}
                   filterOption={(input, option) =>
                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                   }
@@ -839,6 +869,60 @@ export default function UploadPage({
                   onChange={e => setDescription(e.target.value)}
                   className="rounded-lg resize-none"
                 />
+              </div>
+
+              {/* Môn học, Mạch kiến thức & Số tiết */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Môn học <span className="text-gray-400 text-xs font-normal">(chọn hoặc gõ thêm)</span>
+                  </label>
+                  <Select
+                    showSearch
+                    allowClear
+                    size="large"
+                    value={selectedSubject || undefined}
+                    onChange={(val) => setSelectedSubject(val || '')}
+                    onSearch={(text) => {
+                      if (text && text.trim()) setSelectedSubject(text.trim());
+                    }}
+                    placeholder="Chọn hoặc nhập môn..."
+                    className="w-full text-sm"
+                    popupMatchSelectWidth={false}
+                    options={Array.from(new Set([
+                      'Hoạt động trải nghiệm Sinh học',
+                      'Sinh học',
+                      'Hoạt động trải nghiệm, hướng nghiệp',
+                      'Khoa học tự nhiên',
+                      ...(selectedSubject ? [selectedSubject] : [])
+                    ])).map(s => ({ value: s, label: s }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mạch kiến thức</label>
+                  <Input
+                    size="large"
+                    placeholder="Hoạt động hướng vào bản thân..."
+                    value={selectedTrack}
+                    onChange={e => setSelectedTrack(e.target.value)}
+                    className="rounded-lg text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Thời gian thực hiện</label>
+                  <Select
+                    size="large"
+                    showSearch
+                    allowClear
+                    placeholder="Chọn số tiết..."
+                    value={duration ? normalizeDuration(duration) : undefined}
+                    onChange={val => setDuration(val || '')}
+                    className="w-full text-sm"
+                    options={STANDARD_DURATIONS.map(d => ({ label: `⏱️ ${d}`, value: d }))}
+                  />
+                </div>
               </div>
 
               {/* Targets, Classes & Types */}
@@ -906,124 +990,165 @@ export default function UploadPage({
 
               <Divider />
 
-              {/* Taxonomy select boxes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Mạch kiến thức</label>
-                  <Select
-                    className="w-full"
-                    placeholder="Chọn Mạch kiến thức"
-                    value={selectedTrack || undefined}
-                    onChange={val => {
-                      setSelectedTrack(val);
-                      setSelectedTopic('');
-                    }}
-                    options={KNOWLEDGE_TRACKS.map(t => ({ value: t, label: t }))}
-                  />
+
+
+              {/* 🧬 UNIFIED BIOLOGY KNOWLEDGE SECTION */}
+              <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-5 space-y-4 shadow-2xs">
+                <div className="flex justify-between items-center flex-wrap gap-2">
+                  <label className="text-sm font-bold text-gray-900 flex items-center gap-2 m-0">
+                    <span className="text-base">🧬</span> Kiến thức sinh học liên quan <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-gray-500 font-medium">
+                    {selectedBiologyConnections.length > 0
+                      ? `Đã chọn ${selectedBiologyConnections.length} kiến thức`
+                      : 'Nhấp kiến thức bên dưới để chọn'}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Chủ đề</label>
-                  <Select
-                    className="w-full"
-                    placeholder="Chọn chủ đề"
-                    disabled={!selectedTrack}
-                    value={selectedTopic || undefined}
-                    onChange={val => setSelectedTopic(val)}
-                    options={selectedTrack ? TRACK_TO_TOPICS[selectedTrack]?.map(t => ({ value: t, label: t })) : []}
-                  />
-                </div>
-              </div>
-
-              {/* Biology Connections */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                  <span>🧬</span> Kiến thức sinh học liên quan <span className="text-red-500">*</span>
-                </label>
-
-                {currentDir && tagsForCurrentDir.length > 0 && (
-                  <div className="mb-3 bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                    <p className="text-xs font-bold text-blue-700 mb-2">💡 Gợi ý Kiến thức từ thư mục [{currentDir.name}]:</p>
-                    <Space size={[4, 8]} wrap>
-                      {tagsForCurrentDir.map(tag => {
-                        const isSelected = selectedBiologyConnections.includes(tag);
-                        return (
-                          <Tag.CheckableTag
-                            key={tag}
-                            checked={isSelected}
-                            onChange={(checked) => {
-                              setSelectedBiologyConnections(prev =>
-                                checked ? [...prev, tag] : prev.filter(t => t !== tag)
-                              );
-                            }}
-                          >
-                            {tag}
-                          </Tag.CheckableTag>
-                        );
-                      })}
-                    </Space>
-                  </div>
-                )}
-
-                <div className="mb-3">
-                  <Input
-                    prefix="🔍"
-                    placeholder="Tìm mạch kiến thức sinh học liên quan..."
-                    value={biologySearch}
-                    onChange={e => setBiologySearch(e.target.value)}
-                  />
-                </div>
-
-                {biologySearch.trim() && !BIOLOGY_CONNECTIONS.some(bio => bio.toLowerCase() === biologySearch.trim().toLowerCase()) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newTag = biologySearch.trim();
-                      if (!selectedBiologyConnections.includes(newTag)) {
-                        setSelectedBiologyConnections(prev => [...prev, newTag]);
-                      }
-                      setBiologySearch('');
-                    }}
-                    className="w-full mb-3 flex items-center justify-center gap-2 p-2 bg-emerald-50 text-emerald-700 border border-dashed border-emerald-300 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
-                  >
-                    <span>➕ Thêm "{biologySearch.trim()}" làm kiến thức sinh học liên quan</span>
-                  </button>
-                )}
-
-                <div className="border border-gray-250 rounded-lg p-2 max-h-[160px] overflow-y-auto bg-white flex flex-col gap-1.5">
-                  {BIOLOGY_CONNECTIONS.filter(b => b.toLowerCase().includes(biologySearch.toLowerCase())).map(bio => {
-                    const isSelected = selectedBiologyConnections.includes(bio);
-                    return (
-                      <div
-                        key={bio}
-                        onClick={() => setSelectedBiologyConnections(prev =>
-                          prev.includes(bio) ? prev.filter(b => b !== bio) : [...prev, bio]
-                        )}
-                        className={`text-xs p-2 rounded cursor-pointer transition-colors flex items-center gap-2 ${
-                          isSelected ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        <CheckOutlined className={isSelected ? 'opacity-100' : 'opacity-0'} />
-                        <span>{bio}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
+                {/* 1. Selected / Extracted Tags */}
                 {selectedBiologyConnections.length > 0 && (
-                  <div className="mt-3">
-                    <Space wrap>
+                  <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs space-y-2">
+                    <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
+                      ✅ Nhãn đã chọn / Trích xuất từ tệp Word:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
                       {selectedBiologyConnections.map(bio => (
                         <Tag 
-                          color="success" 
-                          closable 
-                          onClose={() => setSelectedBiologyConnections(prev => prev.filter(t => t !== bio))} 
                           key={bio}
+                          color="success"
+                          closable
+                          onClose={() => setSelectedBiologyConnections(prev => prev.filter(t => t !== bio))}
+                          className="text-xs font-semibold px-3 py-1 rounded-xl shadow-2xs m-0 border-emerald-300"
                         >
                           {bio}
                         </Tag>
                       ))}
-                    </Space>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Search & Add Input across ALL system directories */}
+                <div className="space-y-2">
+                  <Input
+                    prefix={<SearchOutlined className="text-gray-400" />}
+                    placeholder="🔍 Gõ để tìm kiếm từ tất cả các thư mục hoặc thêm mới từ khóa..."
+                    size="large"
+                    value={biologySearch}
+                    onChange={e => setBiologySearch(e.target.value)}
+                    className="rounded-xl"
+                  />
+                  {biologySearch.trim() && (
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        const newTag = biologySearch.trim();
+                        if (!selectedBiologyConnections.includes(newTag)) {
+                          setSelectedBiologyConnections(prev => [...prev, newTag]);
+                        }
+                        setBiologySearch('');
+                        message.success(`Đã thêm kiến thức "${newTag}"`);
+                      }}
+                      className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold border-none text-xs flex items-center justify-center gap-1.5 py-2.5 h-auto"
+                    >
+                      ➕ Thêm từ khóa mới: "{biologySearch.trim()}"
+                    </Button>
+                  )}
+                </div>
+
+                {/* 3. Knowledge Tags Display */}
+                {biologySearch.trim() ? (
+                  /* SEARCH MODE: Search across ALL system knowledge tags from ALL directories */
+                  <div className="space-y-2 bg-white p-3.5 rounded-xl border border-slate-250">
+                    <p className="text-xs font-bold text-slate-700 m-0 flex items-center justify-between">
+                      <span>🔍 Kết quả tìm kiếm trong hệ thống thư mục:</span>
+                      <span className="text-[11px] text-gray-500 font-normal">Từ tất cả các thư mục</span>
+                    </p>
+                    <div className="max-h-[220px] overflow-y-auto flex flex-col gap-1.5 pt-1">
+                      {allKnowledgeTags
+                        .filter(item => item.tag.toLowerCase().includes(biologySearch.trim().toLowerCase()))
+                        .map(item => {
+                          const isSelected = selectedBiologyConnections.includes(item.tag);
+                          return (
+                            <div
+                              key={`${item.path}-${item.tag}`}
+                              onClick={() => setSelectedBiologyConnections(prev =>
+                                isSelected ? prev.filter(t => t !== item.tag) : [...prev, item.tag]
+                              )}
+                              className={`text-xs p-2.5 rounded-xl cursor-pointer transition-colors flex items-center justify-between border ${
+                                isSelected 
+                                  ? 'bg-blue-600 text-white border-blue-600 font-bold' 
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <CheckOutlined className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                                <span>{item.tag}</span>
+                              </div>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-md ${
+                                isSelected ? 'bg-blue-700 text-blue-100' : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                📂 {item.path}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      {allKnowledgeTags.filter(item => item.tag.toLowerCase().includes(biologySearch.trim().toLowerCase())).length === 0 && (
+                        <p className="text-xs text-gray-500 text-center py-2 m-0">
+                          Không tìm thấy từ khóa trùng khớp trong các thư mục. Bấm nút màu xanh ở trên để thêm mới!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : selectedDirId ? (
+                  /* DIRECTORY MODE: Display Knowledge Tags of current selected directory ONLY */
+                  <div className="space-y-3">
+                    {getExactTagsForDir(selectedDirId).length > 0 ? (
+                      <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-200/80 space-y-2">
+                        <p className="text-xs font-bold text-blue-900 m-0">
+                          💡 Kiến thức thuộc Thư mục [{currentDir?.name}]:
+                        </p>
+                        <div className="flex flex-col gap-2 pt-1">
+                          {getExactTagsForDir(selectedDirId).map(item => {
+                            const isSelected = selectedBiologyConnections.includes(item.tag);
+                            return (
+                              <div
+                                key={item.tag}
+                                onClick={() => setSelectedBiologyConnections(prev =>
+                                  isSelected ? prev.filter(t => t !== item.tag) : [...prev, item.tag]
+                                )}
+                                className={`text-xs p-2.5 rounded-xl cursor-pointer transition-all border flex items-center justify-between ${
+                                  isSelected
+                                    ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-2xs'
+                                    : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-100/70'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold">{isSelected ? '✓' : '+'}</span>
+                                  <span>{item.tag}</span>
+                                </div>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-md ${
+                                  isSelected ? 'bg-blue-700 text-blue-100' : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  📂 {item.path}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl text-center">
+                        <p className="text-xs font-semibold text-slate-600 m-0">
+                          Thư mục <strong>[{currentDir?.name}]</strong> hiện chưa có sẵn nhãn kiến thức. Hãy gõ tìm kiếm hoặc tự thêm từ khóa mới ở trên!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl text-center">
+                    <p className="text-xs font-semibold text-amber-900 m-0">
+                      👉 Vui lòng chọn <strong>Thư mục đích lưu trữ</strong> ở trên để xem danh mục kiến thức Sinh học của thư mục đó!
+                    </p>
                   </div>
                 )}
               </div>

@@ -11,6 +11,7 @@ import {
   HomeOutlined
 } from '@ant-design/icons';
 import { User } from '../../utils/types';
+import { STANDARD_DURATIONS, normalizeDuration } from '../../utils/helpers';
 
 interface Directory {
   id: number;
@@ -60,6 +61,8 @@ interface FilterSidebarProps {
   setSelectedClasses: React.Dispatch<React.SetStateAction<string[]>>;
   selectedTypes: string[];
   setSelectedTypes: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedTietDay?: string[];
+  setSelectedTietDay?: React.Dispatch<React.SetStateAction<string[]>>;
   selectedLocations: string[];
   setSelectedLocations: React.Dispatch<React.SetStateAction<string[]>>;
   availableSubjects: string[];
@@ -293,6 +296,8 @@ export default function FilterSidebar({
   setSelectedClasses,
   selectedTypes,
   setSelectedTypes,
+  selectedTietDay = [],
+  setSelectedTietDay,
   selectedLocations,
   setSelectedLocations,
   availableSubjects,
@@ -314,6 +319,19 @@ export default function FilterSidebar({
   }, [publicDirs]);
   const isResizing = useRef(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  const availableDurations = useMemo(() => {
+    const set = new Set<string>();
+    STANDARD_DURATIONS.forEach(s => set.add(s));
+    (allLessons || []).forEach(l => {
+      const dur = l.attributes?.['Thời gian thực hiện'] || l.attributes?.['Thời gian'] || l.attributes?.['Số tiết'];
+      const norm = normalizeDuration(dur);
+      if (norm) {
+        set.add(norm);
+      }
+    });
+    return Array.from(set);
+  }, [allLessons]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -371,6 +389,7 @@ export default function FilterSidebar({
                 setSelectedTypes([]);
                 setSelectedLocations([]);
                 setSelectedSubjects([]);
+                if (setSelectedTietDay) setSelectedTietDay([]);
               }}
               className="text-blue-600 hover:text-blue-800 font-bold bg-transparent border-none cursor-pointer text-xs ml-3 transition-colors"
             >
@@ -488,6 +507,20 @@ export default function FilterSidebar({
                 Lý thuyết
               </Checkbox>
             </Space>
+          </Collapse.Panel>
+
+          <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Số tiết / Thời gian</span>} key="durations">
+            <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-col gap-2">
+              {availableDurations.map(dur => (
+                <Checkbox 
+                  key={dur}
+                  checked={selectedTietDay.includes(dur)} 
+                  onChange={e => setSelectedTietDay && handleFilterChange(setSelectedTietDay, dur, e.target.checked)}
+                >
+                  ⏱️ {dur}
+                </Checkbox>
+              ))}
+            </div>
           </Collapse.Panel>
 
           <Collapse.Panel header={<span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Địa điểm</span>} key="locations">

@@ -184,14 +184,41 @@ const LeafNode = ({ data }: NodeProps) => {
         <span style={{ color: d.accent, flexShrink: 0, fontSize: 12 }}>{d.icon}</span>
         <span style={{ lineHeight: 1.4 }}>{d.label as string}</span>
       </div>
-      <div style={{ fontSize: 9, color: d.accent, fontWeight: 700, marginTop: 4, textAlign: isLeft ? 'left' : 'right', opacity: 0.8 }}>
-        {isLeft ? '‹ Xem chi tiết' : 'Xem chi tiết ›'}
+    </div>
+  );
+};
+
+const SubBranchNode = ({ data }: NodeProps) => {
+  const d = data as any;
+  const isLeft = d.side === 'left';
+  return (
+    <div
+      style={{
+        background: '#ffffff',
+        color: d.accent || '#1e293b',
+        borderRadius: 14,
+        padding: '8px 16px',
+        minWidth: 140,
+        textAlign: 'center',
+        fontWeight: 800,
+        fontSize: 12,
+        boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+        border: `2px solid ${d.accent || '#3b82f6'}`,
+        cursor: 'default',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      <Handle type="target" position={isLeft ? Position.Right : Position.Left} style={{ opacity: 0 }} />
+      <Handle type="source" position={isLeft ? Position.Left : Position.Right} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <span style={{ fontSize: 16 }}>{d.icon}</span>
+        <span>{d.label as string}</span>
       </div>
     </div>
   );
 };
 
-const nodeTypes = { root: RootNode, branch: BranchNode, leaf: LeafNode };
+const nodeTypes = { root: RootNode, branch: BranchNode, subbranch: SubBranchNode, leaf: LeafNode };
 
 // ─── Layout builder ────────────────────────────────────────────────────────────
 
@@ -221,101 +248,191 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
   // Root
   nodes.push({ id: 'root', type: 'root', position: { x: 0, y: 0 }, data: { label: data.title }, draggable: true });
 
-  // Calculate dynamic heights & offsets to prevent vertical overlap of leaf blocks on the same side
-  const b1_leaves_raw = [
-    ...data.mục_tiêu.kiến_thức.filter(isMeaningful).map(t => ({ label: t, icon: '📚', cat: 'Mục tiêu – Kiến thức', details: t, tip: getPedagogyTip('kiến thức', t) })),
-    ...data.mục_tiêu.năng_lực.filter(isMeaningful).map(t => ({ label: t, icon: '⚡', cat: 'Mục tiêu – Năng lực', details: t, tip: getPedagogyTip('năng lực', t) })),
-    ...data.mục_tiêu.phẩm_chất.filter(isMeaningful).map(t => ({ label: t, icon: '💎', cat: 'Mục tiêu – Phẩm chất', details: t, tip: getPedagogyTip('phẩm chất', t) })),
-  ];
-  const b2_leaves_raw = [
-    ...data.học_liệu.giáo_viên.filter(isMeaningful).map(t => ({ label: t, icon: '👨‍🏫', cat: 'Học liệu – Giáo viên', details: t, tip: getPedagogyTip('giáo viên học liệu', t) })),
-    ...data.học_liệu.học_sinh.filter(isMeaningful).map(t => ({ label: t, icon: '🎒', cat: 'Học liệu – Học sinh', details: t, tip: getPedagogyTip('học sinh', t) })),
-  ];
-  const b3_leaves_raw = data.tiến_trình.filter(t => isMeaningful(t.ten)).map(t => ({
-    label: `${t.ten} (${t.time})`,
-    icon: '▶',
-    cat: 'Khung tiến trình',
-    details: t.tom_tat,
-    tip: getPedagogyTip(t.ten, t.tom_tat),
-  }));
-  const b4_leaves_raw = data.hoạt_động.filter(t => isMeaningful(t.ten)).map(t => ({
-    label: t.ten,
-    icon: '🎯',
-    cat: 'Hoạt động dạy học',
-    details: `### 🎯 Mục tiêu\n${t.muc_tieu || 'Đạt mục tiêu của hoạt động trải nghiệm.'}\n\n### 🚀 Cách thực hiện\n${t.thuc_hien || 'Tiến hành theo kịch bản giáo án.'}`,
-    tip: getPedagogyTip(t.ten, t.muc_tieu + ' ' + t.thuc_hien),
-  }));
+  const leafSpacing = 72;
+  const colorB1 = '#3b82f6';
+  const colorB2 = '#10b981';
+  const colorB3 = '#f59e0b';
 
-  const leafSpacing = 85; // increased from 68 to 85 for breathing room
-  const verticalGap = 120; // safe gap between leaf blocks
+  // -------------------------------------------------------------
+  // LEFT SIDE - Main Branch B1: MỤC TIÊU DẠY HỌC (Y: -220)
+  // -------------------------------------------------------------
+  nodes.push({
+    id: 'b1', type: 'branch',
+    position: { x: -300, y: -220 },
+    data: { label: 'MỤC TIÊU DẠY HỌC', icon: '🎯', sub: 'Mục tiêu', bg: COLORS.b1.bg, side: 'left' },
+    draggable: true,
+  });
+  addEdge_('root', 'b1', colorB1, 'left');
 
-  const b1_height = b1_leaves_raw.length * leafSpacing;
-  const b2_height = b2_leaves_raw.length * leafSpacing;
-  const b1_y = Math.min(-220, - (b1_height / 2 + verticalGap / 2));
-  const b2_y = Math.max(220, (b2_height / 2 + verticalGap / 2));
+  const b1_kt = data.mục_tiêu.kiến_thức.filter(isMeaningful);
+  const b1_nl = data.mục_tiêu.năng_lực.filter(isMeaningful);
+  const b1_pc = data.mục_tiêu.phẩm_chất.filter(isMeaningful);
 
-  const b3_height = b3_leaves_raw.length * leafSpacing;
-  const b4_height = b4_leaves_raw.length * leafSpacing;
-  const b3_y = Math.min(-220, - (b3_height / 2 + verticalGap / 2));
-  const b4_y = Math.max(220, (b4_height / 2 + verticalGap / 2));
-
-  const branches = [
-    {
-      id: 'b1', label: 'MỤC TIÊU DẠY HỌC', icon: '🎯', sub: 'Mục tiêu',
-      bg: COLORS.b1.bg, accent: '#3b82f6', y: b1_y, side: 'left', sourceHandle: 'left',
-      leaves: b1_leaves_raw,
-    },
-    {
-      id: 'b2', label: 'THIẾT BỊ & HỌC LIỆU', icon: '🛠️', sub: 'Học liệu',
-      bg: COLORS.b2.bg, accent: '#10b981', y: b2_y, side: 'left', sourceHandle: 'left',
-      leaves: b2_leaves_raw,
-    },
-    {
-      id: 'b3', label: 'KHUNG TIẾN TRÌNH', icon: '⏱️', sub: 'Tiến trình',
-      bg: COLORS.b3.bg, accent: '#f59e0b', y: b3_y, side: 'right', sourceHandle: 'right',
-      leaves: b3_leaves_raw,
-    },
-    {
-      id: 'b4', label: 'TRẢI NGHIỆM CHI TIẾT', icon: '🤸', sub: 'Hoạt động',
-      bg: COLORS.b4.bg, accent: '#ec4899', y: b4_y, side: 'right', sourceHandle: 'right',
-      leaves: b4_leaves_raw,
-    },
+  const sub_b1_configs = [
+    { id: 'b1_kt', label: 'Kiến thức', icon: '📘', y: -380, items: b1_kt, cat: 'Mục tiêu – Kiến thức', accent: '#3b82f6' },
+    { id: 'b1_nl', label: 'Năng lực', icon: '⚡', y: -220, items: b1_nl, cat: 'Mục tiêu – Năng lực', accent: '#8b5cf6' },
+    { id: 'b1_pc', label: 'Phẩm chất', icon: '💎', y: -60, items: b1_pc, cat: 'Mục tiêu – Phẩm chất', accent: '#ec4899' },
   ];
 
-  branches.forEach(b => {
-    const isLeft = b.side === 'left';
+  sub_b1_configs.forEach(sub => {
     nodes.push({
-      id: b.id, type: 'branch',
-      position: { x: isLeft ? -350 : 350, y: b.y },
-      data: { label: b.label, icon: b.icon, sub: b.sub, bg: b.bg, side: b.side },
+      id: sub.id, type: 'subbranch',
+      position: { x: -550, y: sub.y },
+      data: { label: sub.label, icon: sub.icon, accent: sub.accent, side: 'left' },
       draggable: true,
     });
-    addEdge_('root', b.id, b.accent, b.sourceHandle);
+    addEdge_('b1', sub.id, sub.accent);
 
-    b.leaves.forEach((leaf, i) => {
-      const lid = `${b.id}_leaf${i}`;
+    sub.items.forEach((text, idx) => {
+      const lid = `${sub.id}_leaf${idx}`;
       const item: NodeDetailItem = {
-        title: leaf.label,
-        category: leaf.cat,
-        details: leaf.details,
-        tip: leaf.tip,
-        color: b.accent,
+        title: text,
+        category: sub.cat,
+        details: text,
+        tip: getPedagogyTip(sub.label, text),
+        color: sub.accent,
       };
+      const leafY = sub.y - ((sub.items.length - 1) * leafSpacing) / 2 + idx * leafSpacing;
       nodes.push({
         id: lid, type: 'leaf',
-        position: { x: isLeft ? -720 : 720, y: b.y - ((b.leaves.length - 1) * leafSpacing) / 2 + i * leafSpacing },
+        position: { x: -840, y: leafY },
         data: {
-          label: leaf.label.length > 80 ? leaf.label.slice(0, 78) + '…' : leaf.label,
-          icon: leaf.icon,
-          accent: b.accent,
-          side: b.side,
+          label: text.length > 70 ? text.slice(0, 68) + '…' : text,
+          icon: sub.icon,
+          accent: sub.accent,
+          side: 'left',
           onClick: () => onLeafClick(item),
           item: item,
         },
         draggable: true,
       });
-      addEdge_(b.id, lid, b.accent + '88');
+      addEdge_(sub.id, lid, sub.accent + 'aa');
     });
+  });
+
+  // -------------------------------------------------------------
+  // LEFT SIDE - Main Branch B2: THIẾT BỊ & HỌC LIỆU (Y: +260)
+  // -------------------------------------------------------------
+  nodes.push({
+    id: 'b2', type: 'branch',
+    position: { x: -300, y: 260 },
+    data: { label: 'THIẾT BỊ & HỌC LIỆU', icon: '🛠️', sub: 'Học liệu', bg: COLORS.b2.bg, side: 'left' },
+    draggable: true,
+  });
+  addEdge_('root', 'b2', colorB2, 'left');
+
+  const b2_gv = data.học_liệu.giáo_viên.filter(isMeaningful);
+  const b2_hs = data.học_liệu.học_sinh.filter(isMeaningful);
+
+  const sub_b2_configs = [
+    { id: 'b2_gv', label: 'Học liệu Giáo viên', icon: '👨‍🏫', y: 180, items: b2_gv, cat: 'Học liệu – Giáo viên', accent: '#10b981' },
+    { id: 'b2_hs', label: 'Học liệu Học sinh', icon: '🎒', y: 340, items: b2_hs, cat: 'Học liệu – Học sinh', accent: '#06b6d4' },
+  ];
+
+  sub_b2_configs.forEach(sub => {
+    nodes.push({
+      id: sub.id, type: 'subbranch',
+      position: { x: -550, y: sub.y },
+      data: { label: sub.label, icon: sub.icon, accent: sub.accent, side: 'left' },
+      draggable: true,
+    });
+    addEdge_('b2', sub.id, sub.accent);
+
+    sub.items.forEach((text, idx) => {
+      const lid = `${sub.id}_leaf${idx}`;
+      const item: NodeDetailItem = {
+        title: text,
+        category: sub.cat,
+        details: text,
+        tip: getPedagogyTip(sub.label, text),
+        color: sub.accent,
+      };
+      const leafY = sub.y - ((sub.items.length - 1) * leafSpacing) / 2 + idx * leafSpacing;
+      nodes.push({
+        id: lid, type: 'leaf',
+        position: { x: -840, y: leafY },
+        data: {
+          label: text.length > 70 ? text.slice(0, 68) + '…' : text,
+          icon: sub.icon,
+          accent: sub.accent,
+          side: 'left',
+          onClick: () => onLeafClick(item),
+          item: item,
+        },
+        draggable: true,
+      });
+      addEdge_(sub.id, lid, sub.accent + 'aa');
+    });
+  });
+
+  // -------------------------------------------------------------
+  // RIGHT SIDE - Main Branch B3: TIẾN TRÌNH & HOẠT ĐỘNG DẠY HỌC (Y: 0)
+  // (GỘP TIẾN TRÌNH VÀ HOẠT ĐỘNG CHI TIẾT THÀNH 1 NHÁNH DUY NHẤT!)
+  // -------------------------------------------------------------
+  nodes.push({
+    id: 'b3', type: 'branch',
+    position: { x: 300, y: 0 },
+    data: { label: 'TIẾN TRÌNH & HOẠT ĐỘNG', icon: '⚡', sub: 'Tiến trình & Hoạt động', bg: COLORS.b3.bg, side: 'right' },
+    draggable: true,
+  });
+  addEdge_('root', 'b3', colorB3, 'right');
+
+  const b3_activities: { label: string; icon: string; cat: string; details: string; tip: string }[] = [];
+  const acts = data.hoạt_động && data.hoạt_động.length > 0 ? data.hoạt_động : [];
+  const ttrinh = data.tiến_trình && data.tiến_trình.length > 0 ? data.tiến_trình : [];
+
+  if (acts.length > 0) {
+    acts.forEach((act, idx) => {
+      if (!isMeaningful(act.ten)) return;
+      const matchingTtrinh = ttrinh.find(t => t.ten.toLowerCase().includes(act.ten.toLowerCase()) || act.ten.toLowerCase().includes(t.ten.toLowerCase()));
+      const timeStr = matchingTtrinh ? matchingTtrinh.time : '';
+      const titleText = timeStr ? `${act.ten} (${timeStr})` : act.ten;
+      
+      b3_activities.push({
+        label: titleText,
+        icon: '⚡',
+        cat: 'Tiến trình & Hoạt động dạy học',
+        details: `### 📌 ${act.ten}${timeStr ? ` — ⏱️ ${timeStr}` : ''}\n\n### 🎯 Mục tiêu hoạt động\n${act.muc_tieu || 'Phát triển năng lực học sinh qua hoạt động trải nghiệm.'}\n\n### 🚀 Tiến trình thực hiện chi tiết\n${act.thuc_hien || (matchingTtrinh ? matchingTtrinh.tom_tat : 'Tiến hành theo kịch bản giáo án.')}`,
+        tip: getPedagogyTip(act.ten, (act.muc_tieu || '') + ' ' + (act.thuc_hien || ''))
+      });
+    });
+  } else if (ttrinh.length > 0) {
+    ttrinh.forEach((t, idx) => {
+      if (!isMeaningful(t.ten)) return;
+      b3_activities.push({
+        label: `${t.ten} (${t.time})`,
+        icon: '⚡',
+        cat: 'Tiến trình & Hoạt động dạy học',
+        details: `### 📌 ${t.ten} — ⏱️ ${t.time}\n\n### 🚀 Tiến trình thực hiện\n${t.tom_tat}`,
+        tip: getPedagogyTip(t.ten, t.tom_tat)
+      });
+    });
+  }
+
+  b3_activities.forEach((act, idx) => {
+    const lid = `b3_leaf${idx}`;
+    const item: NodeDetailItem = {
+      title: act.label,
+      category: act.cat,
+      details: act.details,
+      tip: act.tip,
+      color: colorB3,
+    };
+    const leafY = 0 - ((b3_activities.length - 1) * leafSpacing) / 2 + idx * leafSpacing;
+    nodes.push({
+      id: lid, type: 'leaf',
+      position: { x: 620, y: leafY },
+      data: {
+        label: act.label.length > 75 ? act.label.slice(0, 73) + '…' : act.label,
+        icon: act.icon,
+        accent: colorB3,
+        side: 'right',
+        onClick: () => onLeafClick(item),
+        item: item,
+      },
+      draggable: true,
+    });
+    addEdge_('b3', lid, colorB3 + '88');
   });
 
   return { nodes, edges };
@@ -323,261 +440,100 @@ function buildGraph(data: MindmapData, onLeafClick: (item: NodeDetailItem) => vo
 
 // ─── Modal ─────────────────────────────────────────────────────────────────────
 
-const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => void }) => (
-  <div
-    className="modal-backdrop-custom"
-    style={{
-      position: 'fixed',
-      inset: 0,
-      zIndex: 9999,
-      background: 'rgba(15, 23, 42, 0.55)',
-      backdropFilter: 'blur(10px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    }}
-    onClick={onClose}
-  >
+const DetailModal = ({ item, onClose }: { item: NodeDetailItem; onClose: () => void }) => {
+  return createPortal(
     <div
       className="modal-card-custom"
       style={{
-        background: '#ffffff',
-        borderRadius: 24,
-        width: '100%',
-        maxWidth: 1080,
-        maxHeight: '90vh',
-        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        borderTop: `6px solid ${item.color}`,
-        border: '1px solid rgba(226, 232, 240, 0.8)',
+        position: 'fixed', inset: 0, zIndex: 999999,
+        background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px',
       }}
-      onClick={e => e.stopPropagation()}
+      onClick={onClose}
     >
-      {/* Header */}
-      <div style={{ 
-        background: `linear-gradient(180deg, ${item.color}08, #ffffff)`,
-        padding: '24px 32px', 
-        borderBottom: '1px solid #f1f5f9',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: 16
-      }}>
-        <div style={{ flex: 1 }}>
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 14px',
-            borderRadius: 99,
-            background: `${item.color}12`,
-            border: `1.5px solid ${item.color}25`,
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: '1px',
-            textTransform: 'uppercase',
-            color: item.color,
-            marginBottom: 10,
-          }}>
-            📂 {item.category}
-          </span>
-          <h2 style={{ 
-            fontWeight: 900, 
-            fontSize: 20, 
-            lineHeight: 1.4, 
-            color: '#0f172a',
-            margin: 0,
-            letterSpacing: '-0.3px'
-          }}>
-            {item.title.split('\n')[0].replace(/^(Tên:|Mục tiêu:)\s*/i, '')}
-          </h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="modal-close-btn"
-          style={{
-            background: '#f1f5f9',
-            border: 'none',
-            borderRadius: 99,
-            width: 36,
-            height: 36,
-            cursor: 'pointer',
-            color: '#64748b',
-            fontSize: 16,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            transition: 'all 0.2s ease',
-          }}
-        >✕</button>
-      </div>
-
-      {/* Body */}
-      <div 
-        className="modal-body-custom"
+      <div
         style={{
-          padding: '32px',
-          overflowY: 'auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: 28,
-          background: '#fafbfc',
-          flexGrow: 1
+          background: '#fff', borderRadius: 24, width: '94vw', maxWidth: 1100,
+          maxHeight: '90vh',
+          boxShadow: '0 25px 80px rgba(15,23,42,0.25)',
+          overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          animation: 'modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          borderTop: `6px solid ${item.color}`,
         }}
+        onClick={e => e.stopPropagation()}
       >
-        {/* Left Column: Description */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ 
-            fontSize: 11, 
-            fontWeight: 800, 
-            color: '#64748b', 
-            letterSpacing: '1.5px', 
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}>
-            <span>📝</span> Mô tả nội dung
+        {/* Header */}
+        <div style={{ background: '#ffffff', padding: '20px 28px', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '4px 14px', borderRadius: 99,
+                background: `${item.color}15`, border: `1px solid ${item.color}33`,
+                fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase',
+                color: item.color, marginBottom: 8,
+              }}>📂 {item.category}</span>
+              <div style={{ fontWeight: 900, fontSize: 20, lineHeight: 1.4, color: '#0f172a' }}>
+                {item.title.split('\n')[0].replace(/^(Tên:|Mục tiêu:)\s*/i, '')}
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: '#f1f5f9', border: 'none', borderRadius: 99,
+                width: 36, height: 36, cursor: 'pointer', color: '#64748b', fontSize: 18,
+                display: 'flex', items: 'center', justifyContent: 'center', flexShrink: 0,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e2e8f0'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#f1f5f9'; }}
+            >✕</button>
           </div>
-          <div style={{ 
-            background: '#ffffff', 
-            border: '1px solid #e2e8f0', 
-            borderRadius: 16, 
-            padding: '24px', 
-            boxShadow: '0 4px 18px rgba(0,0,0,0.015)', 
-            flexGrow: 1, 
-            overflowX: 'auto', 
-            fontSize: 14.5, 
+        </div>
+
+        {/* Body - Expanded Width & Scroll */}
+        <div style={{
+          padding: '24px 28px',
+          overflowY: 'auto',
+          background: '#fafbfc',
+          flex: 1,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: '#475569', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
+            📝 MÔ TẢ CHI TIẾT NỘI DUNG & TIẾN TRÌNH
+          </div>
+          <div style={{
+            background: '#ffffff',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: 20,
+            padding: '20px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+            fontSize: 14.5,
             lineHeight: 1.8,
-            color: '#334155'
+            color: '#1e293b',
           }}>
             <MarkdownViewer markdown={item.details} />
           </div>
         </div>
 
-        {/* Right Column: Pedagogical Tip */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ 
-            fontSize: 11, 
-            fontWeight: 800, 
-            color: '#059669', 
-            letterSpacing: '1.5px', 
-            textTransform: 'uppercase',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}>
-            <span>💡</span> Định hướng sư phạm – CTGDPT 2018
-          </div>
-          <div style={{
-            background: 'linear-gradient(135deg, #ffffff, #f0fdf4)',
-            border: '1.5px solid #a7f3d0',
-            borderRadius: 16,
-            padding: '24px',
-            boxShadow: '0 4px 18px rgba(5,150,105,0.025)',
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-              <span style={{ fontSize: 22 }}>🏫</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46', letterSpacing: '0.2px' }}>
-                Căn cứ: Thông tư 32/2018/TT-BGDĐT – Bộ GD&ĐT
-              </span>
-            </div>
-            <div style={{ 
-              fontSize: 14.5, 
-              fontWeight: 600, 
-              color: '#064e3b', 
-              lineHeight: 2.0, 
-              whiteSpace: 'pre-line',
-              flexGrow: 1
-            }}>
-              {item.tip}
-            </div>
-          </div>
+        {/* Footer */}
+        <div style={{ padding: '16px 28px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#fff', flexShrink: 0 }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: '#0f172a', color: '#fff', border: 'none', borderRadius: 12,
+              padding: '10px 28px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+          >Đóng cửa sổ</button>
         </div>
       </div>
-
-      {/* Footer */}
-      <div style={{ 
-        padding: '20px 32px', 
-        borderTop: '1px solid #f1f5f9', 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        background: '#ffffff',
-        boxShadow: '0 -4px 12px rgba(0,0,0,0.01)'
-      }}>
-        <button
-          onClick={onClose}
-          className="modal-footer-close-btn"
-          style={{
-            background: '#0f172a',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: 12,
-            padding: '12px 32px',
-            fontSize: 13,
-            fontWeight: 800,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
-          }}
-        >
-          Đóng cửa sổ
-        </button>
-      </div>
-    </div>
-    <style>{`
-      @keyframes fadeIn {
-        from { opacity: 0; backdrop-filter: blur(0px); }
-        to { opacity: 1; backdrop-filter: blur(10px); }
-      }
-      @keyframes modalIn {
-        from { opacity: 0; transform: translateY(30px) scale(0.97); }
-        to { opacity: 1; transform: translateY(0) scale(1); }
-      }
-      .modal-backdrop-custom {
-        animation: fadeIn 0.2s ease-out forwards;
-      }
-      .modal-card-custom {
-        animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-      }
-      .modal-close-btn:hover {
-        background-color: #e2e8f0 !important;
-        color: #0f172a !important;
-        transform: rotate(90deg);
-      }
-      .modal-footer-close-btn:hover {
-        background-color: #1e293b !important;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25) !important;
-      }
-      .modal-footer-close-btn:active {
-        transform: translateY(0);
-      }
-      .modal-body-custom::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      .modal-body-custom::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 9999px;
-      }
-      .modal-body-custom::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 9999px;
-      }
-      .modal-body-custom::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    `}</style>
-  </div>
-);
+      <style>{`@keyframes modalIn { from { opacity:0; transform:scale(0.94) } to { opacity:1; transform:scale(1) } }`}</style>
+    </div>,
+    document.body
+  );
+};
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -672,7 +628,7 @@ const MindmapFlowInner: React.FC<MindmapFlowProps> = ({ data }) => {
           boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
           display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none',
         }}>
-          <span>🖱️</span> Kéo node • Scroll zoom • Click lá xem chi tiết
+          <span>🖱️</span> Kéo node • Scroll zoom
         </div>
         <button
           onClick={handleReset}

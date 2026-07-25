@@ -103,6 +103,82 @@ export const getDirectoriesAsTreeOptions = (
   return result;
 };
 
+// Find the matching directory ID based on Mạch kiến thức (track) and Chủ đề (topic)
+export function findMatchingDirId(track?: string, topic?: string, dirs?: Directory[]): number | null {
+  if (!dirs || dirs.length === 0 || (!track && !topic)) return null;
+
+  const cleanTrack = track ? track.trim().toLowerCase() : '';
+  const cleanTopic = topic ? topic.trim().toLowerCase() : '';
+
+  // 1. Find root dir matching track
+  if (cleanTrack && cleanTopic) {
+    const rootDir = dirs.find(d => (!d.parent || d.parent === null) && (d.name.trim().toLowerCase().includes(cleanTrack) || cleanTrack.includes(d.name.trim().toLowerCase())));
+    if (rootDir) {
+      const childDir = dirs.find(d => d.parent === rootDir.id && (d.name.trim().toLowerCase().includes(cleanTopic) || cleanTopic.includes(d.name.trim().toLowerCase())));
+      if (childDir) return childDir.id;
+      return rootDir.id;
+    }
+  }
+
+  // 2. Find folder matching topic anywhere
+  if (cleanTopic) {
+    const matchedByTopic = dirs.find(d => d.name.trim().toLowerCase().includes(cleanTopic) || cleanTopic.includes(d.name.trim().toLowerCase()));
+    if (matchedByTopic) return matchedByTopic.id;
+  }
+
+  // 3. Find folder matching track anywhere
+  if (cleanTrack) {
+    const matchedByTrack = dirs.find(d => d.name.trim().toLowerCase().includes(cleanTrack) || cleanTrack.includes(d.name.trim().toLowerCase()));
+    if (matchedByTrack) return matchedByTrack.id;
+  }
+
+  return null;
+}
+
+// Derive Mạch kiến thức (track) and Chủ đề (topic) from selected directory ID
+export function getTrackAndTopicFromDir(dirId: number | null, dirs: Directory[]): { track: string; topic: string } {
+  if (!dirId || !dirs || dirs.length === 0) return { track: '', topic: '' };
+
+  const current = dirs.find(d => d.id === dirId);
+  if (!current) return { track: '', topic: '' };
+
+  // Trace up to the top-most root directory (where parent is null)
+  let rootDir = current;
+  const visited = new Set<number>();
+  while (rootDir.parent && !visited.has(rootDir.parent)) {
+    visited.add(rootDir.id);
+    const parentDir = dirs.find(d => d.id === rootDir.parent);
+    if (parentDir) {
+      rootDir = parentDir;
+    } else {
+      break;
+    }
+  }
+
+  // Root directory name is the Mạch kiến thức (1 of the 4 root folders: bản thân, xã hội, tự nhiên, hướng nghiệp)
+  const track = rootDir.name;
+  const topic = current.id !== rootDir.id ? current.name : '';
+
+  return { track, topic };
+}
+
+// Get array of directory ID and all its ancestor IDs (parent, grandparent...)
+export function getDirectoryAncestorsAndSelf(dirId: number, dirs: Directory[]): number[] {
+  const result: number[] = [];
+  let currentId: number | null = dirId;
+  const visited = new Set<number>();
+
+  while (currentId !== null && currentId !== undefined) {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    result.push(currentId);
+
+    const found = dirs.find(d => d.id === currentId);
+    currentId = found && found.parent ? found.parent : null;
+  }
+  return result;
+}
+
 export const getDescendantIds = (dirId: string | number, directories: Directory[]): string[] => {
   const result: string[] = [];
   const findChildren = (id: string | number) => {
