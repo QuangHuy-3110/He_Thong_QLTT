@@ -23,8 +23,8 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
-  // Base path config: use root '/' for Vercel, fallback to '/Knowledge_page/' for GitHub Pages
-  base: process.env.VERCEL ? '/' : '/Knowledge_page/',
+  // Base path config: use root '/' for Vercel, relative './' for GitHub Pages / subdirectories
+  base: process.env.VERCEL ? '/' : './',
 
 
   plugins: [
