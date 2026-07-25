@@ -756,31 +756,38 @@ class BackgroundProcessManager:
             with open(note_path, 'w', encoding='utf-8') as f:
                 f.write(front_matter + linked_markdown)
 
-            # 2. Tạo note khái niệm chéo (Concept Notes) để tạo Knowledge Graph hoàn chỉnh
+            # 2. Tạo note khái niệm chéo (Concept Notes) và lưu trực tiếp vào Bảng ConceptNote trên Supabase DB
+            from .models import ConceptNote
+
             for tag in extracted_tags:
-                concept_filename = f"{INVALID_FILE_CHARS.sub('_', tag.strip()).strip()}.md"
-                concept_path = os.path.join(vault_dir, concept_filename)
-                
-                if not os.path.exists(concept_path):
-                    # Dùng LLM tạo mô tả học thuật ngắn gọn cho khái niệm
+                tag_name = tag.strip()
+                if not tag_name:
+                    continue
+
+                concept_obj, created = ConceptNote.objects.get_or_create(
+                    name=tag_name,
+                    defaults={'subject': lp.attributes.get('Môn học', '')}
+                )
+                concept_obj.lessons.add(lp)
+
+                # Nếu chưa có định nghĩa (hoặc mới khởi tạo), gọi LLM để tạo và lưu trực tiếp vào CSDL Supabase
+                if created or not concept_obj.description:
                     concept_description = ""
                     try:
                         subject = lp.attributes.get('Môn học', 'giáo dục')
                         prompt_concept = (
-                            f"Viết 2-3 câu mô tả học thuật súc tích về khái niệm \"{tag}\" "
+                            f"Viết 2-3 câu mô tả học thuật súc tích về khái niệm \"{tag_name}\" "
                             f"trong bối cảnh môn học \"{subject}\" và bài học \"{lp.title}\". "
                             f"Chỉ mô tả bản chất/định nghĩa của khái niệm, không giải thích bài giảng. "
                             f"Bắt buộc viết 100% bằng tiếng Việt chuẩn, học thuật, ngắn gọn, không dùng gạch đầu dòng. "
                             f"Tuyệt đối không sử dụng bất kỳ từ ngữ hay ký tự tiếng nước ngoài nào (đặc biệt là chữ Hán/tiếng Trung như 硅藻门, tiếng Anh...)."
                         )
                         
-                        # Đọc cấu hình model của người dùng từ attributes
                         model_config = lp.attributes.get('ai_model_config', {}) if isinstance(lp.attributes, dict) else {}
                         ai_mode = model_config.get('ai_mode', 'local')
                         local_model = model_config.get('local_model', '3b')
                         api_key = model_config.get('api_key', None)
                         api_model = model_config.get('api_model', None)
-                        
                         model_choice = 'api' if ai_mode == 'api' else local_model
 
                         concept_description = generate_llm_response(
@@ -798,40 +805,36 @@ class BackgroundProcessManager:
                         ).strip()
 
                         if concept_description.startswith("### 💬 Xin chào!") or "Trợ lý AI" in concept_description or not concept_description.strip():
-                            concept_description = get_wikipedia_academic_definition(tag, subject, lp.title)
+                            concept_description = get_wikipedia_academic_definition(tag_name, subject, lp.title)
 
-                        # Loại bỏ các prefix không cần thiết
-                        for prefix in ["Khái niệm:", "Định nghĩa:", f"{tag}:", "**", "*"]:
+                        for prefix in ["Khái niệm:", "Định nghĩa:", f"{tag_name}:", "**", "*"]:
                             if concept_description.lower().startswith(prefix.lower()):
                                 concept_description = concept_description[len(prefix):].strip()
                     except Exception as e:
-                        print(f"[BG Process] Concept description generation failed for '{tag}': {e}")
-                        concept_description = get_wikipedia_academic_definition(tag, subject, lp.title)
+                        print(f"[BG Process] Concept description generation failed for '{tag_name}': {e}")
+                        concept_description = get_wikipedia_academic_definition(tag_name, subject, lp.title)
 
+                    concept_obj.description = concept_description
+                    concept_obj.save(update_fields=['description'])
+
+                # Đồng bộ thêm file .md vật lý cục bộ nếu có thư mục vault
+                concept_filename = f"{INVALID_FILE_CHARS.sub('_', tag_name).strip()}.md"
+                concept_path = os.path.join(vault_dir, concept_filename)
+                try:
                     with open(concept_path, 'w', encoding='utf-8') as f:
                         f.write(
                             f"---\n"
                             f"type: \"concept\"\n"
-                            f"name: \"{tag}\"\n"
+                            f"name: \"{tag_name}\"\n"
                             f"subject: \"{lp.attributes.get('Môn học', '')}\"\n"
                             f"---\n\n"
-                            f"# {tag}\n\n"
-                            f"{concept_description}\n\n"
+                            f"# {tag_name}\n\n"
+                            f"{concept_obj.description or 'Định nghĩa khái niệm'}\n\n"
                             f"## Các bài học liên quan:\n"
                             f"- 📚 [[{lp.title}]]\n"
                         )
-                else:
-                    # Nếu note khái niệm đã có, đọc và append thêm bài giảng mới liên quan
-                    try:
-                        with open(concept_path, 'r', encoding='utf-8') as f:
-                            concept_content = f.read()
-                        
-                        link_line = f"- [[{lp.title}]]"
-                        if link_line not in concept_content:
-                            with open(concept_path, 'a', encoding='utf-8') as f:
-                                f.write(f"{link_line}\n")
-                    except Exception:
-                        pass
+                except Exception:
+                    pass
 
             # Hoàn thành xử lý AI RAG
             lp.ai_processing_status = 'COMPLETED'

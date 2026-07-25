@@ -3155,29 +3155,30 @@ class ObsidianNotesListAPIView(APIView):
 
 class ObsidianNoteContentAPIView(APIView):
     """
-    API View đọc 100% nội dung từ CSDL Supabase Database.
+    API View đọc 100% nội dung từ CSDL Supabase Database (Bảng ConceptNote & LessonPlan).
     """
     def get(self, request):
-        from .models import DocumentChunk, LessonPlan
+        from .models import DocumentChunk, LessonPlan, ConceptNote
         filename = request.query_params.get('filename')
         if not filename:
             return Response({"error": "Vui lòng cung cấp tên file"}, status=400)
 
         clean_title = filename[:-3] if filename.lower().endswith('.md') else filename
         try:
-            # Tra cứu Thực thể / Khái niệm theo tiêu đề bài giảng liên quan
-            lessons_with_tag = LessonPlan.objects.filter(attributes__icontains=clean_title)
-            if lessons_with_tag.exists():
-                related_links = "\n".join([f"- 📚 [[{lp.title}]]" for lp in lessons_with_tag])
+            # 1. Tra cứu trực tiếp từ Bảng ConceptNote trên Supabase DB
+            concept_obj = ConceptNote.objects.filter(name__iexact=clean_title).first()
+            if concept_obj:
+                lessons_rel = concept_obj.lessons.all()
+                related_links = "\n".join([f"- 📚 [[{lp.title}]]" for lp in lessons_rel]) if lessons_rel.exists() else "Chưa có bài học liên kết"
                 content = (
-                    f"---\ntype: \"concept\"\nname: \"{clean_title}\"\n---\n\n"
-                    f"# {clean_title}\n\n"
-                    f"Khái niệm học thuật thuộc hệ thống dữ liệu RAG.\n\n"
+                    f"---\ntype: \"concept\"\nname: \"{concept_obj.name}\"\nsubject: \"{concept_obj.subject or ''}\"\n---\n\n"
+                    f"# {concept_obj.name}\n\n"
+                    f"{concept_obj.description or 'Khái niệm học thuật thuộc hệ thống dữ liệu RAG.'}\n\n"
                     f"## Các bài học liên quan:\n{related_links}"
                 )
                 return Response({"filename": filename, "content": content}, status=200)
 
-            # Tra cứu theo Tiêu đề Bài giảng
+            # 2. Tra cứu theo Tiêu đề Bài giảng
             lesson = LessonPlan.objects.filter(title__iexact=clean_title).first()
             if lesson:
                 tags = lesson.attributes.get('Từ khóa kiến thức', [])
@@ -3189,7 +3190,7 @@ class ObsidianNoteContentAPIView(APIView):
                 )
                 return Response({"filename": filename, "content": content}, status=200)
 
-            # Tra cứu theo Chunk heading
+            # 3. Tra cứu theo Chunk heading
             chunk = DocumentChunk.objects.filter(heading__iexact=clean_title).first()
             if chunk:
                 content = f"# {chunk.heading}\n\n{chunk.content}"

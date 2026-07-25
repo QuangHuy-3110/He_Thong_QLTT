@@ -161,6 +161,17 @@ class WikiNoteEditHistory(models.Model):
     class Meta:
         ordering = ['-edited_at']
 
+class ConceptNote(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True, null=True)
+    subject = models.CharField(max_length=100, blank=True, null=True)
+    lessons = models.ManyToManyField(LessonPlan, related_name='concept_notes', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
 class LessonPlanDirectory(models.Model):
     lesson_plan = models.ForeignKey(LessonPlan, on_delete=models.CASCADE)
     directory = models.ForeignKey(Directory, on_delete=models.CASCADE)
