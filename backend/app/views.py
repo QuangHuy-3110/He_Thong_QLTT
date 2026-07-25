@@ -3112,17 +3112,14 @@ class ObsidianStatusAPIView(APIView):
 
 class ObsidianNotesListAPIView(APIView):
     """
-    API View trả về danh sách các Thực thể RAG & Bài giảng từ CSDL Supabase
-    (đọc từ LessonPlan.attributes['Từ khóa kiến thức'] và DocumentChunk).
+    API View chỉ đọc 100% trực tiếp từ CSDL Supabase Database (LessonPlan attributes).
     """
     def get(self, request):
-        import os
-        from .models import LessonPlan, DocumentChunk
-        from .bg_processor import BackgroundProcessManager
+        from .models import LessonPlan
 
         notes_dict = {}
 
-        # 1. Lấy tất cả Thực thể / Khái niệm từ Supabase DB (LessonPlan.attributes)
+        # Lấy 100% Thực thể / Khái niệm từ Supabase DB
         try:
             lessons = LessonPlan.objects.only('id', 'title', 'attributes').all()
             for lp in lessons:
@@ -3152,68 +3149,36 @@ class ObsidianNotesListAPIView(APIView):
         except Exception as e:
             print(f"[ObsidianNotesListAPIView] Error reading DB attributes: {e}")
 
-        # 2. Đọc bổ sung từ thư mục Vault đĩa cứng nếu có
-        try:
-            vault_path = BackgroundProcessManager.get_vault_path()
-            if os.path.exists(vault_path):
-                for file in os.listdir(vault_path):
-                    if file.lower().endswith('.md'):
-                        key = file.lower()
-                        if key not in notes_dict:
-                            notes_dict[key] = {
-                                "filename": file,
-                                "title": file[:-3],
-                                "type": "concept",
-                                "size": os.path.getsize(os.path.join(vault_path, file))
-                            }
-        except Exception as e:
-            print(f"[ObsidianNotesListAPIView] Error reading vault directory: {e}")
-
         notes = sorted(list(notes_dict.values()), key=lambda x: x["title"].lower())
         return Response(notes, status=200)
 
 
 class ObsidianNoteContentAPIView(APIView):
     """
-    API View đọc trực tiếp nội dung chi tiết của một note.
-    Ưu tiên đọc file đĩa vault, nếu chưa có thì đọc động trực tiếp từ CSDL Supabase.
+    API View đọc 100% nội dung từ CSDL Supabase Database (Bảng ConceptNote & LessonPlan).
     """
     def get(self, request):
-        import os
-        from .models import DocumentChunk, LessonPlan
-        from .bg_processor import BackgroundProcessManager
+        from .models import DocumentChunk, LessonPlan, ConceptNote
         filename = request.query_params.get('filename')
         if not filename:
             return Response({"error": "Vui lòng cung cấp tên file"}, status=400)
-            
-        vault_path = BackgroundProcessManager.get_vault_path()
-        file_path = os.path.join(vault_path, filename)
-        
-        # 1. Nếu file note đã được tạo trên đĩa cứng
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                    content = f.read()
-                return Response({"filename": filename, "content": content}, status=200)
-            except Exception as e:
-                print(f"[ObsidianNoteContentAPIView] Error reading file: {e}")
 
-        # 2. Nếu file chưa có trên đĩa, đọc động trực tiếp từ CSDL Supabase
         clean_title = filename[:-3] if filename.lower().endswith('.md') else filename
         try:
-            # Tra cứu Thực thể / Khái niệm theo tiêu đề bài giảng liên quan
-            lessons_with_tag = LessonPlan.objects.filter(attributes__icontains=clean_title)
-            if lessons_with_tag.exists():
-                related_links = "\n".join([f"- 📚 [[{lp.title}]]" for lp in lessons_with_tag])
+            # 1. Tra cứu trực tiếp từ Bảng ConceptNote trên Supabase DB
+            concept_obj = ConceptNote.objects.filter(name__iexact=clean_title).first()
+            if concept_obj:
+                lessons_rel = concept_obj.lessons.all()
+                related_links = "\n".join([f"- 📚 [[{lp.title}]]" for lp in lessons_rel]) if lessons_rel.exists() else "Chưa có bài học liên kết"
                 content = (
-                    f"---\ntype: \"concept\"\nname: \"{clean_title}\"\n---\n\n"
-                    f"# {clean_title}\n\n"
-                    f"Khái niệm học thuật thuộc hệ thống dữ liệu RAG.\n\n"
+                    f"---\ntype: \"concept\"\nname: \"{concept_obj.name}\"\nsubject: \"{concept_obj.subject or ''}\"\n---\n\n"
+                    f"# {concept_obj.name}\n\n"
+                    f"{concept_obj.description or 'Khái niệm học thuật thuộc hệ thống dữ liệu RAG.'}\n\n"
                     f"## Các bài học liên quan:\n{related_links}"
                 )
                 return Response({"filename": filename, "content": content}, status=200)
 
-            # Tra cứu theo Tiêu đề Bài giảng
+            # 2. Tra cứu theo Tiêu đề Bài giảng
             lesson = LessonPlan.objects.filter(title__iexact=clean_title).first()
             if lesson:
                 tags = lesson.attributes.get('Từ khóa kiến thức', [])
@@ -3225,7 +3190,7 @@ class ObsidianNoteContentAPIView(APIView):
                 )
                 return Response({"filename": filename, "content": content}, status=200)
 
-            # Tra cứu theo Chunk heading
+            # 3. Tra cứu theo Chunk heading
             chunk = DocumentChunk.objects.filter(heading__iexact=clean_title).first()
             if chunk:
                 content = f"# {chunk.heading}\n\n{chunk.content}"
@@ -3238,12 +3203,10 @@ class ObsidianNoteContentAPIView(APIView):
 
 class ObsidianNotesByLessonAPIView(APIView):
     """
-    API trả về danh sách các note/thực thể RAG liên quan đến một bài giảng cụ thể từ Supabase DB.
+    API trả về danh sách các note/thực thể RAG liên quan đến một bài giảng cụ thể từ Supabase DB 100%.
     """
     def get(self, request):
-        import os, re
         from .models import LessonPlan
-        from .bg_processor import BackgroundProcessManager
 
         lesson_id = request.query_params.get('lesson_id')
         if not lesson_id:
@@ -3278,36 +3241,6 @@ class ObsidianNotesByLessonAPIView(APIView):
                         "type": "concept",
                         "size": len(tag_str.encode('utf-8'))
                     }
-
-        # 3. Quét file đĩa vault bổ sung nếu có
-        try:
-            vault_path = BackgroundProcessManager.get_vault_path()
-            if os.path.exists(vault_path):
-                clean_title = re.sub(r'[\/:*?"<>|\r\n\t]', '_', lesson.title).strip()
-                lesson_link_variants = [f"[[{lesson.title}]]", f"[[{clean_title}]]"]
-
-                for file in os.listdir(vault_path):
-                    if not file.lower().endswith('.md'):
-                        continue
-                    file_path = os.path.join(vault_path, file)
-                    title = file[:-3]
-                    key = file.lower()
-
-                    if key not in notes_dict:
-                        try:
-                            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                                content = f.read()
-                            if any(variant in content for variant in lesson_link_variants):
-                                notes_dict[key] = {
-                                    "filename": file,
-                                    "title": title,
-                                    "type": "concept",
-                                    "size": os.path.getsize(file_path)
-                                }
-                        except Exception:
-                            pass
-        except Exception as e:
-            print(f"[ObsidianNotesByLessonAPIView] Vault query error: {e}")
 
         notes = sorted(list(notes_dict.values()), key=lambda x: (0 if x['type'] == 'lesson' else 1, x['title'].lower()))
         return Response(notes, status=200)
