@@ -294,6 +294,12 @@ class LessonPlanDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
                 except Exception as e:
                     print(f"Error reading direct md/txt on update: {e}")
 
+            try:
+                if hasattr(file_obj, 'seek'):
+                    file_obj.seek(0)
+            except Exception as seek_err:
+                print(f"Error seeking file_obj back to 0 on update: {seek_err}")
+
         # Xử lý cập nhật thư mục lưu tài liệu
         dir_id = self.request.data.get('directory_id')
         if dir_id is not None:
@@ -703,6 +709,12 @@ class LessonPlanUploadAPIView(APIView):
                 except Exception as e:
                     print(f"Error reading direct md/txt upload: {e}")
 
+            try:
+                if hasattr(file_obj, 'seek'):
+                    file_obj.seek(0)
+            except Exception as seek_err:
+                print(f"Error seeking file_obj back to 0 on upload: {seek_err}")
+
         # Check duplicate
         dup_error, dup_id = check_duplicate_lesson_plan(title, content_preview, status_val, user)
         if dup_error:
@@ -736,6 +748,76 @@ class LessonPlanUploadAPIView(APIView):
                 )
 
         return Response(LessonPlanSerializer(lp).data, status=status.HTTP_201_CREATED)
+
+class LessonPlanDownloadAPIView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request, pk):
+        from django.http import HttpResponse, Http404
+        import os
+        import io
+        try:
+            lesson = LessonPlan.objects.get(pk=pk)
+        except LessonPlan.DoesNotExist:
+            raise Http404("Không tìm thấy giáo án.")
+
+        filename = f"{lesson.title or 'giao_an'}.docx"
+        if lesson.file_path and hasattr(lesson.file_path, 'name') and lesson.file_path.name:
+            original_ext = os.path.splitext(lesson.file_path.name)[1]
+            if original_ext:
+                filename = f"{lesson.title or 'giao_an'}{original_ext}"
+
+        # 1. Thử nạp trực tiếp dữ liệu từ file_path (Local đĩa hoặc Supabase Storage)
+        if lesson.file_path:
+            try:
+                lesson.file_path.open('rb')
+                content = lesson.file_path.read()
+                if content and len(content) > 0:
+                    response = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                    response['Content-Disposition'] = f'inline; filename="{filename}"'
+                    response['Access-Control-Allow-Origin'] = '*'
+                    return response
+            except Exception as e:
+                print(f"[Download API] Could not read file_path directly for lesson {pk}: {e}")
+
+        # 2. Cơ chế Fallback: Tự động khởi tạo file .docx chuẩn từ content_preview
+        content_preview = lesson.content_preview or ""
+        if content_preview:
+            try:
+                import docx
+                doc = docx.Document()
+                doc.add_heading(lesson.title or "Giáo án", level=1)
+                if lesson.description:
+                    doc.add_paragraph(lesson.description)
+                
+                for line in content_preview.split('\n'):
+                    stripped = line.strip()
+                    if stripped.startswith('# '):
+                        doc.add_heading(stripped[2:].strip(), level=1)
+                    elif stripped.startswith('## '):
+                        doc.add_heading(stripped[3:].strip(), level=2)
+                    elif stripped.startswith('### '):
+                        doc.add_heading(stripped[4:].strip(), level=3)
+                    elif stripped:
+                        doc.add_paragraph(stripped)
+                
+                buffer = io.BytesIO()
+                doc.save(buffer)
+                buffer.seek(0)
+                
+                response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                response['Content-Disposition'] = f'inline; filename="{lesson.title or "giao_an"}.docx"'
+                response['Access-Control-Allow-Origin'] = '*'
+                return response
+            except Exception as err:
+                print(f"[Download API] Error generating docx fallback: {err}")
+
+        # 3. Fallback cuối cùng: Trả về văn bản thuần nếu không tạo được .docx
+        response = HttpResponse(content_preview.encode('utf-8'), content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = f'inline; filename="{lesson.title or "giao_an"}.txt"'
+        response['Access-Control-Allow-Origin'] = '*'
+        return response
 
 class ApprovalRequestListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = ApprovalRequestSerializer

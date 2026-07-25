@@ -1293,7 +1293,7 @@ export default function DetailView({
 
                     {previewMode === 'docx' ? (
                       <div className="bg-white border border-gray-150 rounded-2xl p-2 shadow-inner">
-                        <DocxPreview fileUrl={fileUrl} />
+                        <DocxPreview fileUrl={fileUrl} lessonId={lesson.id} fallbackContent={lesson.content_preview} />
                       </div>
                     ) : (
                       <div className="px-1 sm:px-2 pt-2">
@@ -1475,7 +1475,7 @@ export default function DetailView({
           className="max-h-[50vh] overflow-y-auto p-5 bg-white border-2 border-slate-200 rounded-2xl shadow-inner select-text text-xs leading-relaxed font-sans cursor-text space-y-3"
         >
           {isDocx && previewMode === 'docx' ? (
-            <DocxPreview fileUrl={fileUrl} />
+            <DocxPreview fileUrl={fileUrl} lessonId={lesson.id} fallbackContent={lesson.content_preview} />
           ) : (
             <MarkdownViewer markdown={lesson.content_preview || ''} />
           )}

@@ -102,46 +102,40 @@ export const getFileUrl = (url: string | undefined | null) => {
   const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('http://127.0.0.1:8000');
   const cleanBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
 
-  // If the URL is already absolute and pointing to a remote storage (like Supabase), return it as-is
+  let finalUrl = url;
+
   if (url.startsWith('http://') || url.startsWith('https://')) {
     if (url.includes('.supabase.co') || url.includes('/storage/v1/object/')) {
-      return url;
-    }
-    try {
-      const parsedUrl = new URL(url);
-      const parsedBase = new URL(cleanBase);
-      // If it is not localhost/127.0.0.1, and not our backend domain, it's a remote URL
-      if (parsedUrl.hostname !== 'localhost' &&
-        parsedUrl.hostname !== '127.0.0.1' &&
-        parsedUrl.hostname !== parsedBase.hostname) {
-        return url;
+      finalUrl = url;
+    } else {
+      try {
+        const parsedUrl = new URL(url);
+        const parsedBase = new URL(cleanBase);
+        if (parsedUrl.hostname !== 'localhost' &&
+          parsedUrl.hostname !== '127.0.0.1' &&
+          parsedUrl.hostname !== parsedBase.hostname) {
+          finalUrl = url;
+        } else {
+          let path = parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
+          let mediaPath = path.startsWith('/media/') ? path : (path.startsWith('media/') ? '/' + path : '/media/' + path);
+          finalUrl = cleanBase + mediaPath;
+        }
+      } catch {
+        finalUrl = url;
       }
-    } catch {
-      // If URL parsing fails, return as-is
-      return url;
     }
-  }
-
-  let path = url;
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    try {
-      const parsed = new URL(url);
-      path = parsed.pathname + parsed.search + parsed.hash;
-    } catch {
-      path = url;
-    }
-  }
-
-  let mediaPath = path;
-  if (path.startsWith('/media/')) {
-    mediaPath = path;
-  } else if (path.startsWith('media/')) {
-    mediaPath = '/' + path;
   } else {
-    mediaPath = '/media/' + path;
+    let mediaPath = url.startsWith('/media/') ? url : (url.startsWith('media/') ? '/' + url : '/media/' + url);
+    finalUrl = cleanBase + mediaPath;
   }
 
-  return cleanBase + mediaPath;
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    if (finalUrl.startsWith('http://') && !finalUrl.includes('localhost') && !finalUrl.includes('127.0.0.1')) {
+      finalUrl = finalUrl.replace('http://', 'https://');
+    }
+  }
+
+  return finalUrl;
 };
 
 export const getLessonFileUrl = (lesson: LessonPlan) => {
@@ -161,31 +155,53 @@ export const getFileName = (url: string | undefined | null) => {
 
 export const downloadFile = async (lesson: LessonPlan) => {
   const fileUrl = getLessonFileUrl(lesson);
-  if (!fileUrl) {
-    alert('Không tìm thấy đường dẫn tệp.');
+  const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
+  const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
+  const fallbackDownloadApi = lesson.id ? `${cleanApiBase}/api/lesson-plans/${lesson.id}/download/` : '';
+  const rawFileName = getFileName(lesson.file_url || lesson.file_path);
+  const fileName = (rawFileName.endsWith('.docx') || rawFileName.endsWith('.doc') || rawFileName.endsWith('.md'))
+    ? rawFileName
+    : `${lesson.title || 'giao_an'}.docx`;
+
+  // 1. Try direct fetch from fileUrl
+  if (fileUrl) {
+    try {
+      const response = await fetch(fileUrl);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0) {
+          saveAs(blob, fileName);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Direct fileUrl fetch failed, attempting API fallback:', err);
+    }
+  }
+
+  // 2. Try fetching from backend download API
+  if (fallbackDownloadApi) {
+    try {
+      const response = await fetch(fallbackDownloadApi);
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size > 0) {
+          saveAs(blob, fileName);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend download API failed, attempting client fallback:', err);
+    }
+  }
+
+  // 3. Client Fallback: Download content_preview as markdown file
+  if (lesson.content_preview) {
+    downloadMarkdownFile(lesson.title || 'giao_an', lesson.content_preview);
     return;
   }
 
-  const fileName = getFileName(lesson.file_url || lesson.file_path);
-  try {
-    // Vanilla fetch is clean and bypasses Axios custom authorization headers/CORS blocks!
-    const response = await fetch(fileUrl);
-    if (!response.ok) throw new Error('Không thể tải file.');
-    const blob = await response.blob();
-    // Save to device using the file-saver library!
-    saveAs(blob, fileName);
-  } catch (err) {
-    console.error('Download error, falling back:', err);
-    // Secure fallback: Trigger browser standard same-origin download click
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  alert('Không tìm thấy đường dẫn tệp bài giảng.');
 };
 
 export function removeAccents(str: string): string {
