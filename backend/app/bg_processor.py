@@ -208,6 +208,26 @@ class BackgroundProcessManager:
                 }
                 break
 
+        # Danh sách các bài giảng bị lỗi (FAILED)
+        failed_lessons = []
+        failed_objs = LessonPlan.objects.filter(ai_processing_status='FAILED').only('id', 'title', 'ai_processing_step', 'updated_at')
+        for flp in failed_objs:
+            failed_lessons.append({
+                'id': flp.id,
+                'title': flp.title,
+                'error': flp.ai_processing_step or 'Lỗi không xác định',
+                'updated_at': flp.updated_at.isoformat() if flp.updated_at else ''
+            })
+
+        # Danh sách tóm tắt tất cả bài giảng để Admin chọn chạy lại
+        all_lessons = []
+        for l_obj in LessonPlan.objects.only('id', 'title', 'ai_processing_status').order_by('-id'):
+            all_lessons.append({
+                'id': l_obj.id,
+                'title': l_obj.title,
+                'ai_processing_status': l_obj.ai_processing_status
+            })
+
         # Đếm tổng thể trong database
         total = LessonPlan.objects.count()
         completed = LessonPlan.objects.filter(ai_processing_status='COMPLETED').count()
@@ -217,6 +237,8 @@ class BackgroundProcessManager:
         return {
             'active_task': current_task,
             'pending_queue': pending_list,
+            'failed_lessons': failed_lessons,
+            'all_lessons': all_lessons,
             'stats': {
                 'total_lessons': total,
                 'completed': completed,
@@ -265,6 +287,12 @@ class BackgroundProcessManager:
     @classmethod
     def _worker_loop(cls):
         from concurrent.futures import ThreadPoolExecutor
+        # Quét và xếp hàng các bài giảng chưa xử lý trong background thread khi worker vừa khởi chạy
+        try:
+            cls.scan_and_queue_unprocessed()
+        except Exception as e:
+            print(f"[BG Process] Startup scan error in worker thread: {e}")
+
         # Sử dụng ThreadPool với tối đa 2 workers để chạy song song an toàn
         with ThreadPoolExecutor(max_workers=2) as executor:
             while True:
@@ -402,16 +430,17 @@ class BackgroundProcessManager:
             lp.chunks.all().delete()
 
             if strategy == "heading":
-                # Triển khai Heading-based Semantic Chunking
+                # Triển khai Heading-based Semantic Chunking (tách theo tiêu đề & chia nhỏ nếu phần quá dài)
                 lines = markdown_content.split('\n')
                 current_heading = "Mở đầu / Giới thiệu"
                 current_lines = []
                 
+                raw_sections = []
                 for line in lines:
                     match = HEADER_PATTERN.match(line)
                     if match:
                         if current_lines:
-                            chunks_to_create.append({
+                            raw_sections.append({
                                 'heading': current_heading,
                                 'content': '\n'.join(current_lines).strip()
                             })
@@ -420,10 +449,43 @@ class BackgroundProcessManager:
                     current_lines.append(line)
                 
                 if current_lines:
-                    chunks_to_create.append({
+                    raw_sections.append({
                         'heading': current_heading,
                         'content': '\n'.join(current_lines).strip()
                     })
+
+                # Đảm bảo mỗi chunk không vượt quá max chunk_size
+                for sec in raw_sections:
+                    sec_content = sec['content']
+                    sec_heading = sec['heading']
+                    if not sec_content:
+                        continue
+                    if len(sec_content) <= chunk_size:
+                        chunks_to_create.append({
+                            'heading': sec_heading,
+                            'content': sec_content
+                        })
+                    else:
+                        # Tách theo đoạn văn nếu phần mục quá dài
+                        sub_paragraphs = [p for p in sec_content.split('\n\n') if p.strip()]
+                        accum_text = ""
+                        sub_idx = 1
+                        for p in sub_paragraphs:
+                            if len(accum_text) + len(p) + 2 <= chunk_size:
+                                accum_text = (accum_text + "\n\n" + p).strip()
+                            else:
+                                if accum_text:
+                                    chunks_to_create.append({
+                                        'heading': f"{sec_heading} (Phần {sub_idx})",
+                                        'content': accum_text
+                                    })
+                                    sub_idx += 1
+                                accum_text = p
+                        if accum_text:
+                            chunks_to_create.append({
+                                'heading': f"{sec_heading} (Phần {sub_idx})" if sub_idx > 1 else sec_heading,
+                                'content': accum_text
+                            })
             else:
                 # Fallback: Fixed character window
                 text = str(markdown_content).strip()
@@ -478,7 +540,7 @@ class BackgroundProcessManager:
                     cls._handle_cancellation(lp_id)
                     return
                 chk_content = chk['content']
-                chk_heading = chk['heading']
+                chk_heading = (chk['heading'] or '')[:250]
                 emb_vector = emb_vectors[idx] if idx < len(emb_vectors) else [0.0] * 1536
                 
                 DocumentChunk.objects.create(
@@ -546,16 +608,16 @@ class BackgroundProcessManager:
                 else:
                     core_content_text = "\n".join(selected_contents)
 
-                # Tạo prompt tối ưu để Qwen local bóc tách khái niệm chính xác, tránh từ chung chung
+                # Tạo prompt tối ưu để bóc tách đúng 5 đến 8 thực thể/khái niệm cốt lõi, loại bỏ từ lan man
                 prompt_extract = (
-                    f"Dưới đây là nội dung văn bản cốt lõi của tài liệu \"{lp.title}\":\n"
+                    f"Dưới đây là nội dung văn bản cốt lõi của tài liệu bài giảng \"{lp.title}\":\n"
                     f"Mô tả: {lp.description or 'Không có mô tả'}\n"
                     f"Nội dung văn bản lọc chọn:\n{core_content_text}\n\n"
-                    f"Nhiệm vụ: Hãy phân tích sâu sắc văn bản trên và trích xuất đúng từ 8 đến 12 khái niệm/thuật ngữ/thực thể cốt lõi và đặc trưng nhất của bài học này.\n"
+                    f"Nhiệm vụ: Hãy phân tích kỹ văn bản trên và trích xuất đúng từ 5 đến 8 khái niệm/thuật ngữ/thực thể trọng tâm và quan trọng nhất.\n"
                     f"YÊU CẦU NGHIÊM NGẶT:\n"
-                    f"1. Hãy trích xuất đa dạng cả khái niệm chuyên môn nội dung của bài học (ví dụ: các chủ đề khoa học, xã hội, hướng nghiệp, đời sống như 'Dinh dưỡng học đường', 'Khẩu phần ăn', 'Bảo vệ môi trường', 'Hướng nghiệp', 'Kế hoạch học tập', 'Kỹ năng sinh tồn', 'Nhịp sinh học', 'Giao tiếp xã hội'...) lẫn các mục tiêu năng lực/phẩm chất đặc thù cốt lõi đi kèm (ví dụ: 'Năng lực tự học', 'Năng lực hợp tác', 'Giải quyết vấn đề', 'Trung thực', 'Trách nhiệm', 'Chăm chỉ').\n"
-                    f"2. Tuyệt đối TRÁNH các từ chung chung hoặc các hoạt động/phương pháp chung như: 'Thảo luận', 'Trò chơi', 'Hình ảnh', 'Hoạt động', 'Thực hành', 'Giáo án', 'Học sinh', 'Giáo viên', 'Đại diện', 'Báo cáo', 'Poster'.\n"
-                    f"3. Trả về kết quả dưới dạng MỘT danh sách JSON duy nhất chứa các chuỗi (ví dụ: [\"Khái niệm 1\", \"Khái niệm 2\", ...]). Không viết thêm bất kỳ văn bản giải thích nào khác."
+                    f"1. CHỈ trích xuất các khái niệm chuyên môn hoặc thuộc tính cốt lõi XUẤT HIỆN TRỰC TIẾP hoặc liên quan mật thiết nhất trong bài giảng (Ví dụ: 'BMI', 'Dopamine', 'Nhịp sinh học', 'Độ phì đất', 'Vi khuẩn có ích', 'Năng lực giao tiếp'...). Bỏ qua các khái niệm ngoài lề không quan trọng.\n"
+                    f"2. Tuyệt đối TRÁNH các từ ngữ lan man, chung chung hoặc từ hoạt động như: 'Thảo luận', 'Trò chơi', 'Hình ảnh', 'Hoạt động', 'Thực hành', 'Giáo án', 'Học sinh', 'Giáo viên', 'Đại diện', 'Báo cáo', 'Poster', 'Tài liệu', 'Bài học'.\n"
+                    f"3. Trả về kết quả dưới dạng MỘT danh sách JSON duy nhất gồm từ 5 đến 8 chuỗi (Ví dụ: [\"Khái niệm 1\", \"Khái niệm 2\", ...]). Không thêm bất kỳ lời giải thích nào khác."
                 )
 
                 # Đọc cấu hình model của người dùng từ attributes
@@ -575,15 +637,16 @@ class BackgroundProcessManager:
                     model_name=api_model if ai_mode == 'api' else None
                 )
 
-                cleaned_res = llm_response.strip()
-                if cleaned_res.startswith("```"):
-                    cleaned_res = re.sub(r"^```(?:json)?\n", "", cleaned_res)
-                    cleaned_res = re.sub(r"\n```$", "", cleaned_res)
-                cleaned_res = cleaned_res.strip()
-                
-                parsed_tags = json.loads(cleaned_res)
+                # Loại bỏ các ký tự xuống dòng không hợp lệ bên trong chuỗi JSON nếu có
+                cleaned_res = re.sub(r'[\r\n\t]+', ' ', llm_response.strip())
+                # Tìm mảng JSON dạng [...] nếu LLM có trả về thêm văn bản xung quanh
+                json_match = re.search(r'\[.*\]', cleaned_res)
+                if json_match:
+                    cleaned_res = json_match.group(0)
+
+                parsed_tags = json.loads(cleaned_res, strict=False)
                 if isinstance(parsed_tags, list) and len(parsed_tags) > 0:
-                    extracted_tags = [str(t).strip() for t in parsed_tags[:12]]
+                    extracted_tags = [str(t).strip() for t in parsed_tags[:8]]
             except Exception as e:
                 print(f"[BG Process] LLM concept extraction failed: {e}. Falling back to keyword analyzer.")
 
@@ -601,9 +664,9 @@ class BackgroundProcessManager:
                         if ot not in extracted_tags:
                             extracted_tags.append(ot)
                             
-            # Lưu lại vào attributes của bài giảng để vẽ đồ thị (Cho phép tối đa 12 thực thể)
-            lp.attributes["Từ khóa kiến thức"] = extracted_tags[:12]
-            lp.attributes["knowledge_tags"] = extracted_tags[:12]
+            # Lưu lại vào attributes của bài giảng để vẽ đồ thị (Tối đa 8 thực thể trọng tâm)
+            lp.attributes["Từ khóa kiến thức"] = extracted_tags[:8]
+            lp.attributes["knowledge_tags"] = extracted_tags[:8]
             lp.save(update_fields=['attributes'])
 
             if cls._is_cancelled(lp_id):

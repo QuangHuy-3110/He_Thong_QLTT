@@ -2491,7 +2491,72 @@ class AIChatSendMessageAPIView(APIView):
             content=user_message_content
         )
         
-        # 2. Gọi dịch vụ Graph RAG truy xuất ngữ cảnh & Nodes đồ thị
+        import json
+        from django.http import StreamingHttpResponse
+        
+        # 2. PHẦN 1: BỘ PHÂN LOẠI Ý ĐỊNH SIÊU TỐC (FAST INTENT CLASSIFIER - SUB-50MS)
+        query_lower = user_message_content.strip().lower()
+        
+        # Danh sách từ khóa nhận diện câu chào hỏi hoặc hỏi trợ lý
+        greeting_keywords = ["chào bạn", "xin chào", "hello", "hi chatbot", "chào em", "chào trợ lý", "bắt đầu"]
+        sys_info_keywords = ["hệ thống kms là gì", "giới thiệu về hệ thống", "hướng dẫn sử dụng", "chatbot này làm được gì", "tác dụng của chatbot", "bạn là ai", "hệ thống quản lý tri thức là gì", "hệ thống này là gì"]
+        
+        is_greeting = any(query_lower == kw or query_lower.startswith(kw) for kw in greeting_keywords) and len(query_lower) < 30
+        is_sys_info = any(kw in query_lower for kw in sys_info_keywords)
+
+        if is_greeting or is_sys_info:
+            # Trả về ngay lập tức không tốn tài nguyên RAG/LLM
+            if is_greeting:
+                instant_reply = (
+                    "👋 **Xin chào! Tôi là Trợ lý AI Chuyên gia thuộc Hệ thống Quản lý Tri thức Học tập (KMS).**\n\n"
+                    "Tôi có thể hỗ trợ thầy/cô và bạn:\n"
+                    "- 🔍 Tra cứu, phân tích và so sánh các bài giảng, giáo án trong kho dữ liệu.\n"
+                    "- 🧠 Giải thích các khái niệm khoa học, năng lực, phẩm chất và tri thức chuyên môn.\n"
+                    "- 📊 Trích xuất Sơ đồ tư duy (Knowledge Graph) và gợi ý bài giảng tương tự.\n\n"
+                    "Thầy/cô cần tôi trợ giúp điều gì hôm nay?"
+                )
+            else:
+                instant_reply = (
+                    "ℹ️ **Hệ thống Quản lý Tri thức Học tập (KMS - Knowledge Management System)**\n\n"
+                    "Hệ thống giúp số hóa, tổ chức và kết nối các kế hoạch bài dạy (giáo án) dưới dạng **Đồ thị tri thức (Knowledge Graph)** và **Obsidian Vault**.\n\n"
+                    "**Các tính năng nổi bật của Chatbot AI:**\n"
+                    "1. **Graph RAG Search:** Tìm kiếm thông minh dựa trên nội dung bài giảng và mạng lưới khái niệm liên kết.\n"
+                    "2. **Phân tích Focus Mode:** Đặt câu hỏi chi tiết về một bài giảng cụ thể khi đang mở bài học.\n"
+                    "3. **So sánh & Thống kê:** Liệt kê và đối chiếu phương pháp sư phạm, thời lượng, thiết bị giữa các bài học.\n"
+                    "4. **Trích dẫn liên kết nhảy nhanh:** Click trực tiếp vào bài giảng được trích dẫn để xem chi tiết."
+                )
+
+            def instant_event_stream():
+                meta_payload = {
+                    'type': 'meta',
+                    'retrieved_graph': {'nodes': [], 'edges': []},
+                    'retrieved_node_ids': [],
+                    'suggested_questions': [
+                        "Hệ thống có bao nhiêu bài giảng môn Sinh học?",
+                        "Tóm tắt các hoạt động dạy học của chủ đề Dinh dưỡng?",
+                        "So sánh bài giảng về Thói quen sinh hoạt và Chăm sóc sức khỏe?"
+                    ],
+                    'session_title': session.title
+                }
+                yield f"data: {json.dumps(meta_payload, ensure_ascii=False)}\n\n"
+                
+                text_payload = {'type': 'text', 'content': instant_reply}
+                yield f"data: {json.dumps(text_payload, ensure_ascii=False)}\n\n"
+                
+                ai_message = AIChatMessage.objects.create(session=session, sender_role='AI', content=instant_reply)
+                done_payload = {
+                    'type': 'done',
+                    'message': AIChatMessageSerializer(ai_message).data,
+                    'session_title': session.title
+                }
+                yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
+
+            response = StreamingHttpResponse(instant_event_stream(), content_type='text/event-stream')
+            response['Cache-Control'] = 'no-cache'
+            response['X-Accel-Buffering'] = 'no'
+            return response
+
+        # 3. Gọi dịch vụ Graph RAG truy xuất ngữ cảnh & Nodes đồ thị nếu câu hỏi cần tra cứu
         from .graph_rag_service import retrieve_graph_rag_context
         
         rag_data = retrieve_graph_rag_context(
@@ -2501,11 +2566,9 @@ class AIChatSendMessageAPIView(APIView):
             api_key=api_key
         )
         
-        # --- PHẦN 3: BỘ PHÂN LOẠI Ý ĐỊNH TRUY VẤN NÂNG CAO (QUERY INTENT CLASSIFIER) ---
-        query_lower = user_message_content.lower()
-        intent = "GENERAL_KMS" # Ý định mặc định
+        # --- PHẦN 4: BỘ PHÂN LOẠI Ý ĐỊNH TRUY VẤN NÂNG CAO & SYSTEM PROMPTS ---
+        intent = "GENERAL_KMS"
         
-        # Phân loại ý định
         if focus_lesson_id:
             intent = "FOCUS_QA"
         elif any(kw in query_lower for kw in ["bao nhiêu", "tổng số", "thống kê", "danh sách bài", "tất cả tài liệu", "liệt kê"]):
@@ -2513,23 +2576,23 @@ class AIChatSendMessageAPIView(APIView):
         elif any(kw in query_lower for kw in ["khác nhau", "so sánh", "tương tự", "giống nhau", "khác gì", "đối chiếu"]):
             intent = "COMPARATIVE"
             
-        # Xác định System Prompt chuyên biệt cho từng ý định
+        # System Prompts siết chặt chống suy đoán bịa đặt (Anti-Hallucination)
         if intent == "FOCUS_QA":
             try:
                 from .models import LessonPlan
                 lesson_obj = LessonPlan.objects.get(id=focus_lesson_id)
                 
-                # Trích xuất sơ đồ tư duy (mindmap) chuyên sâu để AI phân tích
                 mindmap_tags = lesson_obj.attributes.get("Từ khóa kiến thức", []) or lesson_obj.attributes.get("knowledge_tags", [])
                 mindmap_str = ", ".join(mindmap_tags) if isinstance(mindmap_tags, list) else str(mindmap_tags)
                 
                 system_prompt = (
                     f"Bạn là Trợ lý AI chuyên gia phân tích sư phạm trong Hệ thống Quản lý Tri thức Học tập (KMS).\n"
-                    f"Hiện tại người dùng đang xem tài liệu cụ thể: \"{lesson_obj.title}\" (ID bài giảng: {lesson_obj.id}) và bật khung chat hỗ trợ.\n"
-                    f"ĐỒ THỊ SƠ ĐỒ TƯ DUY (MINDMAP) CỦA RIÊNG TÀI LIỆU NÀY GỒM CÁC PHÂN NHÁNH TRỌNG TÂM: [[{lesson_obj.title}]] -> {mindmap_str}.\n\n"
-                    f"Nhiệm vụ của bạn là tập trung THIÊN VỀ tài liệu \"{lesson_obj.title}\" này để giải đáp thắc mắc, tóm tắt hoạt động, phân tích phương pháp sư phạm, hoặc điều chỉnh giáo án theo yêu cầu.\n"
-                    f"Hãy trả lời bằng Tiếng Việt lịch sự, cấu trúc Markdown rõ ràng (sử dụng tiêu đề, bảng biểu, danh sách để cực kỳ trực quan).\n"
-                    f"Bắt buộc phải đính kèm liên kết nhảy nhanh theo cú pháp markdown đặc biệt: `[Tên hiển thị liên kết](lesson://<lesson_id>?text=<từ_khóa_ngắn_tìm_kiếm>)` (hoặc `[Tên hiển thị](lesson://<lesson_id>)` nếu không có từ khóa cụ thể)."
+                    f"Người dùng đang tập trung xem tài liệu: \"{lesson_obj.title}\" (ID: {lesson_obj.id}).\n"
+                    f"SƠ ĐỒ TƯ DUY TRỌNG TÂM CỦA BÀI HỌC: [[{lesson_obj.title}]] -> {mindmap_str}.\n\n"
+                    f"QUY TẮC TRẢ LỜI NGHIÊM NGẶT:\n"
+                    f"1. Dựa vào nội dung tài liệu và Ngữ cảnh Graph RAG để trả lời chính xác, sát thực tế bài học.\n"
+                    f"2. Đối với câu hỏi giải thích khái niệm: Giải thích rõ ràng định nghĩa và ứng dụng trong bài học. Nếu khái niệm nằm ngoài bài giảng, hãy trả lời bằng tri thức học thuật chuyên môn nhưng nêu rõ 'Khái niệm này được giải thích mở rộng, chưa có trong nội dung trực tiếp của bài giảng'.\n"
+                    f"3. Luôn sử dụng cú pháp trích dẫn: `[Tên hiển thị](lesson://{lesson_obj.id})`."
                 )
             except LessonPlan.DoesNotExist:
                 intent = "GENERAL_KMS"
@@ -2537,31 +2600,26 @@ class AIChatSendMessageAPIView(APIView):
         if intent == "STATISTICAL":
             system_prompt = (
                 "Bạn là Trợ lý AI chuyên gia thống kê tri thức hệ thống KMS.\n"
-                "Người dùng đang yêu cầu THỐNG KÊ, LIỆT KÊ hoặc ĐO LƯỜNG toàn bộ tài liệu trong hệ thống.\n"
-                "Nhiệm vụ của bạn là dựa vào Ngữ cảnh RAG (đặc biệt là danh mục và thuộc tính của tất cả các bài giảng công khai) để tổng hợp ra các bảng biểu trực quan, phân tích tỉ lệ môn học, phân loại theo lớp, loại hình, địa điểm, từ khóa một cách khoa học.\n"
-                "Hãy trả lời bằng Tiếng Việt, trình bày dạng BẢNG BIỂU (Table) Markdown để so sánh định lượng trực quan, rõ ràng.\n"
-                "Bắt buộc phải đính kèm liên kết nhảy nhanh cho mỗi tài liệu được liệt kê: `[Tên bài học](lesson://<lesson_id>)`."
+                "Nhiệm vụ: Dựa vào Ngữ cảnh RAG để lập bảng thống kê định lượng trung thực, chính xác về các bài giảng.\n"
+                "Hãy trả lời bằng BẢNG BIỂU Markdown và đính kèm liên kết: `[Tên bài học](lesson://<lesson_id>)`."
             )
             
         elif intent == "COMPARATIVE":
             system_prompt = (
-                "Bạn là Trợ lý AI chuyên gia phân tích so sánh và liên kết tri thức hệ thống KMS.\n"
-                "Người dùng đang yêu cầu SO SÁNH, ĐỐI CHIẾU hoặc TÌM KIẾM LIÊN QUAN giữa các tài liệu khác nhau.\n"
-                "Nhiệm vụ của bạn là phân tích sâu các điểm tương đồng, khác biệt về mặt cấu trúc hoạt động dạy học, phương pháp sư phạm, đối tượng học sinh, từ khóa kiến thức của các tài liệu tìm thấy trong Ngữ cảnh Graph RAG.\n"
-                "Hãy trình bày câu trả lời rõ ràng dưới dạng So sánh đa chiều (sử dụng bảng biểu đối chiếu và bullet points rõ ràng).\n"
-                "Bắt buộc phải đính kèm liên kết nhảy nhanh khi so sánh: `[Tên bài học](lesson://<lesson_id>)`."
+                "Bạn là Trợ lý AI chuyên gia phân tích so sánh tri thức hệ thống KMS.\n"
+                "Nhiệm vụ: Phân tích so sánh đa chiều giữa các tài liệu trong Ngữ cảnh RAG dưới dạng BẢNG ĐỐI CHIẾU.\n"
+                "Bắt buộc đính kèm liên kết nhảy nhanh: `[Tên bài học](lesson://<lesson_id>)`."
             )
             
         elif intent == "GENERAL_KMS":
             system_prompt = (
                 "Bạn là Trợ lý AI hữu ích, chuyên gia phân tích sư phạm trong Hệ thống Quản lý Tri thức Học tập (KMS).\n"
-                "Nhiệm vụ của bạn là hỗ trợ người dùng tìm kiếm tài liệu giáo án, tóm tắt hoạt động giảng dạy, đề xuất cải tiến và giải đáp kiến thức sư phạm chung.\n"
-                "Hãy trả lời một cách lịch sự, cấu trúc Markdown rõ ràng (sử dụng tiêu đề, bảng biểu, danh sách thụt lề để cực kỳ trực quan).\n"
-                "Hãy dựa vào Ngữ cảnh Graph RAG được cung cấp bên dưới để trả lời trung thực, chính xác. Nếu ngữ cảnh không có thông tin, hãy trả lời linh hoạt dựa trên kiến thức của bạn nhưng nêu rõ là không tìm thấy trong tài liệu cụ thể của hệ thống.\n"
-                "Để hỗ trợ điều hướng thông minh, khi bạn trích dẫn hoặc nhắc tới bất kỳ tài liệu/bài giảng nào từ Ngữ cảnh RAG, bạn BẮT BUỘC phải đính kèm liên kết nhảy nhanh theo cú pháp markdown đặc biệt: `[Tên hiển thị liên kết](lesson://<lesson_id>?text=<từ_khóa_ngắn_tìm_kiếm>)` (hoặc `[Tên hiển thị](lesson://<lesson_id>)` nếu không có từ khóa cụ thể)."
+                "QUY TẮC TRẢ LỜI LINH HOẠT & CHÍNH XÁC:\n"
+                "1. Dựa vào Ngữ cảnh Graph RAG để giải đáp thắc mắc. Khi nhắc tới tài liệu nào, BẮT BUỘC dùng cú pháp markdown: `[Tên bài](lesson://<lesson_id>)`.\n"
+                "2. Nếu người dùng hỏi giải thích khái niệm/từ khóa chuyên môn mà CHƯA CÓ trong tài liệu hệ thống: Hãy trả lời đầy đủ, chuẩn xác bằng tri thức sư phạm chuyên môn, đồng thời ghi chú nhẹ: '(Lưu ý: Khái niệm này được giải thích theo tri thức học thuật mở rộng, chưa có trực tiếp trong tài liệu hiện có trên hệ thống)'.\n"
+                "3. Trình bày bằng Markdown đẹp mắt, cấu trúc rõ ràng."
             )
         
-        # Format nội dung gửi đến mô hình LLM bao gồm context trích xuất
         prompt_with_context = (
             f"NGỮ CẢNH GRAPH RAG TRUY XUẤT:\n"
             f"===================================\n"

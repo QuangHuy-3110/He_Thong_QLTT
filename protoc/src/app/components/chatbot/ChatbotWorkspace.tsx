@@ -222,10 +222,35 @@ export default function ChatbotWorkspace({
   const [obsidianNotes, setObsidianNotes] = useState<any[]>([]);
   const [obsidianLessonNotes, setObsidianLessonNotes] = useState<any[]>([]);
   const [loadingNotesList, setLoadingNotesList] = useState<boolean>(false);
-  const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'all'>('lesson');
+  const [wikiFilterMode, setWikiFilterMode] = useState<'lesson' | 'select' | 'all'>(() => {
+    return initialFocusLessonId ? 'lesson' : 'all';
+  });
+  const [selectedWikiLessonId, setSelectedWikiLessonId] = useState<number | null>(null);
+  const [selectedWikiLessonNotes, setSelectedWikiLessonNotes] = useState<any[]>([]);
+
+  const fetchSelectedWikiLessonNotes = useCallback(async (lessonId: number) => {
+    setLoadingNotesList(true);
+    try {
+      const res = await axios.get(`/api/obsidian/notes/by-lesson/?lesson_id=${lessonId}`);
+      setSelectedWikiLessonNotes(res.data);
+    } catch (err) {
+      console.error('Error fetching selected Wiki lesson notes:', err);
+    } finally {
+      setLoadingNotesList(false);
+    }
+  }, []);
+
   const [wikiSearchQuery, setWikiSearchQuery] = useState<string>('');
   const currentNotes = useMemo(() => {
-    let notes = (focusLessonId && wikiFilterMode === 'lesson') ? obsidianLessonNotes : obsidianNotes;
+    let notes = obsidianNotes;
+    if (wikiFilterMode === 'lesson' && focusLessonId) {
+      notes = obsidianLessonNotes;
+    } else if (wikiFilterMode === 'select' && selectedWikiLessonId) {
+      notes = selectedWikiLessonNotes;
+    } else if (wikiFilterMode === 'all') {
+      notes = obsidianNotes;
+    }
+
     if (wikiSearchQuery.trim()) {
       const q = wikiSearchQuery.toLowerCase();
       notes = notes.filter((n: any) => 
@@ -233,7 +258,7 @@ export default function ChatbotWorkspace({
       );
     }
     return notes;
-  }, [focusLessonId, wikiFilterMode, obsidianNotes, obsidianLessonNotes, wikiSearchQuery]);
+  }, [focusLessonId, selectedWikiLessonId, wikiFilterMode, obsidianNotes, obsidianLessonNotes, selectedWikiLessonNotes, wikiSearchQuery]);
   const [selectedObsidianNote, setSelectedObsidianNote] = useState<any | null>(null);
   const [obsidianNoteContent, setObsidianNoteContent] = useState<string>('');
   const [loadingNote, setLoadingNote] = useState<boolean>(false);
@@ -665,13 +690,21 @@ export default function ChatbotWorkspace({
     };
   }, [focusLessonId, isOpen, currentUser, lessonPlans]);
 
-  // Fetch Obsidian WikiNotes lists when chatbot is open
+  // Fetch Obsidian WikiNotes lists & BG Tasks Status when chatbot is open
   useEffect(() => {
     if (isOpen && currentUser) {
       fetchObsidianNotesList();
       if (focusLessonId) {
         fetchObsidianLessonNotes(focusLessonId);
       }
+
+      axios.get('/api/bg-tasks/status/').then(res => {
+        setBgTasksStatus(res.data);
+      }).catch(err => console.error('Error fetching bg tasks status:', err));
+
+      axios.get('/api/system-settings/').then(res => {
+        setChunkingConfig(res.data);
+      }).catch(err => console.error('Error fetching chunking config:', err));
     }
   }, [isOpen, focusLessonId, currentUser, apiBaseUrl, fetchObsidianNotesList, fetchObsidianLessonNotes]);
 
@@ -1524,6 +1557,12 @@ export default function ChatbotWorkspace({
                 renderWikiContent={renderWikiContent}
                 cleanContentStr={cleanContentStr}
                 focusLessonId={focusLessonId}
+                setFocusLessonId={setFocusLessonIdState}
+                selectedWikiLessonId={selectedWikiLessonId}
+                setSelectedWikiLessonId={setSelectedWikiLessonId}
+                fetchSelectedWikiLessonNotes={fetchSelectedWikiLessonNotes}
+                lessonPlans={lessonPlans}
+                fetchObsidianLessonNotes={fetchObsidianLessonNotes}
                 loadingNotesList={loadingNotesList}
               />
             )}
@@ -1534,6 +1573,7 @@ export default function ChatbotWorkspace({
                 bgTasksStatus={bgTasksStatus}
                 focusLessonId={focusLessonId}
                 focusLesson={focusLesson}
+                lessonPlans={lessonPlans}
                 aiMode={aiMode}
                 setAiMode={setAiMode}
                 localModel={localModel}
