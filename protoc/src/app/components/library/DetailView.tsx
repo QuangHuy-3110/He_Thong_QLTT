@@ -510,37 +510,36 @@ export default function DetailView({
     const acts = currentLessonAttrs?.tien_trinh_day_hoc;
 
     // Pre-extract chi_tiet blocks from content_preview
-    let chiTietBlocks: string[] = [];
+    const chiTietBlocksMap: Record<number, string> = {};
     if (lesson.content_preview) {
-      // Match header line of "Tiến trình dạy học" to capture its prefix level (e.g. III. Tiến trình..., 2. Tiến trình...)
-      const detailHeaderMatch = lesson.content_preview.match(/(?:\n|\r|^)(?:#+\s*)?([I|V|X|\d]+[\.\)]?)\s*Tiến\s*trình\s*dạy\s*học/i);
-      const detailSectionMatch = lesson.content_preview.match(/(?:Tiến\s*trình\s*dạy\s*học\s*chi\s*tiết|Tiến\s*trình\s*dạy\s*học)([\s\S]*)/i);
-      
+      // Find "2. Tiến trình dạy học chi tiết" section
+      const detailSectionMatch = lesson.content_preview.match(/(?:2\.\s*Tiến\s*trình\s*dạy\s*học\s*chi\s*tiết|Tiến\s*trình\s*dạy\s*học\s*chi\s*tiết)([\s\S]*)/i);
       if (detailSectionMatch) {
         let detailText = detailSectionMatch[1];
-
-        // Cut off strictly at any major section heading (IV., V., 4., 5., ĐÁNH GIÁ, MỞ RỘNG, PHỤ LỤC, HƯỚNG DẪN TỰ HỌC,...)
-        // using case-insensitive multiline match for lines starting with Roman numerals, numbers + dot, or uppercase headings
-        const cutoffRegex = /(?:\r?\n|\r|^)\s*(?:#+\s*)?(?:[I|V|X]{1,4}|\d+)[\.\)]\s+|(?:#+\s*)?(?:ĐÁNH\s*GIÁ|MỞ\s*RỘNG|PHỤ\s*LỤC|HƯỚNG\s*DẪN|TỔNG\s*KẾT|BÀI\s*TẬP)/i;
-        const cutoffMatch = detailText.match(cutoffRegex);
-        if (cutoffMatch && cutoffMatch.index !== undefined && cutoffMatch.index > 50) {
+        // Cut off at major section IV. ĐÁNH GIÁ or V. ĐÁNH GIÁ
+        const cutoffMatch = detailText.match(/(?:\r?\n|\r|^)\s*(?:##|#)?\s*(?:IV|V|4|5)[\.\)]\s*(?:ĐÁNH\s*GIÁ|MỞ\s*RỘNG|PHỤ\s*LỤC|HƯỚNG\s*DẪN)/i);
+        if (cutoffMatch && cutoffMatch.index !== undefined) {
           detailText = detailText.slice(0, cutoffMatch.index);
         }
 
-        chiTietBlocks = detailText
-          .split(/(?=Hoạt\s*động\s*0?\d+[:\s])/i)
-          .filter(b => b.trim().match(/^Hoạt\s*động/i))
-          .map(b => b.trim());
+        // Split by Heading 3 Activity titles: ### Hoạt động 01:, ### Hoạt động 1:, etc.
+        const rawBlocks = detailText.split(/(?=(?:\r?\n|\r|^)\s*###?\s*Hoạt\s*động\s*0?\d+)/i);
+        rawBlocks.forEach(b => {
+          const trimmed = b.trim();
+          const numMatch = trimmed.match(/^(?:###?\s*)?Hoạt\s*động\s*0?(\d+)/i);
+          if (numMatch) {
+            const actNum = parseInt(numMatch[1], 10);
+            chiTietBlocksMap[actNum] = trimmed;
+          }
+        });
       }
     }
 
     // Clean any trailing sections like IV, V, MỞ RỘNG, ĐÁNH GIÁ from chi_tiet content string
     const sanitizeChiTiet = (text: string): string => {
       if (!text) return '';
-      // Cut off at headings like "V. MỞ RỘNG SAU BÀI HỌC", "IV. ĐÁNH GIÁ", "### IV.", "### V.", "## V.", "MỞ RỘNG", "ĐÁNH GIÁ"
       const cutRegex = /(?:\r?\n|\r)\s*(?:#+\s*)?(?:IV|V|VI|VII|VIII|\d+)\.[\s\S]*$/i;
       let cleaned = text.replace(cutRegex, '').trim();
-      // Also check for "V. MỞ RỘNG", "IV. ĐÁNH GIÁ" explicitly
       const keywordCut = cleaned.match(/(?:\r?\n|\r|^)\s*(?:#+\s*)?(?:V|IV|VI)\.\s*(?:MỞ\s*RỘNG|ĐÁNH\s*GIÁ|PHỤ\s*LỤC|HƯỚNG\s*DẪN)/i);
       if (keywordCut && keywordCut.index !== undefined && keywordCut.index > 30) {
         cleaned = cleaned.slice(0, keywordCut.index).trim();
@@ -548,12 +547,12 @@ export default function DetailView({
       return cleaned;
     };
 
-    // Function to search for an activity block dynamically in content_preview
-    const findChiTietForActivity = (index: number, title: string) => {
-      let blockText = chiTietBlocks[index] || '';
+    // Function to search for an activity block dynamically in content_preview by activity index
+    const findChiTietForActivity = (index: number) => {
+      const actNum = index + 1;
+      let blockText = chiTietBlocksMap[actNum] || '';
       if (!blockText && lesson.content_preview) {
-        const actNum = index + 1;
-        const reg = new RegExp(`(?:#{1,4}\\s*|\\*\\*|\\b)(?:Hoạt\\s*động\\s*0?${actNum})[:\\s\\-][\\s\\S]*?(?=(?:#{1,4}\\s*|\\*\\*|\\b)(?:Hoạt\\s*động\\s*0?\\d+|(?:[I|V|X]{1,4}|\\d+)[\\.\\)]\\s+[A-ZÀ-Ỹ]|ĐÁNH\\s*GIÁ|MỞ\\s*RỘNG|PHỤ\\s*LỤC)|$)`, 'i');
+        const reg = new RegExp(`(?:\r?\n|\r|^)\\s*###?\\s*Hoạt\\s*động\\s*0?${actNum}[:\\s][\\s\\S]*?(?=(?:\r?\n|\r|^)\\s*###?\\s*Hoạt\\s*động\\s*0?\\d+|(?:\\r?\\n|\\r|^)\\s*(?:##|#)?\\s*(?:IV|V)[\\.\\)]\\s*ĐÁNH\\s*GIÁ|$)`, 'i');
         const m = lesson.content_preview.match(reg);
         if (m) blockText = m[0].trim();
       }
@@ -564,7 +563,7 @@ export default function DetailView({
       return acts.map((a: any, idx: number) => {
         const rawTitle = a.ten_hoat_dong || a.title || a.name || '';
         const cleanName = rawTitle.replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
-        const chiTietContent = sanitizeChiTiet(a.chi_tiet) || findChiTietForActivity(idx, cleanName);
+        const chiTietContent = sanitizeChiTiet(a.chi_tiet) || findChiTietForActivity(idx);
         return {
           title: cleanName || rawTitle || `Hoạt động ${idx + 1}`,
           duration: a.thoi_gian || a.time || a.duration || `${15 + (idx % 3) * 10} phút`,
@@ -577,7 +576,7 @@ export default function DetailView({
     }
     return getLessonActivitiesTimeline(parsedMindmapData).map((item: any, idx: number) => {
       const cleanName = (item.title || '').replace(/^(Hoạt\s*động|HĐ)\s*\d+[\s:\-]*/i, '').trim();
-      const chiTietContent = sanitizeChiTiet(item.chi_tiet) || findChiTietForActivity(idx, cleanName);
+      const chiTietContent = sanitizeChiTiet(item.chi_tiet) || findChiTietForActivity(idx);
       return {
         ...item,
         title: cleanName || item.title,
