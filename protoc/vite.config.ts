@@ -23,8 +23,8 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
-  // Base path config: use '/He_Thong_QLTT/' for GitHub Pages (local build or CI), root '/' for local dev / Vercel
-  base: process.env.VITE_DEPLOY_PG === 'true' || process.env.GITHUB_ACTIONS === 'true' ? '/He_Thong_QLTT/' : '/',
+  // Base path config: use root '/' for Vercel, relative './' for GitHub Pages / subdirectories
+  base: process.env.VERCEL ? '/' : './',
 
 
   plugins: [
