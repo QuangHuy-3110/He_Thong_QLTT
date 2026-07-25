@@ -721,7 +721,7 @@ export function getLessonMindmapData(lesson: LessonPlan): MindmapData {
         'Dụng cụ học tập, bài tập trải nghiệm thực tế'
       ],
     },
-    tiến_trình: tiếnTrinh.length > 0 ? tiếnTrinh : [
+    tiến_trình: tienTrinh.length > 0 ? tienTrinh : [
       { ten: 'Hoạt động 01: Khởi động & Tạo bối cảnh', time: '10 phút', tom_tat: 'Kích hoạt năng lượng lớp học, đặt câu hỏi bối cảnh thực tiễn.' },
       { ten: 'Hoạt động 02: Khám phá & Hình thành kiến thức', time: '25 phút', tom_tat: 'Nghiên cứu nội dung chuyên đề, làm việc nhóm tích hợp Sinh học.' },
       { ten: 'Hoạt động 03: Luyện tập & Vận dụng thực hành', time: '30 phút', tom_tat: 'Thực hành giải quyết bài toán tình huống và đóng vai trải nghiệm.' },
