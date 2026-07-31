@@ -198,7 +198,12 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
 
         def _get_write_parameters(self, name, content=None):
             params = super()._get_write_parameters(name, content)
+            # Supabase S3 storage does not support S3 ACL parameters
             params.pop('ACL', None)
+            params.pop('GrantFullControl', None)
+            params.pop('GrantRead', None)
+            params.pop('GrantReadACP', None)
+            params.pop('GrantWriteACP', None)
             return params
 
         def exists(self, name):
@@ -207,6 +212,7 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
             except Exception as e:
                 print(f"[SupabaseS3Storage] Ignore HeadObject check error: {e}")
                 return False
+
 
     STORAGES["default"] = {
         "BACKEND": "kms_core.settings.SupabaseS3Storage",

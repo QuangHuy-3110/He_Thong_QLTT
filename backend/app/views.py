@@ -2092,12 +2092,27 @@ class UserProfileUpdateAPIView(APIView):
             user.full_name = full_name
 
         if avatar_file:
+            import unicodedata
+            import re
+            clean_name = unicodedata.normalize('NFKD', avatar_file.name).encode('ascii', 'ignore').decode('ascii')
+            clean_name = re.sub(r'[^\w\.-]', '_', clean_name)
+            if not clean_name:
+                clean_name = "avatar.png"
+            avatar_file.name = clean_name
             user.avatar = avatar_file
         elif avatar_base64 and 'data' in avatar_base64:
             import base64
+            import unicodedata
+            import re
             from django.core.files.base import ContentFile
             format, imgstr = avatar_base64['data'].split(';base64,')
-            user.avatar = ContentFile(base64.b64decode(imgstr), name=avatar_base64['name'])
+            raw_name = avatar_base64.get('name', 'avatar.png')
+            clean_name = unicodedata.normalize('NFKD', raw_name).encode('ascii', 'ignore').decode('ascii')
+            clean_name = re.sub(r'[^\w\.-]', '_', clean_name)
+            if not clean_name:
+                clean_name = "avatar.png"
+            user.avatar = ContentFile(base64.b64decode(imgstr), name=clean_name)
+
 
         user.save()
         serializer = UserSerializer(user, context={'request': request})
