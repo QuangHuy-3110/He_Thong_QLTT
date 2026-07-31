@@ -16,6 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url)
         return url
 
+
     class Meta:
         model = User
         fields = ['id', 'full_name', 'email', 'username', 'role', 'avatar', 'avatar_url', 'is_active', 'phone_number']

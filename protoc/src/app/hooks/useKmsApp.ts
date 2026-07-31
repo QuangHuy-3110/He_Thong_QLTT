@@ -429,10 +429,20 @@ export function useKmsApp() {
     fetchMyPermissions();
   }, [currentUser?.id]);
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProfileAvatar(file);
+      const previewUrl = URL.createObjectURL(file);
+      setProfileAvatarPreview(previewUrl);
+    }
+  };
+
   const handleAvatarCropped = (file: File, previewUrl: string) => {
     setProfileAvatar(file);
     setProfileAvatarPreview(previewUrl);
   };
+
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1724,7 +1734,9 @@ export function useKmsApp() {
     fetchLessonPlans,
     fetchDirectories,
     handleAvatarCropped,
+    handleAvatarChange,
     handleSaveProfile,
+
     fetchEditHistory,
     handleSaveReview,
     handleDeleteReview,

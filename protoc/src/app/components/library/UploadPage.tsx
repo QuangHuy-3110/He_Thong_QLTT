@@ -202,10 +202,13 @@ export default function UploadPage({
 
   const modeFilteredDirs: Directory[] = (() => {
     if (uploadMode === 'personal') {
-      return directories.filter(d => !d.is_public && (currentUser ? d.user === currentUser.id : false));
+      return directories
+        .filter(d => !d.is_public && (currentUser ? d.user === currentUser.id : false))
+        .filter(d => !(d.name.toLowerCase() === 'public' && d.parent === null));
     }
     return directories.filter(d => d.is_public);
   })();
+
 
   const allowedDirIds: Set<number> = (() => {
     if (uploadMode === 'personal') {
@@ -461,21 +464,16 @@ export default function UploadPage({
       return;
     }
     
-    if (uploadMode === 'personal') {
-      if (modeFilteredDirs.length === 0) {
-        setUploadError('Bạn chưa có thư mục cá nhân nào. Hãy tạo thư mục cá nhân mới trước khi lưu.');
-        return;
-      }
-      if (!selectedDirId) {
-        setUploadError('Vui lòng chọn thư mục cá nhân để lưu tài liệu.');
-        return;
-      }
-    } else {
-      if (currentUser.role === 'USER' && !selectedDirId) {
-        setUploadError('Bạn phải chọn một thư mục trước khi tải bài giảng lên để gửi duyệt.');
-        return;
-      }
+    if (!selectedDirId) {
+      setUploadError('Vui lòng chọn một thư mục trước khi đăng bài giảng.');
+      return;
     }
+
+    if (uploadMode === 'personal' && modeFilteredDirs.length === 0) {
+      setUploadError('Bạn chưa có thư mục cá nhân nào. Hãy tạo thư mục cá nhân mới trước khi lưu.');
+      return;
+    }
+
 
     setUploading(true);
     setUploadError(null);

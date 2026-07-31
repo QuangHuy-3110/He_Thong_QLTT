@@ -21,6 +21,24 @@ class Directory(models.Model):
     is_public = models.BooleanField(default=False)
     attributes = models.JSONField(default=dict, blank=True, help_text="Lưu trữ các thuộc tính linh hoạt của thư mục (VD: môn học, cấp học...)")
 
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=User)
+def create_default_public_directory(sender, instance, created, **kwargs):
+    if created:
+        Directory.objects.get_or_create(
+            name="public",
+            user=instance,
+            parent=None,
+            defaults={
+                "is_public": False,
+                "attributes": {}
+            }
+        )
+
+
 def remove_vietnamese_accents(input_str):
     import unicodedata
     s1 = u''.join(c for c in unicodedata.normalize('NFD', input_str) if unicodedata.category(c) != 'Mn')
