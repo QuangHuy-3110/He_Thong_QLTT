@@ -220,7 +220,9 @@ export default function App() {
     profileError, setProfileError,
     profileSuccess, setProfileSuccess,
     profileSaving, setProfileSaving,
+    handleAvatarChange,
     editingLesson, setEditingLesson,
+
     editTitle, setEditTitle,
     editDesc, setEditDesc,
     editGrade, setEditGrade,
@@ -663,8 +665,9 @@ export default function App() {
         profileError={profileError}
         profileSaving={profileSaving}
         handleSaveProfile={handleSaveProfile}
-        onAvatarCropped={handleAvatarCropped}
+        handleAvatarChange={handleAvatarChange}
       />
+
 
       {/* Password Modal */}
       <PasswordModal

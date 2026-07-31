@@ -799,13 +799,30 @@ export default function DetailView({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Loại hình tiết dạy</label>
-                    <Input
-                      value={editType}
-                      onChange={(e) => setEditType && setEditType(e.target.value)}
-                      placeholder="Hoạt động giáo dục theo chủ đề, Thực hành..."
-                      className="rounded-xl px-4 py-2 text-xs"
+                    <Select
+                      showSearch
+                      allowClear
+                      popupMatchSelectWidth={false}
+                      value={editType || undefined}
+                      onChange={(val) => setEditType && setEditType(val || '')}
+                      onSearch={(text) => {
+                        if (text && text.trim() && setEditType) setEditType(text.trim());
+                      }}
+                      className="w-full text-xs"
+                      size="large"
+                      placeholder="Chọn loại hình tiết dạy..."
+                      style={{ borderRadius: 12 }}
+                      options={[
+                        'Hoạt động giáo dục theo chủ đề',
+                        'Sinh hoạt lớp',
+                        'Sinh hoạt dưới cờ',
+                        'Thực hành / Trải nghiệm thực tế',
+                        'Dự án học tập',
+                        'Ôn tập / Giảng dạy bài mới'
+                      ].map(t => ({ value: t, label: t }))}
                     />
                   </div>
+
                 </div>
 
                 {/* Row 3: Đối tượng học sinh & Mạch kiến thức & Chủ đề */}
@@ -828,22 +845,44 @@ export default function DetailView({
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Mạch kiến thức</label>
-                    <Input
-                      value={editTrack}
-                      onChange={(e) => setEditTrack && setEditTrack(e.target.value)}
-                      placeholder="Hoạt động hướng vào bản thân..."
-                      className="rounded-xl px-4 py-2 text-xs"
+                    <Select
+                      showSearch
+                      allowClear
+                      popupMatchSelectWidth={false}
+                      value={editTrack || undefined}
+                      onChange={(val) => {
+                        if (setEditTrack) setEditTrack(val || '');
+                        if (setEditTopic) setEditTopic('');
+                      }}
+                      onSearch={(text) => {
+                        if (text && text.trim() && setEditTrack) setEditTrack(text.trim());
+                      }}
+                      className="w-full text-xs"
+                      size="large"
+                      placeholder="Chọn mạch kiến thức..."
+                      style={{ borderRadius: 12 }}
+                      options={KNOWLEDGE_TRACKS.map(t => ({ value: t, label: t }))}
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Chủ đề</label>
-                    <Input
-                      value={editTopic}
-                      onChange={(e) => setEditTopic && setEditTopic(e.target.value)}
-                      placeholder="Tên chủ đề..."
-                      className="rounded-xl px-4 py-2 text-xs"
+                    <Select
+                      showSearch
+                      allowClear
+                      popupMatchSelectWidth={false}
+                      value={editTopic || undefined}
+                      onChange={(val) => setEditTopic && setEditTopic(val || '')}
+                      onSearch={(text) => {
+                        if (text && text.trim() && setEditTopic) setEditTopic(text.trim());
+                      }}
+                      className="w-full text-xs"
+                      size="large"
+                      placeholder="Chọn chủ đề..."
+                      style={{ borderRadius: 12 }}
+                      options={(editTrack && TRACK_TO_TOPICS[editTrack] ? TRACK_TO_TOPICS[editTrack] : Object.values(TRACK_TO_TOPICS).flat()).map(top => ({ value: top, label: top }))}
                     />
                   </div>
+
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Lớp dạy</label>
                     <Select

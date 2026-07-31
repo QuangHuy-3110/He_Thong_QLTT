@@ -727,9 +727,10 @@ export function getLessonMindmapData(lesson: LessonPlan): MindmapData {
       { ten: 'Hoạt động 03: Luyện tập & Vận dụng thực hành', time: '30 phút', tom_tat: 'Thực hành giải quyết bài toán tình huống và đóng vai trải nghiệm.' },
       { ten: 'Hoạt động 04: Báo cáo & Tổng kết đánh giá', time: '15 phút', tom_tat: 'Thuyết trình kết quả nhóm và chấm điểm chéo bằng Rubric.' }
     ],
-    hoạt_động: hoạtDong
+    hoạt_động: hoatDong
   };
 }
+
 
 export function getLessonActivitiesTimeline(data: MindmapData): FormattedActivity[] {
   const result: FormattedActivity[] = [];

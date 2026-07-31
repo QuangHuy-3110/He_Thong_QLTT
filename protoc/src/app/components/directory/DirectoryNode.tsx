@@ -129,7 +129,7 @@ export const DirectoryNode: React.FC<DirectoryNodeProps> = ({
         )}
 
         {/* Action buttons on hover */}
-        {currentUser && hovered && !renaming && (currentUser.role === 'ADMIN' || dir.user === currentUser.id) && (
+        {currentUser && hovered && !renaming && (currentUser.role === 'ADMIN' || dir.user === currentUser.id) && !(dir.name.toLowerCase() === 'public' && !dir.is_public && dir.parent === null) && (
           <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
             <button
               title="Thêm thư mục con"
@@ -165,6 +165,7 @@ export const DirectoryNode: React.FC<DirectoryNodeProps> = ({
             >✕</button>
           </div>
         )}
+
       </div>
 
       {expanded && (children.length > 0 || dirFiles.length > 0) && (

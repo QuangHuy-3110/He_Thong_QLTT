@@ -63,8 +63,12 @@ export default function PersonalTab({
   const [personalSearchQuery, setPersonalSearchQuery] = useState('');
   const [personalSortBy, setPersonalSortBy] = useState('date_desc');
 
+  const publicSystemDir = Array.isArray(directories)
+    ? directories.find(d => d.name.toLowerCase() === 'public' && !d.is_public && !d.parent && d.user === currentUser.id)
+    : null;
+
   const personalRootDirs = Array.isArray(directories)
-    ? directories.filter(d => !d.is_public && !d.parent && d.user === currentUser.id)
+    ? directories.filter(d => !d.is_public && !d.parent && d.user === currentUser.id && d.name.toLowerCase() !== 'public')
     : [];
 
   const myPersonalLessons = allLessonPlans.filter(l => {
@@ -115,38 +119,77 @@ export default function PersonalTab({
     <div className="flex flex-col lg:flex-row gap-6 min-h-[500px]">
       {/* Left: Personal Folder Tree */}
       <div className="w-full lg:w-[260px] border-r border-gray-100 lg:pr-6 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider font-bold">Cây thư mục cá nhân</h3>
-        </div>
-
-        {/* Local Search inside Personal Library */}
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Tìm trong thư viện cá nhân..."
-            value={personalSearchQuery}
-            onChange={e => setPersonalSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-sky-500/20 focus:bg-white"
-          />
-        </div>
-
-        <div className="text-sm mt-2 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin">
-          <div
-            className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${
-              selectedPersonalDirs.length === 0 ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
-            }`}
-            onClick={() => setSelectedPersonalDirs([])}
-          >
-            <span className="w-4"></span>
-            <span className="text-sky-500">📁</span>
-            <span className="flex-grow truncate text-xs">Tất cả tài liệu cá nhân</span>
-            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{myPersonalLessons.length}</span>
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider font-bold">Cây thư mục cá nhân</h3>
           </div>
 
-          {personalRootDirs.map(dir => (
+          {/* Local Search inside Personal Library */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Tìm trong thư viện cá nhân..."
+              value={personalSearchQuery}
+              onChange={e => setPersonalSearchQuery(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-sky-500/20 focus:bg-white"
+            />
+          </div>
+
+          <div className="text-sm mt-2 max-h-[55vh] overflow-y-auto pr-1 scrollbar-thin">
+            <div
+              className={`flex items-center gap-2 cursor-pointer py-1.5 px-2 rounded-md transition-colors mb-1 ${
+                selectedPersonalDirs.length === 0 ? 'bg-sky-50 text-sky-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'
+              }`}
+              onClick={() => setSelectedPersonalDirs([])}
+            >
+              <span className="w-4"></span>
+              <span className="text-sky-500">📁</span>
+              <span className="flex-grow truncate text-xs">Tất cả tài liệu cá nhân</span>
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{myPersonalLessons.length}</span>
+            </div>
+
+            {personalRootDirs.map(dir => (
+              <DirectoryNode
+                key={dir.id}
+                dir={dir}
+                directories={directories}
+                selectedDirs={selectedPersonalDirs}
+                onToggleDir={(id: number) => {
+                  setSelectedPersonalDirs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [id]);
+                }}
+                allLessons={allLessonPlans}
+                currentUser={currentUser}
+                onAddChild={handleAddChildDir}
+                onDelete={handleDeleteDir}
+                onRename={handleRenameDir}
+                onTogglePublic={handleTogglePublicDir}
+                onFileClick={setSelectedLessonForDetail}
+                depth={0}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => {
+              setDirParentId('');
+              setDirName('');
+              setDirAttrs('{}');
+              setDirIsPublic(false);
+              setShowDirModal(true);
+            }}
+            className="mt-3 mb-4 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
+          >
+            <span>+ Thêm thư mục cá nhân gốc</span>
+          </button>
+        </div>
+
+        {/* Dedicated Section for System Default 'public' Directory */}
+        {publicSystemDir && (
+          <div className="pt-3 border-t border-gray-200">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Thư mục hệ thống</div>
             <DirectoryNode
-              key={dir.id}
-              dir={dir}
+              key={publicSystemDir.id}
+              dir={publicSystemDir}
               directories={directories}
               selectedDirs={selectedPersonalDirs}
               onToggleDir={(id: number) => {
@@ -161,22 +204,11 @@ export default function PersonalTab({
               onFileClick={setSelectedLessonForDetail}
               depth={0}
             />
-          ))}
-        </div>
-
-        <button
-          onClick={() => {
-            setDirParentId('');
-            setDirName('');
-            setDirAttrs('{}');
-            setDirIsPublic(false);
-            setShowDirModal(true);
-          }}
-          className="mt-3 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
-        >
-          <span>+ Thêm thư mục cá nhân gốc</span>
-        </button>
+          </div>
+        )}
       </div>
+
+
 
       {/* Right: Personal Lessons list */}
       <div className="flex-grow min-w-0">

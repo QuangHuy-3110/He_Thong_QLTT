@@ -170,8 +170,8 @@ STORAGES = {
     },
 }
 
-if IS_PRODUCTION and os.environ.get('AWS_ACCESS_KEY_ID'):
-    # Sử dụng Supabase Storage làm lưu trữ vĩnh viễn cho môi trường Production
+if os.environ.get('AWS_ACCESS_KEY_ID'):
+    # Sử dụng Supabase Storage làm lưu trữ vĩnh viễn (Supabase S3 API)
     AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'media')
@@ -180,7 +180,7 @@ if IS_PRODUCTION and os.environ.get('AWS_ACCESS_KEY_ID'):
     AWS_S3_CUSTOM_DOMAIN = None
     if AWS_S3_ENDPOINT_URL and '.supabase.co' in AWS_S3_ENDPOINT_URL:
         try:
-            # Parse project ref to build public object storage URL (prevents CORS and authentication signature issues in browser)
+            # Parse project ref to build public object storage URL
             project_ref = AWS_S3_ENDPOINT_URL.split('//')[1].split('.')[0]
             AWS_S3_CUSTOM_DOMAIN = f"{project_ref}.supabase.co/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}"
         except Exception:
@@ -210,6 +210,7 @@ if IS_PRODUCTION and os.environ.get('AWS_ACCESS_KEY_ID'):
 else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Cấu hình bảo mật HTTPS phía sau Reverse Proxy (Render)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
