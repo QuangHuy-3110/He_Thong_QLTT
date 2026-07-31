@@ -188,7 +188,7 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
             
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
-    AWS_DEFAULT_ACL = 'public-read'
+    AWS_DEFAULT_ACL = None
     
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
@@ -199,9 +199,10 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
             "endpoint_url": AWS_S3_ENDPOINT_URL,
             "file_overwrite": AWS_S3_FILE_OVERWRITE,
             "querystring_auth": AWS_QUERYSTRING_AUTH,
-            "default_acl": AWS_DEFAULT_ACL,
+            "default_acl": None,
         }
     }
+
     if AWS_S3_CUSTOM_DOMAIN:
         STORAGES["default"]["OPTIONS"]["custom_domain"] = AWS_S3_CUSTOM_DOMAIN
         MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
