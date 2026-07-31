@@ -2015,6 +2015,14 @@ class LessonPlanRatingAPIView(APIView):
 
 class UserProfileUpdateAPIView(APIView):
     def post(self, request):
+        import traceback
+        try:
+            return self._post(request)
+        except Exception as e:
+            print(f"[UserProfileUpdateAPIView Error] {e}\n{traceback.format_exc()}")
+            return Response({'error': f'Lỗi hệ thống khi cập nhật: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _post(self, request):
         user_id = request.data.get('user_id')
         full_name = request.data.get('full_name')
         new_password = request.data.get('new_password')
@@ -2097,6 +2105,7 @@ class UserProfileUpdateAPIView(APIView):
             'message': 'Cập nhật thông tin cá nhân thành công!',
             'user': serializer.data
         }, status=status.HTTP_200_OK)
+
 
 
 class LessonPlanWithdrawAPIView(APIView):
