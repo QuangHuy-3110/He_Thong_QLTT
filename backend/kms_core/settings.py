@@ -15,7 +15,10 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
+from storages.backends.s3boto3 import S3Boto3Storage
+
 # Tải các cấu hình từ file .env vào hệ thống
+
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -189,9 +192,24 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
     AWS_DEFAULT_ACL = None
-    
+
+    class SupabaseS3Storage(S3Boto3Storage):
+        default_acl = None
+
+        def _get_write_parameters(self, name, content=None):
+            params = super()._get_write_parameters(name, content)
+            params.pop('ACL', None)
+            return params
+
+        def exists(self, name):
+            try:
+                return super().exists(name)
+            except Exception as e:
+                print(f"[SupabaseS3Storage] Ignore HeadObject check error: {e}")
+                return False
+
     STORAGES["default"] = {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        "BACKEND": "kms_core.settings.SupabaseS3Storage",
         "OPTIONS": {
             "access_key": AWS_ACCESS_KEY_ID,
             "secret_key": AWS_SECRET_ACCESS_KEY,
@@ -202,6 +220,7 @@ if os.environ.get('AWS_ACCESS_KEY_ID'):
             "default_acl": None,
         }
     }
+
 
     if AWS_S3_CUSTOM_DOMAIN:
         STORAGES["default"]["OPTIONS"]["custom_domain"] = AWS_S3_CUSTOM_DOMAIN
