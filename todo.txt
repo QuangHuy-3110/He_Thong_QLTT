@@ -508,4 +508,5 @@ V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
         - Đã bổ sung API xóa tin nhắn `/api/chat-messages/<id>/` kèm nút `🗑️ Xóa` cho từng tin nhắn (giữ nguyên vị trí scroll khi xóa).
         - Tự động cuộn xuống dưới cùng (`scrollIntoView`) để hiển thị câu trả lời gần nhất ngay khi mới nạp đoạn chat dài.
         - Phân biệt rõ Nút Thu nhỏ (`-` - ẩn tạm giữ phiên) và Nút Tắt hẳn (`✕` - đóng và reset phiên chat).
+        - Đồng bộ Trải nghiệm Server-Local & Sửa lỗi Đánh chặn nhầm Focus Mode (`llm_runner.py` & `views.py`): Loại bỏ bộ đánh chặn từ khóa nhầm khi đang xem bài giảng chi tiết (`FOCUS_QA`), đảm bảo 100% câu hỏi tóm tắt/liệt kê bài giảng đều được đẩy trực tiếp đến Gemini API 1.5 Flash theo Prompt Sư Phạm Mới.
 

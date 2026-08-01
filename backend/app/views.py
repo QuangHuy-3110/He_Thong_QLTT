@@ -2596,12 +2596,13 @@ class AIChatSendMessageAPIView(APIView):
         if session.lesson_plan and not focus_lesson_id:
             focus_lesson_id = session.lesson_plan.id
             
-        # Nếu đang chat ở view chung nhưng người dùng nhắc tên tài liệu cụ thể trong câu hỏi, tự động bind focus_lesson_id!
+        # Nếu đang chat ở view chung nhưng người dùng nhắc tên hoặc từ khóa bài giảng trong câu hỏi, tự động bind focus_lesson_id!
         if not focus_lesson_id:
             from .models import LessonPlan
-            # Tối ưu hóa: chỉ lấy id và title để quét nhanh từ DB, tránh load các trường nội dung lớn (content_preview)
+            user_query_clean = user_message_content.lower().replace('"', '').replace("'", '').replace('“', '').replace('”', '')
             for lp_id, lp_title in LessonPlan.objects.values_list('id', 'title'):
-                if len(lp_title) > 5 and lp_title.lower() in user_message_content.lower():
+                title_clean = lp_title.lower().replace('"', '').replace("'", '').replace('“', '').replace('”', '')
+                if len(title_clean) > 3 and (title_clean in user_query_clean or any(word in user_query_clean for word in title_clean.split() if len(word) >= 4 and word in ["cơ thể", "dinh dưỡng", "bmi", "chiều cao", "sức khỏe"])):
                     focus_lesson_id = lp_id
                     break
                     

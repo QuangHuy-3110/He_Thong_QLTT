@@ -51,15 +51,11 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
     import requests
     import time
 
-    # Intercept statistical queries to use the 100% accurate database-driven RAG simulator
-    user_query = ""
-    if "CÂU HỎI NGƯỜI DÙNG:" in prompt:
-        user_query = prompt.split("CÂU HỎI NGƯỜI DÙNG:")[-1].strip()
-    else:
-        user_query = prompt
+    user_query = prompt.split("CÂU HỎI NGƯỜI DÙNG:")[-1].strip() if "CÂU HỎI NGƯỜI DÙNG:" in prompt else prompt
     user_query_lower = user_query.lower()
-    
-    if any(kw in user_query_lower for kw in ["bao nhiêu", "thống kê", "phân bố", "số lượng", "tổng số", "liệt kê tất cả"]):
+
+    # Intercept statistical queries ONLY when not in focused lesson QA mode
+    if "SƠ ĐỒ TƯ DUY TRỌNG TÂM CỦA BÀI HỌC:" not in system_prompt and any(kw in user_query_lower for kw in ["bao nhiêu bài", "thống kê hệ thống", "phân bố bài giảng", "số lượng giáo án"]):
         full_text = generate_simulated_rag_response(prompt)
         i = 0
         while i < len(full_text):
