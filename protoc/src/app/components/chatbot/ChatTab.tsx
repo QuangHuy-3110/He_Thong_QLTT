@@ -7,6 +7,7 @@ interface ChatMessage {
   id: number;
   sender_role: 'USER' | 'AI';
   content: string;
+  thinking_time_seconds?: number;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ interface ChatTabProps {
   setEditingMessageText: (text: string) => void;
   handleSaveAndResubmit: (id: number, content: string) => void;
   handleRemakePreviousQuestion: () => void;
+  handleDeleteMessage?: (messageId: number) => void;
   lessonPlans: any[];
   onViewLessonDetail: any;
   setIsOpen: (open: boolean) => void;
@@ -95,6 +97,7 @@ export default function ChatTab({
   setEditingMessageText,
   handleSaveAndResubmit,
   handleRemakePreviousQuestion,
+  handleDeleteMessage,
   lessonPlans,
   onViewLessonDetail,
   setIsOpen,
@@ -111,9 +114,29 @@ export default function ChatTab({
     return lessonPlans.find(l => l.id === pendingSyncLessonId) || null;
   }, [pendingSyncLessonId, lessonPlans]);
 
+  const prevMsgCountRef = React.useRef(0);
+  const prevSessionIdRef = React.useRef<number | null>(null);
+
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeSession?.messages, sending]);
+    const currentCount = activeSession?.messages?.length || 0;
+    const currentSessionId = activeSession?.id || null;
+
+    // Cuộn xuống dưới cùng khi:
+    // 1. Vừa load/chuyển sang một phiên chat mới (currentSessionId !== prevSessionIdRef.current)
+    // 2. Thêm tin nhắn mới (currentCount > prevMsgCountRef.current)
+    // 3. Đang gửi/stream câu trả lời từ AI (sending)
+    const isNewSessionLoaded = currentSessionId !== prevSessionIdRef.current && currentCount > 0;
+    const isMessageAdded = currentSessionId === prevSessionIdRef.current && currentCount > prevMsgCountRef.current;
+
+    if (isNewSessionLoaded || isMessageAdded || sending) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
+
+    prevMsgCountRef.current = currentCount;
+    prevSessionIdRef.current = currentSessionId;
+  }, [activeSession?.id, activeSession?.messages?.length, sending]);
 
   // Render rich text with custom jump links, bold formatting, and markdown-like block elements
   const renderMessageContent = (content: string, isUser: boolean) => {
@@ -827,31 +850,85 @@ export default function ChatTab({
                       renderMessageContent(msg.content, isUser)
                     )}
                   </div>
+                  {/* Timestamp & thinking time info */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '9px',
+                    color: '#94a3b8',
+                    padding: '0 2px',
+                    marginTop: '2px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <span>
+                      {msg.created_at ? new Date(msg.created_at).toLocaleString('vi-VN', {
+                        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric'
+                      }) : ''}
+                    </span>
+                    {!isUser && msg.thinking_time_seconds ? (
+                      <span style={{
+                        background: '#e0e7ff',
+                        color: '#4338ca',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px'
+                      }}>
+                        ⚡ Suy nghĩ trong {msg.thinking_time_seconds}s
+                      </span>
+                    ) : null}
+                  </div>
+
                   {/* Action buttons below message */}
-                  {!isUser && !isStreaming && msg.content && (
-                    <button
-                      onClick={() => handleCopyMessage(msg.id, msg.content)}
-                      style={{
-                        background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px',
-                        color: copiedMsgId === msg.id ? '#10b981' : '#94a3b8',
-                        cursor: 'pointer', padding: '2px 7px',
-                        display: 'flex', alignItems: 'center', gap: '3px',
-                        fontSize: '9px', fontWeight: 600,
-                        transition: 'all 0.15s',
-                        opacity: 0.7,
-                      }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0.7'}
-                      title="Sao chép nội dung"
-                    >
-                      {copiedMsgId === msg.id ? (
-                        <><CheckCheck className="w-3 h-3" /> Đã sao chép</>
-                      ) : (
-                        <><Copy className="w-3 h-3" /> Sao chép</>
-                      )}
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                    {!isUser && !isStreaming && msg.content && (
+                      <button
+                        onClick={() => handleCopyMessage(msg.id, msg.content)}
+                        style={{
+                          background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px',
+                          color: copiedMsgId === msg.id ? '#10b981' : '#94a3b8',
+                          cursor: 'pointer', padding: '2px 7px',
+                          display: 'flex', alignItems: 'center', gap: '3px',
+                          fontSize: '9px', fontWeight: 600,
+                          transition: 'all 0.15s',
+                          opacity: 0.7,
+                        }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0.7'}
+                        title="Sao chép nội dung"
+                      >
+                        {copiedMsgId === msg.id ? (
+                          <><CheckCheck className="w-3 h-3" /> Đã sao chép</>
+                        ) : (
+                          <><Copy className="w-3 h-3" /> Sao chép</>
+                        )}
+                      </button>
+                    )}
+
+                    {!isStreaming && handleDeleteMessage && (
+                      <button
+                        onClick={() => handleDeleteMessage(msg.id)}
+                        style={{
+                          background: 'none', border: '1px solid #fee2e2', borderRadius: '6px',
+                          color: '#ef4444', cursor: 'pointer', padding: '2px 7px',
+                          display: 'flex', alignItems: 'center', gap: '3px',
+                          fontSize: '9px', fontWeight: 600,
+                          transition: 'all 0.15s',
+                          opacity: 0.7,
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.background = '#fef2f2'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                        title="Xóa tin nhắn này"
+                      >
+                        <Trash2 className="w-3 h-3" /> Xóa
+                      </button>
+                    )}
+                  </div>
                 </div>
+
                 {isUser && editingMessageId !== msg.id && (
                   <button
                     onClick={() => {

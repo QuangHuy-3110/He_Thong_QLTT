@@ -469,6 +469,22 @@ export default function ChatbotWorkspace({
     }
   }, [activeSession]);
 
+  const handleDeleteMessage = useCallback(async (messageId: number) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tin nhắn này không?')) return;
+    try {
+      await axios.delete(`/api/chat-messages/${messageId}/`);
+      setActiveSession(prev => {
+        if (!prev || !prev.messages) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.filter(m => m.id !== messageId)
+        };
+      });
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    }
+  }, []);
+
   const handleSaveTitle = useCallback(async (sessionId: number, newTitle: string) => {
     if (!newTitle.trim()) return;
     try {
@@ -798,6 +814,16 @@ export default function ChatbotWorkspace({
           messages: prev.messages.map(m => m.id === aiMsgTemp.id ? { ...m, content: fullContent } : m)
         };
       });
+
+      // Lấy lại chi tiết phiên chat từ backend để đồng bộ chính xác ID thực tế trong CSDL
+      try {
+        const detailRes = await axios.get(`/api/chat-sessions/${activeSession.id}/`);
+        if (detailRes.data) {
+          setActiveSession(detailRes.data);
+        }
+      } catch (e) {
+        console.error("Lỗi đồng bộ phiên chat:", e);
+      }
 
       // Reload notes list and history just in case RAG updated
       fetchObsidianNotesList();
@@ -1432,14 +1458,20 @@ export default function ChatbotWorkspace({
                   fontSize: '16px',
                   cursor: 'pointer',
                   display: 'flex',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  transition: 'background 0.15s, color 0.15s',
                 }}
-                title="Ẩn trợ lý"
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.15)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+                title="Thu nhỏ Chatbot (Giữ nguyên phiên chat)"
               >
-                <Minus className="w-4 h-4 hover:text-white" />
+                <Minus className="w-4 h-4" />
               </button>
               <button
                 onClick={() => {
                   setIsOpen(false);
+                  setActiveSession(null);
                   setFocusLessonIdState(null);
                   if (setFocusLessonId) setFocusLessonId(null);
                 }}
@@ -1450,10 +1482,15 @@ export default function ChatbotWorkspace({
                   fontSize: '16px',
                   cursor: 'pointer',
                   display: 'flex',
+                  padding: '2px 4px',
+                  borderRadius: '4px',
+                  transition: 'background 0.15s, color 0.15s',
                 }}
-                title="Tắt hẳn"
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#ef4444'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+                title="Tắt hẳn Chatbot (Đóng phiên chat hiện tại)"
               >
-                <X className="w-4 h-4 hover:text-white" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -1495,6 +1532,7 @@ export default function ChatbotWorkspace({
                 setEditingMessageText={setEditingMessageText}
                 handleSaveAndResubmit={handleSaveAndResubmit}
                 handleRemakePreviousQuestion={handleRemakePreviousQuestion}
+                handleDeleteMessage={handleDeleteMessage}
                 lessonPlans={lessonPlans}
                 onViewLessonDetail={onViewLessonDetail}
                 setIsOpen={setIsOpen}

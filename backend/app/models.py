@@ -130,7 +130,11 @@ class AIChatMessage(models.Model):
     session = models.ForeignKey(AIChatSession, on_delete=models.CASCADE, related_name='messages')
     sender_role = models.CharField(max_length=10, choices=[('USER', 'Người dùng'), ('AI', 'AI')])
     content = models.TextField()
+    thinking_time_seconds = models.FloatField(null=True, blank=True, default=0.0, help_text="Thời gian LLM suy nghĩ và trả lời (giây)")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
 
 class LessonPlanEditHistory(models.Model):
     STATUS_CHOICES = [

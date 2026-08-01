@@ -378,7 +378,42 @@ def retrieve_graph_rag_context(query, user_id=None, focus_lesson_id=None, depth=
     context_parts = []
     
     if focused_lesson:
-        context_parts.append(f"### TÀI LIỆU TRỌNG TÂM ĐANG XEM:\n- **Tiêu đề:** {focused_lesson.title}\n- **ID bài giảng:** {focused_lesson.id}\n- **Tác giả:** {focused_lesson.creator.full_name or focused_lesson.creator.username}\n- **Mô tả:** {focused_lesson.description or 'Chưa có mô tả'}\n- **Lớp/Môn:** {focused_lesson.attributes.get('Môn học', 'Sinh học')} | Lớp {', '.join(focused_lesson.attributes.get('lop', [])) if isinstance(focused_lesson.attributes.get('lop'), list) else focused_lesson.attributes.get('lop', '')}\n- **Nội dung tóm tắt chi tiết bài học:**\n{focused_lesson.content_preview[:3000]}\n")
+        lop_attr = focused_lesson.attributes.get('lop', '')
+        lop_str = ", ".join(lop_attr) if isinstance(lop_attr, list) else str(lop_attr or 'Chưa rõ')
+        mon_str = focused_lesson.attributes.get('Môn học') or focused_lesson.attributes.get('mon_hoc') or 'Hoạt động trải nghiệm hướng nghiệp'
+        mach_str = focused_lesson.attributes.get('Mạch kiến thức') or focused_lesson.attributes.get('mach_kien_thuc') or 'Chưa rõ'
+        chu_de_str = focused_lesson.attributes.get('Chủ đề') or focused_lesson.attributes.get('chu_de') or 'Chưa rõ'
+        
+        # Tiến trình hoạt động dạy học nếu có
+        tien_trinh = focused_lesson.attributes.get('tien_trinh_day_hoc', [])
+        tien_trinh_str = ""
+        if isinstance(tien_trinh, list) and len(tien_trinh) > 0:
+            tt_items = []
+            for idx, act in enumerate(tien_trinh, start=1):
+                if isinstance(act, dict):
+                    act_name = act.get('name') or act.get('ten_hoat_dong') or f"Hoạt động {idx}"
+                    act_time = act.get('time') or act.get('thoi_gian') or ""
+                    time_info = f" ({act_time})" if act_time else ""
+                    tt_items.append(f"  + Hoạt động {idx}: {act_name}{time_info}")
+                else:
+                    tt_items.append(f"  + Hoạt động {idx}: {act}")
+            tien_trinh_str = "\n- **Tiến trình dạy học (Các hoạt động):**\n" + "\n".join(tt_items)
+
+        context_parts.append(
+            f"### TÀI LIỆU TRỌNG TÂM ĐANG XEM:\n"
+            f"- **Tiêu đề bài giảng:** {focused_lesson.title}\n"
+            f"- **ID bài giảng:** {focused_lesson.id}\n"
+            f"- **Tác giả (Người đăng):** {focused_lesson.creator.full_name or focused_lesson.creator.username}\n"
+            f"- **Đối tượng giảng dạy:** {focused_lesson.target_student or 'Chưa rõ'}\n"
+            f"- **Môn học / Phân môn:** {mon_str}\n"
+            f"- **Lớp:** {lop_str}\n"
+            f"- **Mạch kiến thức:** {mach_str}\n"
+            f"- **Chủ đề:** {chu_de_str}\n"
+            f"- **Mô tả bài giảng:** {focused_lesson.description or 'Chưa có mô tả'}\n"
+            f"{tien_trinh_str}\n"
+            f"- **Nội dung văn bản chi tiết bài học:**\n"
+            f"{focused_lesson.content_preview[:3500]}\n"
+        )
         
         if sister_lessons:
             context_parts.append("### CÁC TÀI LIỆU CÙNG DANH MỤC LIÊN QUAN (Graph 1-hop):")

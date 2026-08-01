@@ -204,7 +204,7 @@ He_Thong_QLTT/
 #### A. Thư mục Backend (`backend/`)
 Quản lý luồng xử lý nghiệp vụ phía máy chủ, kết nối cơ sở dữ liệu PostgreSQL (pgvector), đồng bộ hóa thư mục ghi chú Obsidian Vault, và tích hợp các tiến trình AI cục bộ (Local LLM GGUF).
 *   **`seed_advanced.py`**: Script tự động tạo cơ sở dữ liệu mẫu với 9 bài giảng Word (.docx) chuyên sâu, phân bổ chính xác theo cây thư mục môn học khoa học và hoạt động trải nghiệm học đường.
-*   **`backend/kms_core/settings.py`**: Tệp cấu hình Django chính, quản lý kết nối cơ sở dữ liệu cổng `5433` (Docker pgvector), định tuyến luồng xác thực JWT token, cấu hình CORS, và các thư mục tĩnh.
+*   **`backend/kms_core/settings.py`**: Tệp cấu hình Django chính, quản lý kết nối cơ sở dữ liệu tập trung qua Cloud Supabase PostgreSQL (hoặc Docker pgvector cổng `5433` dự phòng), định tuyến luồng xác thực JWT token, cấu hình CORS, và các thư mục tĩnh. Đồng bộ hóa 100% thời gian thực toàn bộ Lịch sử trò chuyện Chatbot (`AIChatSession`, `AIChatMessage`) và kho bài giảng giữa tất cả các môi trường Local & Server.
 *   **`backend/app/models.py`**: Định nghĩa lược đồ cơ sở dữ liệu (Database Schema):
     *   `User`: Hồ sơ thành viên (họ tên, email, số điện thoại, ảnh đại diện, vai trò hệ thống).
     *   `Directory`: Các nút trong cây thư mục đệ quy (quản lý trạng thái `is_public` cho thư mục chung hoặc riêng tư).
@@ -240,7 +240,7 @@ Quản lý luồng xử lý nghiệp vụ phía máy chủ, kết nối cơ sở
     *   `PasswordModal.tsx`: Hộp thoại thay đổi mật khẩu tài khoản.
     *   `ProfileModal.tsx`: Hộp thoại cập nhật thông tin cá nhân (họ tên, email, sđt, ảnh đại diện có tích hợp bộ cắt ảnh).
 *   **Thư mục `src/app/components/chatbot/` (Trợ lý AI & Khám phá tri thức)**:
-    *   `ChatbotWorkspace.tsx`: Cửa sổ trò chuyện trợ lý AI. Hỗ trợ kéo dãn phân cách chat, ghim/ẩn sidebar lịch sử, nút dừng tạo câu trả lời (Stop), làm lại câu hỏi (Remake). Tích hợp cơ chế tự động bảo toàn ngữ cảnh và câu hỏi khi đang phản hồi.
+    *   `ChatbotWorkspace.tsx`: Cửa sổ trò chuyện trợ lý AI. Hỗ trợ kéo dãn phân cách chat, ghim/ẩn sidebar lịch sử, nút dừng tạo câu trả lời (Stop), làm lại câu hỏi (Remake). Tích hợp phân biệt Nút Thu nhỏ (`-`) để ẩn tạm và Nút Tắt hẳn (`✕`) để đóng phiên chat; hỗ trợ cuộn tự động xuống đáy khi nạp phiên chat dài, đo thời gian LLM suy nghĩ (`thinking_time_seconds`), hiển thị nhãn giờ gửi `DD/MM/YYYY HH:mm` và nút xóa tin nhắn độc lập.
     *   `MindmapFlow.tsx`: Sơ đồ tư duy dạng đồ thị trực quan hiển thị mối quan hệ giữa các khái niệm kiến thức phục vụ AI.
 *   **Thư mục `src/app/components/directory/` (Quản lý Cây Thư mục)**:
     *   `DirectoryNode.tsx`: Một nút đệ quy trong cây thư mục chính. Hỗ trợ kéo thả liên kết và các nút thao tác nhanh.

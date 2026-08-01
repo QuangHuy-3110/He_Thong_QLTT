@@ -97,12 +97,13 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                 ],
                 "generationConfig": {
                     "temperature": 0.5,
-                    "maxOutputTokens": 2048
+                    "maxOutputTokens": 4096
                 }
             }
             try:
                 res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
                 res.raise_for_status()
+                was_truncated = False
                 for line in res.iter_lines():
                     if line:
                         line_str = line.decode('utf-8')
@@ -110,11 +111,17 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                             data_content = line_str[6:]
                             try:
                                 json_data = json.loads(data_content)
-                                text = json_data["candidates"][0]["content"]["parts"][0].get("text", "")
+                                candidate = json_data.get("candidates", [{}])[0]
+                                finish_reason = candidate.get("finishReason", "")
+                                if finish_reason in ("MAX_TOKENS", "LENGTH"):
+                                    was_truncated = True
+                                text = candidate.get("content", {}).get("parts", [{}])[0].get("text", "")
                                 if text:
                                     yield text
                             except Exception:
                                 pass
+                if was_truncated:
+                    yield "\n\n⚠️ *(Lưu ý: Câu trả lời đã đạt giới hạn độ dài token tối đa (4096 tokens) nên bị ngắt tạm thời. Bạn có thể gửi câu hỏi \"Tiếp tục\" để tôi hoàn thiện nốt nội dung!)*"
                 return
             except Exception as e:
                 print(f"Error streaming Gemini API: {e}")
@@ -133,11 +140,13 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.5,
+                "max_tokens": 4096,
                 "stream": True
             }
             try:
                 res = requests.post(url, json=payload, headers=headers, stream=True, timeout=15)
                 res.raise_for_status()
+                was_truncated = False
                 for line in res.iter_lines():
                     if line:
                         line_str = line.decode('utf-8')
@@ -147,11 +156,17 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                                 break
                             try:
                                 json_data = json.loads(data_content)
-                                delta = json_data["choices"][0]["delta"].get("content", "")
+                                choice = json_data.get("choices", [{}])[0]
+                                finish_reason = choice.get("finish_reason", "")
+                                if finish_reason == "length":
+                                    was_truncated = True
+                                delta = choice.get("delta", {}).get("content", "")
                                 if delta:
                                     yield delta
                             except Exception:
                                 pass
+                if was_truncated:
+                    yield "\n\n⚠️ *(Lưu ý: Câu trả lời đã đạt giới hạn độ dài token tối đa (4096 tokens) nên bị ngắt tạm thời. Bạn có thể gửi câu hỏi \"Tiếp tục\" để tôi hoàn thiện nốt nội dung!)*"
                 return
             except Exception as e:
                 print(f"Error streaming OpenAI API: {e}")
@@ -170,19 +185,25 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                 "stream": True,
                 "options": {
                     "temperature": 0.5,
-                    "num_ctx": 8192
+                    "num_ctx": 8192,
+                    "num_predict": 4096
                 }
             }
             res = requests.post(url, json=payload, stream=True, timeout=30)
+            was_truncated = False
             for line in res.iter_lines():
                 if line:
                     try:
                         json_data = json.loads(line.decode('utf-8'))
+                        if json_data.get("done") and json_data.get("done_reason") == "length":
+                            was_truncated = True
                         delta = json_data["message"].get("content", "")
                         if delta:
                             yield delta
                     except Exception:
                         pass
+            if was_truncated:
+                yield "\n\n⚠️ *(Lưu ý: Câu trả lời đã đạt giới hạn độ dài token tối đa (4096 tokens) nên bị ngắt tạm thời. Bạn có thể gửi câu hỏi \"Tiếp tục\" để tôi hoàn thiện nốt nội dung!)*"
             return
         except Exception:
             pass
@@ -207,15 +228,21 @@ def generate_llm_response_stream(prompt, system_prompt="Bạn là trợ lý AI h
                     
                     stream_output = llm(
                         formatted_prompt,
-                        max_tokens=2048,
+                        max_tokens=4096,
                         stop=["<|im_end|>", "<|im_start|>"],
                         temperature=0.5,
                         stream=True
                     )
+                    was_truncated = False
                     for chunk in stream_output:
-                        text = chunk["choices"][0]["text"]
+                        choice = chunk["choices"][0]
+                        if choice.get("finish_reason") == "length":
+                            was_truncated = True
+                        text = choice.get("text", "")
                         if text:
                             yield text
+                    if was_truncated:
+                        yield "\n\n⚠️ *(Lưu ý: Câu trả lời đã đạt giới hạn độ dài token tối đa (4096 tokens) nên bị ngắt tạm thời. Bạn có thể gửi câu hỏi \"Tiếp tục\" để tôi hoàn thiện nốt nội dung!)*"
                 return
             except Exception as e:
                 print(f"Error streaming direct GGUF model: {e}")

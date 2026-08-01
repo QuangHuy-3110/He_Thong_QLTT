@@ -2682,6 +2682,9 @@ class AIChatSendMessageAPIView(APIView):
                     "4. **Trích dẫn liên kết nhảy nhanh:** Click trực tiếp vào bài giảng được trích dẫn để xem chi tiết."
                 )
 
+            import time
+            start_time = time.time()
+
             def instant_event_stream():
                 meta_payload = {
                     'type': 'meta',
@@ -2699,10 +2702,16 @@ class AIChatSendMessageAPIView(APIView):
                 text_payload = {'type': 'text', 'content': instant_reply}
                 yield f"data: {json.dumps(text_payload, ensure_ascii=False)}\n\n"
                 
-                ai_message = AIChatMessage.objects.create(session=session, sender_role='AI', content=instant_reply)
+                thinking_time = round(time.time() - start_time, 2)
+                try:
+                    ai_message = AIChatMessage.objects.create(session=session, sender_role='AI', content=instant_reply, thinking_time_seconds=thinking_time)
+                except Exception:
+                    ai_message = AIChatMessage.objects.create(session=session, sender_role='AI', content=instant_reply)
+                msg_data = AIChatMessageSerializer(ai_message).data
+                msg_data['thinking_time_seconds'] = thinking_time
                 done_payload = {
                     'type': 'done',
-                    'message': AIChatMessageSerializer(ai_message).data,
+                    'message': msg_data,
                     'session_title': session.title
                 }
                 yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
@@ -2745,10 +2754,15 @@ class AIChatSendMessageAPIView(APIView):
                     f"Bạn là Trợ lý AI chuyên gia phân tích sư phạm trong Hệ thống Quản lý Tri thức Học tập (KMS).\n"
                     f"Người dùng đang tập trung xem tài liệu: \"{lesson_obj.title}\" (ID: {lesson_obj.id}).\n"
                     f"SƠ ĐỒ TƯ DUY TRỌNG TÂM CỦA BÀI HỌC: [[{lesson_obj.title}]] -> {mindmap_str}.\n\n"
-                    f"QUY TẮC TRẢ LỜI NGHIÊM NGẶT:\n"
-                    f"1. Dựa vào nội dung tài liệu và Ngữ cảnh Graph RAG để trả lời chính xác, sát thực tế bài học.\n"
-                    f"2. Đối với câu hỏi giải thích khái niệm: Giải thích rõ ràng định nghĩa và ứng dụng trong bài học. Nếu khái niệm nằm ngoài bài giảng, hãy trả lời bằng tri thức học thuật chuyên môn nhưng nêu rõ 'Khái niệm này được giải thích mở rộng, chưa có trong nội dung trực tiếp của bài giảng'.\n"
-                    f"3. Luôn sử dụng cú pháp trích dẫn: `[Tên hiển thị](lesson://{lesson_obj.id})`."
+                    f"QUY TẮC TRẢ LỜI & TÓM TẮT TÀI LIỆU NGHIÊM NGẶT:\n"
+                    f"1. Phân biệt rõ ràng các trường thuộc tính của bài giảng:\n"
+                    f"   - Tác giả: Tên người đăng/tạo tài liệu (ví dụ: {lesson_obj.creator.full_name or lesson_obj.creator.username}). KHÔNG nhầm lẫn Mô tả tóm tắt bài giảng thành Tác giả!\n"
+                    f"   - Đối tượng giảng dạy: Trích xuất từ thuộc tính đối tượng (ví dụ: {lesson_obj.target_student or 'Chưa rõ'}).\n"
+                    f"   - Môn học/Phân môn & Lớp: Lấy đúng từ thông tin thuộc tính.\n"
+                    f"   - Tiến trình dạy học: BẮT BUỘC tổng hợp và liệt kê rõ ràng tất cả các hoạt động dạy học được trích xuất từ tài liệu theo thứ tự (tên hoạt động, thời lượng, nội dung chính).\n"
+                    f"2. KHÔNG SAO CHÉP HOẶC DUMP LẠI NỘI DUNG VĂN BẢN THÔ (như các khối code ```markdown hay bảng raw) trong câu trả lời tóm tắt. Hãy tổng hợp, diễn đạt bằng văn phong sư phạm ngắn gọn, chuyên nghiệp.\n"
+                    f"3. Dựa vào nội dung tài liệu và Ngữ cảnh Graph RAG để trả lời chính xác, sát thực tế bài học.\n"
+                    f"4. Luôn sử dụng cú pháp trích dẫn: `[Tên hiển thị](lesson://{lesson_obj.id})`."
                 )
             except LessonPlan.DoesNotExist:
                 intent = "GENERAL_KMS"
@@ -2788,6 +2802,9 @@ class AIChatSendMessageAPIView(APIView):
         from .llm_runner import generate_llm_response_stream
         from django.http import StreamingHttpResponse
         import json
+        import time
+
+        start_time = time.time()
 
         def event_stream():
             # Bước 1: Gửi siêu dữ liệu RAG (graph, câu hỏi gợi ý) cho Client
@@ -2818,11 +2835,20 @@ class AIChatSendMessageAPIView(APIView):
 
             # Bước 3: Lưu tin nhắn đầy đủ vào database và gửi tín hiệu Hoàn thành
             full_response = "".join(ai_response_chunks)
-            ai_message = AIChatMessage.objects.create(
-                session=session,
-                sender_role='AI',
-                content=full_response
-            )
+            thinking_time = round(time.time() - start_time, 2)
+            try:
+                ai_message = AIChatMessage.objects.create(
+                    session=session,
+                    sender_role='AI',
+                    content=full_response,
+                    thinking_time_seconds=thinking_time
+                )
+            except Exception:
+                ai_message = AIChatMessage.objects.create(
+                    session=session,
+                    sender_role='AI',
+                    content=full_response
+                )
 
             from .serializers import AIChatMessageSerializer
             
@@ -2833,9 +2859,12 @@ class AIChatSendMessageAPIView(APIView):
             except Exception:
                 latest_title = session.title
 
+            msg_data = AIChatMessageSerializer(ai_message).data
+            msg_data['thinking_time_seconds'] = thinking_time
+
             done_payload = {
                 'type': 'done',
-                'message': AIChatMessageSerializer(ai_message).data,
+                'message': msg_data,
                 'session_title': latest_title
             }
             yield f"data: {json.dumps(done_payload, ensure_ascii=False)}\n\n"
@@ -2844,6 +2873,20 @@ class AIChatSendMessageAPIView(APIView):
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
         return response
+
+
+class AIChatMessageDeleteAPIView(APIView):
+    """
+    API View để xóa một tin nhắn trò chuyện (cả tin nhắn USER hoặc AI) theo ID.
+    """
+    def delete(self, request, pk):
+        from .models import AIChatMessage
+        try:
+            msg = AIChatMessage.objects.get(id=pk)
+            msg.delete()
+            return Response({'message': 'Xóa tin nhắn thành công!'}, status=status.HTTP_200_OK)
+        except AIChatMessage.DoesNotExist:
+            return Response({'error': 'Tin nhắn không tồn tại.'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class AIChatGraphDataAPIView(APIView):

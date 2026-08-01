@@ -501,3 +501,11 @@ V. TRẠNG THÁI NHÁNH GIT HIỆN TẠI
       * Admin RAG & Reprocess Combobox (`SettingsTab.tsx` & `bg_processor.py`): Integrated real-time failed lessons tracker (`failed_lessons`) and a searchable `ReprocessCombobox` allowing Admins to clear RAG cache & re-process any specific lesson plan.
       * 3-Tab Wiki Notes Viewer (`WikiNotesTab.tsx` & `ChatbotWorkspace.tsx`): Created 3 distinct sub-tabs (`Bài giảng này`, `Chọn bài giảng`, `Toàn hệ thống`) with a dedicated `LessonSearchCombobox` enabling real-time lesson selection & concept entity filtering with disabled state safeguards.
       * Supabase RAG DB Direct Reader (`views.py`): Refactored Obsidian RAG Notes APIs (`ObsidianNotesListAPIView`, `ObsidianNoteContentAPIView`, `ObsidianNotesByLessonAPIView`) to query RAG chunks and concept notes directly from Supabase Cloud Database (`DocumentChunk` model), resolving missing RAG notes issue on online server deployment.
+      * Tối ưu hóa System Prompt Chatbot & Định dạng RAG Context: Tinh chỉnh `views.py` và `graph_rag_service.py` giúp chatbot phân biệt chính xác Tác giả (người đăng), Đối tượng (học sinh thành thị/nông thôn), Môn học (Hoạt động trải nghiệm hướng nghiệp) và Lớp; cấm đưa nguyên văn khối Markdown/Codeblock thô vào câu trả lời tóm tắt; tự động bóc tách và hiển thị đầy đủ danh sách tiến trình các hoạt động dạy học được trích xuất từ tài liệu.
+      * Đo Thời gian Suy nghĩ LLM, Hiển thị Ngày Giờ, Nút Xóa Tin nhắn & Tối ưu Trải nghiệm Chatbot (`models.py`, `views.py`, `urls.py`, `serializers.py`, `ChatTab.tsx`, `ChatbotWorkspace.tsx`):
+        - Thêm trường `thinking_time_seconds` lưu trực tiếp thời gian suy nghĩ của AI vào Supabase Cloud.
+        - Hiển thị nhãn thời gian `DD/MM/YYYY HH:mm` và huy hiệu `⚡ Suy nghĩ trong X.Xs` nổi bật cho tin nhắn AI.
+        - Đã bổ sung API xóa tin nhắn `/api/chat-messages/<id>/` kèm nút `🗑️ Xóa` cho từng tin nhắn (giữ nguyên vị trí scroll khi xóa).
+        - Tự động cuộn xuống dưới cùng (`scrollIntoView`) để hiển thị câu trả lời gần nhất ngay khi mới nạp đoạn chat dài.
+        - Phân biệt rõ Nút Thu nhỏ (`-` - ẩn tạm giữ phiên) và Nút Tắt hẳn (`✕` - đóng và reset phiên chat).
+

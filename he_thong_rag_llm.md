@@ -66,6 +66,15 @@ Tôi đã tích hợp cơ chế **Thread-Locking toàn cục** và tối ưu tha
 2.  **Tăng dung lượng Context (`n_ctx=4096`)**: Nâng giới hạn cửa sổ ngữ cảnh lên 4096 để thoải mái tiếp nhận các prompt chứa context RAG lớn mà không bao giờ bị tràn cache hay lỗi phân mảnh bộ nhớ.
 3.  **Làm sạch tham số Đồ thị (Clean Query Parameters)**: Trong `views.py` tại `AIChatGraphDataAPIView`, tôi đã thiết lập bộ lọc làm sạch an toàn tham số `lesson_id` tránh để chuỗi `"null"` hoặc `"undefined"` lọt xuống CSDL gây sập luồng fallback đồ thị.
 4.  **Tối ưu hóa Ngữ cảnh Hỏi đáp Tập trung**: Trong `graph_rag_service.py` tại hàm `retrieve_graph_rag_context`, khi phát hiện truy vấn thuộc ý định hỏi đáp tập trung (`focus_lesson_id` được thiết lập), hệ thống tự động loại bỏ danh sách bảng biểu siêu thuộc tính của toàn bộ các tài liệu khác trong CSDL ra khỏi Prompt. Cải tiến này giúp nén dung lượng context từ **14,874 ký tự** xuống chỉ còn **4,103 ký tự** (giảm ~72%), loại bỏ hoàn toàn nguy cơ tràn cửa sổ ngữ cảnh 4096 tokens, giúp Qwen 2.5 7B chạy offline mượt mà không lo sập luồng hay kích hoạt fallback giả lập.
+5.  **Nâng giới hạn Token Output (4096 tokens) & Cảnh báo ngắt Token thời gian thực**: Trong `llm_runner.py`, hệ thống đã nâng `max_tokens` / `maxOutputTokens` từ 2048 lên 4096 token cho tất cả các engine suy luận (Gemini, OpenAI, Ollama, GGUF). Đồng thời, bổ sung cơ chế kiểm tra `finish_reason == "length"/"MAX_TOKENS"`. Khi mô hình tạo câu trả lời quá dài chạm trần 4096 tokens, backend sẽ tự động stream thêm thông báo cảnh báo ngắt token thời gian thực: `⚠️ *(Lưu ý: Câu trả lời đã đạt giới hạn độ dài token tối đa (4096 tokens) nên bị ngắt tạm thời. Bạn có thể gửi câu hỏi "Tiếp tục" để tôi hoàn thiện nốt nội dung!)*`.
+6.  **Sắp xếp Thứ tự Tin nhắn Chuẩn hóa & Đồng bộ ID Thời gian thực**: Trong `models.py`, `serializers.py` và `ChatbotWorkspace.tsx`, hệ thống áp dụng `ordering = ['created_at', 'id']` tăng dần theo thời gian tạo. Sau khi luồng SSE stream hoàn tất, Frontend tự động fetch lại chi tiết phiên chat từ backend để đồng bộ ID thực tế của tin nhắn trong CSDL, loại bỏ hoàn toàn lỗi hiển thị đảo lộn thứ tự hoặc lặp tin nhắn tạm thời.
+7.  **Đo Thời gian Suy nghĩ LLM, Hiển thị Ngày giờ, Nút Xóa Tin nhắn & Tối ưu Trải nghiệm Cuộn Màn hình**: 
+    * **Dynamic Execution Time Payload**: Backend `views.py` tính toán thời gian phản hồi thực tế của LLM (giây) và đính kèm vào luồng trả về SSE `done_payload` (`thinking_time_seconds`) và lưu trực tiếp vào CSDL Supabase.
+    * **Tự động cuộn xuống đáy khi mới nạp phiên chat**: Trong `ChatTab.tsx`, khi vừa mở/chuyển phiên chat mới hoặc nhận câu hỏi mới, màn hình tự động cuộn xuống dưới cùng để hiển thị tin nhắn/câu trả lời gần nhất. Ngược lại, khi thao tác xóa tin nhắn, màn hình giữ nguyên vị trí scroll hiện tại.
+    * **Phân biệt rõ ràng Nút Thu nhỏ (`-`) và Nút Tắt hẳn (`✕`)**:
+      - Nút **`-` (Thu nhỏ)**: Ẩn cửa sổ Chatbot xuống biểu tượng bong bóng mà vẫn giữ nguyên phiên chat và ngữ cảnh công việc hiện tại.
+      - Nút **`✕` (Tắt hẳn)**: Đóng Chatbot đồng thời reset trạng thái phiên chat (`setActiveSession(null)`), khi mở lại sẽ bắt đầu phiên làm việc mới sạch sẽ.
+    * Giao diện `ChatTab.tsx` hiển thị ngày tháng năm + giờ gửi (`DD/MM/YYYY HH:mm`), huy hiệu **⚡ Suy nghĩ trong X.Xs** nổi bật cho tin nhắn AI, và trang bị **Nút 🗑️ Xóa** độc lập cho từng tin nhắn (xóa cả câu hỏi người dùng và câu trả lời AI) với API xóa Backend `/api/chat-messages/<id>/`.
 
 ---
 
@@ -87,7 +96,11 @@ graph TD
 #### 1. Chế độ Hỏi đáp Tập trung (`FOCUS_QA`)
 *   **Kích hoạt**: Khi người dùng đang ở giao diện xem chi tiết một tài liệu (`focus_lesson_id` được truyền) hoặc khi nhắc trực tiếp đến tên tài liệu đó trong chat.
 *   **Chiến lược Ngữ cảnh**: Nạp tiêu đề, siêu dữ liệu, mindmap 1-hop và toàn bộ nội dung tóm tắt chi tiết/tiến trình hoạt động của tài liệu đang focus (đồng thời tự động nén, bỏ qua danh mục toàn hệ thống để tiết kiệm context window).
-*   **System Prompt**: Tập trung tối đa vào tóm tắt hoạt động, phân tích sư phạm sâu sắc, thiết bị chuẩn bị và mục tiêu của chính tài liệu này. Bắt buộc phản hồi dạng Markdown có cấu trúc rõ ràng và đính kèm các liên kết điều hướng nhảy nhanh: `[Tên hiển thị](lesson://<id>?text=<từ_khóa>)`.
+*   **System Prompt**: Tập trung tối đa vào tóm tắt hoạt động, phân tích sư phạm sâu sắc, thiết bị chuẩn bị và mục tiêu của chính tài liệu này. Siết chặt định dạng phản hồi:
+    1. **Phân định rõ ràng thuộc tính bài giảng**: Phân biệt chuẩn xác giữa Tác giả (người tạo/đăng tài liệu), Đối tượng giảng dạy, Môn học/Phân môn và Lớp. Tuyệt đối không nhầm đoạn Mô tả tóm tắt thành Tác giả hay nhầm phân môn.
+    2. **Hiển thị đầy đủ tiến trình hoạt động**: Tự động tổng hợp và trích xuất danh sách các hoạt động dạy học theo thứ tự (tên hoạt động, thời lượng, nội dung cốt lõi).
+    3. **Không chép lại văn bản md thô (Clean Summarization)**: Cấm đưa các khối code ```markdown hay bảng raw chưa qua xử lý vào câu trả lời tóm tắt.
+    4. Bắt buộc phản hồi dạng Markdown có cấu trúc rõ ràng và đính kèm các liên kết điều hướng nhảy nhanh: `[Tên hiển thị](lesson://<id>)`.
 *   **Ví dụ Hội thoại Thực tế**:
     *   💬 **Người dùng**: *"Hoạt động 3 của giáo án 'Chủ đề 1: Dinh dưỡng học đường' diễn ra như thế nào? Cần chuẩn bị những thiết bị gì?"*
     *   🤖 **AI Phản hồi**:

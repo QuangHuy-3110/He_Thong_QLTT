@@ -256,11 +256,15 @@ class LessonPlanRatingSerializer(serializers.ModelSerializer):
 class AIChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIChatMessage
-        fields = ['id', 'session', 'sender_role', 'content', 'created_at']
+        fields = ['id', 'session', 'sender_role', 'content', 'thinking_time_seconds', 'created_at']
 
 class AIChatSessionSerializer(serializers.ModelSerializer):
-    messages = AIChatMessageSerializer(many=True, read_only=True)
+    messages = serializers.SerializerMethodField()
     lesson_plan_title = serializers.ReadOnlyField(source='lesson_plan.title', default=None)
+
+    def get_messages(self, obj):
+        messages = obj.messages.all().order_by('id')
+        return AIChatMessageSerializer(messages, many=True).data
     
     class Meta:
         model = AIChatSession
