@@ -22,7 +22,7 @@ import {
 } from '@ant-design/icons';
 import { message } from 'antd';
 import { User } from '../../context';
-import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from './UploadPage';
+import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from '../../utils/constants';
 import InteractiveLessonMindmap from '../viewer/InteractiveLessonMindmap';
 import DocxPreview from '../viewer/DocxPreview';
 import MarkdownViewer from '../viewer/MarkdownViewer';

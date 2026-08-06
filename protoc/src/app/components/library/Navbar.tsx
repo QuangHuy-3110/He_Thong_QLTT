@@ -11,7 +11,7 @@ import {
   LockOutlined
 } from '@ant-design/icons';
 import { User } from '../../context';
-import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from './UploadPage';
+import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from '../../utils/constants';
 import { STANDARD_DURATIONS, normalizeDuration } from '../../utils/helpers';
 
 interface NavbarProps {
