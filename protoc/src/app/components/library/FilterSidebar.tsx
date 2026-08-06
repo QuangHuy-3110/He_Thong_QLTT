@@ -447,7 +447,7 @@ export default function FilterSidebar({
               ))}
             </div>
           </div>
-          {currentUser && (
+          {currentUser && currentUser.role !== 'USER' && (
             <Button
               type="dashed"
               block

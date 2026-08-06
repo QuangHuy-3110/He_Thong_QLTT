@@ -24,10 +24,31 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, lessonId, fal
     const loadDocx = async () => {
       let fetchedBlob: Blob | null = null;
 
-      // 1. Thử fetch trực tiếp từ fileUrl
-      if (fileUrl) {
+      // 1. Thử fetch qua API Download tương đối (/api/...) để sử dụng Vite proxy tránh CORS
+      if (lessonId) {
         try {
-          const response = await fetch(fileUrl);
+          const downloadApiUrl = `/api/lesson-plans/${lessonId}/download/`;
+          const response = await fetch(downloadApiUrl);
+          if (response.ok) {
+            const blob = await response.blob();
+            if (blob.size > 0) {
+              fetchedBlob = blob;
+            }
+          }
+        } catch (err) {
+          console.warn('DocxPreview: Relative download API fetch failed:', err);
+        }
+      }
+
+      // 2. Thử fetch từ fileUrl (chuyển về tương đối /media/... nếu có)
+      if (!fetchedBlob && fileUrl) {
+        try {
+          let fetchTarget = fileUrl;
+          if (fileUrl.includes('/media/')) {
+            const mediaIndex = fileUrl.indexOf('/media/');
+            fetchTarget = fileUrl.substring(mediaIndex);
+          }
+          const response = await fetch(fetchTarget);
           if (response.ok) {
             const blob = await response.blob();
             if (blob.size > 0) {
@@ -39,21 +60,23 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, lessonId, fal
         }
       }
 
-      // 2. Thử fetch từ API Download của Backend
+      // 3. Thử fetch qua URL API tuyệt đối nếu chưa lấy được
       if (!fetchedBlob && lessonId) {
         try {
           const apiBase = localStorage.getItem('kms_api_base_url') || import.meta.env.VITE_API_BASE_URL || getFallbackApiBase('');
           const cleanApiBase = apiBase.endsWith('/') ? apiBase.slice(0, -1) : apiBase;
-          const downloadApiUrl = `${cleanApiBase}/api/lesson-plans/${lessonId}/download/`;
-          const response = await fetch(downloadApiUrl);
-          if (response.ok) {
-            const blob = await response.blob();
-            if (blob.size > 0) {
-              fetchedBlob = blob;
+          if (cleanApiBase) {
+            const downloadApiUrl = `${cleanApiBase}/api/lesson-plans/${lessonId}/download/`;
+            const response = await fetch(downloadApiUrl);
+            if (response.ok) {
+              const blob = await response.blob();
+              if (blob.size > 0) {
+                fetchedBlob = blob;
+              }
             }
           }
         } catch (err) {
-          console.warn('DocxPreview: Backend download API fetch failed:', err);
+          console.warn('DocxPreview: Absolute download API fetch failed:', err);
         }
       }
 

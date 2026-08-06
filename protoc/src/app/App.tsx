@@ -712,6 +712,7 @@ export default function App() {
           onBack={() => { setSelectedLessonForDetail(null); setLessonRatings([]); setMyRating(0); setMyComment(''); }}
           currentUser={currentUser}
           directories={directories}
+          myManagedDirIds={myManagedDirIds}
           getLessonFileUrl={getLessonFileUrl}
           getFileName={getFileName}
           downloadFile={downloadFile}

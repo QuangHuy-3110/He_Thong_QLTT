@@ -169,18 +169,20 @@ export default function PersonalTab({
             ))}
           </div>
 
-          <button
-            onClick={() => {
-              setDirParentId('');
-              setDirName('');
-              setDirAttrs('{}');
-              setDirIsPublic(false);
-              setShowDirModal(true);
-            }}
-            className="mt-3 mb-4 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
-          >
-            <span>+ Thêm thư mục cá nhân gốc</span>
-          </button>
+          {currentUser?.role !== 'USER' && (
+            <button
+              onClick={() => {
+                setDirParentId('');
+                setDirName('');
+                setDirAttrs('{}');
+                setDirIsPublic(false);
+                setShowDirModal(true);
+              }}
+              className="mt-3 mb-4 w-full flex items-center justify-center gap-2 px-2 py-1.5 rounded-md text-xs text-sky-600 hover:bg-sky-50 transition-colors border border-dashed border-sky-300 font-bold"
+            >
+              <span>+ Thêm thư mục cá nhân gốc</span>
+            </button>
+          )}
         </div>
 
         {/* Dedicated Section for System Default 'public' Directory */}

@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { message } from 'antd';
 import { User } from '../../context';
+import { KNOWLEDGE_TRACKS, TRACK_TO_TOPICS, LOCATIONS, BIOLOGY_CONNECTIONS } from './UploadPage';
 import InteractiveLessonMindmap from '../viewer/InteractiveLessonMindmap';
 import DocxPreview from '../viewer/DocxPreview';
 import MarkdownViewer from '../viewer/MarkdownViewer';
@@ -205,6 +206,7 @@ interface DetailViewProps {
   setEditBiologyConnections?: (s: string[]) => void;
   availableClasses?: { value: string; label: string }[];
   availableSubjects?: string[];
+  myManagedDirIds?: number[];
 }
 
 export default function DetailView({
@@ -212,6 +214,7 @@ export default function DetailView({
   onBack,
   currentUser,
   directories,
+  myManagedDirIds = [],
   getLessonFileUrl,
   getFileName,
   downloadFile,
@@ -479,9 +482,33 @@ export default function DetailView({
   const isDocx = fileUrl ? (fileUrl.toLowerCase().endsWith('.docx') || fileUrl.toLowerCase().endsWith('.doc')) : false;
   const isMd = fileUrl ? (fileUrl.toLowerCase().endsWith('.md') || fileUrl.toLowerCase().endsWith('.markdown') || fileUrl.toLowerCase().endsWith('.txt')) : !!lesson.content_preview;
 
+  const isManagerOfAnyLessonDir = useMemo(() => {
+    if (!currentUser) return false;
+    const dirIds = lesson.directory_ids || [];
+    const managedIds = myManagedDirIds || (currentUser as any).managed_directories || [];
+    
+    return dirIds.some(dirId => {
+      if (managedIds.includes(dirId)) return true;
+      let curr: Directory | undefined = (directories || []).find(d => d.id === dirId);
+      while (curr) {
+        if (curr.user === currentUser.id) return true;
+        if (curr.parent) {
+          const pId = curr.parent;
+          curr = directories.find(d => d.id === pId);
+        } else {
+          break;
+        }
+      }
+      return false;
+    });
+  }, [currentUser, lesson, directories, myManagedDirIds]);
+
   const currentTeacherOwnsThis = currentUser && (
     currentUser.role === 'ADMIN' || 
-    lesson.creator?.id === currentUser.id
+    lesson.creator?.id === currentUser.id ||
+    lesson.creator === currentUser.id ||
+    (lesson.creator?.username && currentUser.username && lesson.creator.username === currentUser.username) ||
+    isManagerOfAnyLessonDir
   );
 
   React.useEffect(() => {
